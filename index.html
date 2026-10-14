@@ -76,7 +76,7 @@ main { overflow: auto; min-height: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border-radius: 99px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px; }
 .chip.on { background: var(--soft); border-color: var(--accent); color: var(--soft-ink); }
-.chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1.5px rgba(150,150,150,.45); }
 .chip small { color: var(--sub); }
 .chip.cat { font-size: 13px; padding: 3px 10px; color: var(--sub); }
 .when-row .chip { min-width: 70px; justify-content: center; }
@@ -245,6 +245,21 @@ const TYPES = {
     hint: () => '文字已經複製好，在要發文的地方貼上。',
   },
 };
+// 社群 → 底下可以發的地方（新增對象時先選社群、再選發到哪裡）
+const PLATFORMS = [
+  { id: 'line', label: 'LINE', color: '#06c755', types: { line: '聊天室／群組' } },
+  { id: 'fb', label: 'Facebook', color: '#1877f2', types: { fbgroup: '社團', fb: '個人動態', fbstory: '限時動態' } },
+  { id: 'ig', label: 'Instagram', color: '#d6249f', types: { ig: '貼文', igstory: '限時動態' } },
+  { id: 'threads', label: 'Threads', color: '#111827', types: { threads: '貼文' } },
+  { id: 'x', label: 'X', color: '#0f1419', types: { x: '貼文' } },
+  { id: 'other', label: '其他', color: '#64748b', types: { other: '自訂網址' } },
+];
+const platformOf = type => PLATFORMS.find(pl => type in pl.types);
+const platformIndex = type => PLATFORMS.findIndex(pl => type in pl.types);
+const byPlatform = list => [...list].sort((a, b) => platformIndex(a.type) - platformIndex(b.type));
+// 自己帳號只有一個的類型，名稱可以自動帶入
+const DEFAULT_NAME = { fb: '我的 FB', fbstory: '我的 FB 限動', ig: '我的 IG', igstory: '我的 IG 限動', threads: '我的 Threads', x: '我的 X' };
+const NAME_HINT = { line: '例：客戶群、家人群（跟 LINE 裡的名稱一樣）', fbgroup: '例：台中室內設計交流', other: '例：公司官網留言板' };
 const WEEK = '日一二三四五六';
 const COOLDOWN_MS = 2 * 60 * 1000;
 
@@ -364,6 +379,7 @@ function renderEditor() {
   const p = active(), ed = $('#editor');
   if (!p) { ed.innerHTML = '<p class="empty" style="margin-top:40px;text-align:center">按「新增貼文」開始</p>'; renderBar(); return; }
   const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
+  const plats = PLATFORMS.filter(pl => S.targets.some(t => t.type in pl.types));
   ed.innerHTML = `
   <div class="card">
     <h2>內容</h2>
@@ -391,11 +407,12 @@ function renderEditor() {
   <div class="card">
     <h2>發到哪裡 <small>${p.targets.length ? `已選 ${postTargets(p).length} 個` : ''}</small></h2>
     ${S.targets.length ? `
-      ${cats.length ? `<div class="chips" style="margin-bottom:10px">
+      ${cats.length || plats.length > 1 ? `<div class="chips" style="margin-bottom:10px">
         <button class="chip cat" data-cat="*">全選</button>
+        ${plats.length > 1 ? plats.map(pl => `<button class="chip cat" data-plat="${pl.id}"><span class="dot" style="background:${pl.color}"></span>只選 ${pl.label}</button>`).join('') : ''}
         ${cats.map(c => `<button class="chip cat" data-cat="${esc(c)}">只選「${esc(c)}」</button>`).join('')}
         <button class="chip cat" data-cat="">清除</button></div>` : ''}
-      <div class="chips">${S.targets.map(t => {
+      <div class="chips">${byPlatform(S.targets).map(t => {
         const ty = TYPES[t.type];
         return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
       }).join('')}</div>`
@@ -422,6 +439,11 @@ function renderEditor() {
   ed.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
     const id = b.dataset.t;
     p.targets = p.targets.includes(id) ? p.targets.filter(x => x !== id) : [...p.targets, id];
+    save(); renderEditor(); renderList();
+  });
+  ed.querySelectorAll('[data-plat]').forEach(b => b.onclick = () => {
+    const pl = PLATFORMS.find(x => x.id === b.dataset.plat);
+    p.targets = S.targets.filter(t => t.type in pl.types).map(t => t.id);
     save(); renderEditor(); renderList();
   });
   ed.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
@@ -519,7 +541,7 @@ function openTargets(addNew) {
 }
 $('#openTargets').onclick = () => openTargets(false);
 function renderTargets() {
-  $('#targetList').innerHTML = S.targets.length ? S.targets.map(t => {
+  $('#targetList').innerHTML = S.targets.length ? byPlatform(S.targets).map(t => {
     const ty = TYPES[t.type];
     return `<div class="t-row"><span class="badge" style="background:${ty.color}">${ty.label}</span>
       <div class="name">${esc(t.name)}${t.cat ? ` <span class="pill">${esc(t.cat)}</span>` : ''}${t.url && ty.needUrl ? `<small>${esc(t.url)}</small>` : ''}</div>
@@ -527,10 +549,14 @@ function renderTargets() {
   }).join('') : '<p class="empty">還沒有任何對象。</p>';
   const e = editingTarget;
   const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
+  const plat = e && platformOf(e.type);
   $('#targetForm').innerHTML = e ? `
     <div class="t-form">
-      <div><label class="field">名稱</label><input id="tName" value="${esc(e.name)}" placeholder="例：客戶群、家人群"></div>
-      <div><label class="field">類型</label><select id="tType">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${k === e.type ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+      <div class="full"><label class="field">① 發到哪個社群</label>
+        <div class="chips">${PLATFORMS.map(pl => `<button class="chip ${pl === plat ? 'on' : ''}" data-plat="${pl.id}"><span class="dot" style="background:${pl.color}"></span>${pl.label}</button>`).join('')}</div></div>
+      ${Object.keys(plat.types).length > 1 ? `<div class="full"><label class="field">② 發到 ${plat.label} 的哪裡</label>
+        <div class="chips">${Object.entries(plat.types).map(([k, v]) => `<button class="chip ${k === e.type ? 'on' : ''}" data-kind="${k}">${v}</button>`).join('')}</div></div>` : ''}
+      <div class="full"><label class="field">名稱</label><input id="tName" value="${esc(e.name)}" placeholder="${NAME_HINT[e.type] || '例：' + (DEFAULT_NAME[e.type] || '我的帳號')}"></div>
       ${TYPES[e.type].needUrl ? `<div class="full"><label class="field">網址</label><input id="tUrl" type="url" value="${esc(e.url)}" placeholder="${TYPES[e.type].placeholder}">
         ${e.type === 'fbgroup' ? '<div class="hint-s" style="margin-top:4px">打開那個社團，複製網址列的網址貼過來。</div>' : ''}</div>` : ''}
       <div class="full"><label class="field">分類（選填，方便一次選一整組）</label><input id="tCat" list="catList" value="${esc(e.cat)}" placeholder="例：客戶、朋友">
@@ -552,7 +578,17 @@ function renderTargets() {
   if (!e && bulkOpen) { bindBulk(); return; }
   if (!e) { $('#tAdd').onclick = () => openTargets(true); $('#tBulk').onclick = () => { bulkOpen = true; renderTargets(); }; return; }
   const sync = () => { e.name = $('#tName').value; e.cat = $('#tCat').value; if ($('#tUrl')) e.url = $('#tUrl').value; };
-  $('#tType').onchange = ev => { sync(); e.type = ev.target.value; renderTargets(); };
+  // 換類型時，名稱若還是空的或是上一個類型的預設名稱，就換成新類型的預設名稱
+  const setType = type => {
+    sync();
+    if (!e.name.trim() || Object.values(DEFAULT_NAME).includes(e.name)) e.name = DEFAULT_NAME[type] || '';
+    e.type = type; renderTargets();
+  };
+  $('#targetForm').querySelectorAll('[data-plat]').forEach(b => b.onclick = () => {
+    const pl = PLATFORMS.find(x => x.id === b.dataset.plat);
+    if (pl !== platformOf(e.type)) setType(Object.keys(pl.types)[0]);
+  });
+  $('#targetForm').querySelectorAll('[data-kind]').forEach(b => b.onclick = () => setType(b.dataset.kind));
   $('#tCancel').onclick = () => { editingTarget = null; renderTargets(); };
   $('#tSave').onclick = () => {
     sync();
