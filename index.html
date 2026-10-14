@@ -118,6 +118,11 @@ main { overflow: auto; min-height: 0; }
 .done-list { margin: 8px 0 0; padding: 0; list-style: none; }
 .done-list li { padding: 5px 0; display: flex; gap: 8px; align-items: center; }
 
+.auto-box { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.auto-head { font-weight: 600; margin-bottom: 8px; }
+.auto-head small { font-weight: 400; color: var(--sub); margin-left: 6px; font-size: 13px; }
+.job-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 14px; flex-wrap: wrap; }
+.job-row .err { color: var(--danger); font-size: 13px; flex-basis: 100%; padding-left: 22px; }
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; font-size: 14px; max-width: calc(100% - 32px); text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -153,6 +158,7 @@ main { overflow: auto; min-height: 0; }
     <footer>
       <button id="openTargets">管理發送對象</button>
       <button id="openBackup">備份／搬資料</button>
+      <button id="openAuto">⚡ 自動發帳號</button>
     </footer>
   </aside>
   <main>
@@ -163,6 +169,7 @@ main { overflow: auto; min-height: 0; }
   <span class="grow" id="barInfo"></span>
   <button class="link danger" id="delPost">刪除這則</button>
   <button id="lineBatch" hidden>LINE 分批</button>
+  <button class="primary" id="autoSend" hidden>⚡ 自動發</button>
   <button class="primary" id="startSend">開始發送</button>
 </div></div>
 
@@ -170,6 +177,11 @@ main { overflow: auto; min-height: 0; }
   <h3>發送對象 <button class="link" data-close>關閉</button></h3>
   <div id="targetList"></div>
   <div id="targetForm"></div>
+</div></div>
+
+<div class="modal-bg" id="autoModal"><div class="modal">
+  <h3>⚡ 自動發帳號 <button class="link" data-close>關閉</button></h3>
+  <div id="autoBody"></div>
 </div></div>
 
 <div class="modal-bg" id="backupModal"><div class="modal">
@@ -349,12 +361,12 @@ function fullText(p) { return [p.text.trim(), p.link.trim()].filter(Boolean).joi
 function renderList() {
   const now = Date.now();
   const sorted = [...S.posts].sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
-  const groups = [['待發送', p => !postStatus(p).finished], ['已完成', p => postStatus(p).finished]];
+  const groups = [['待發送', p => !listStatus(p).finished], ['已完成', p => listStatus(p).finished]];
   $('#postList').innerHTML = groups.map(([title, f]) => {
     const items = sorted.filter(f);
     if (!items.length) return '';
     return `<div class="group-title">${title}</div>` + items.map(p => {
-      const st = postStatus(p);
+      const st = listStatus(p);
       const snip = p.text.trim().split('\n')[0] || p.link || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）');
       return `<button class="post-item ${p.id === S.activeId ? 'active' : ''}" data-id="${p.id}">
         <div class="when"><span>${esc(fmtTime(p.time))}</span><span class="pill ${st.cls}">${st.text}</span></div>
@@ -369,7 +381,7 @@ $('#postList').onclick = e => {
 $('#newPost').onclick = () => newPost();
 function newPost() {
   const last = S.posts[S.posts.length - 1];
-  const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], done: {}, reminded: false };
+  const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], auto: last ? [...(last.auto || [])] : [], serverPost: null, done: {}, reminded: false };
   S.posts.push(p); S.activeId = p.id; save(); renderAll();
   setTimeout(() => $('#text')?.focus(), 0);
 }
@@ -401,7 +413,8 @@ function renderEditor() {
       <button class="chip ${p.time ? 'on' : ''}" data-when="later">排程</button>
       ${p.time ? `<input type="datetime-local" id="time" value="${esc(p.time)}">` : ''}
     </div>
-    ${p.time ? `<p class="hint-s" style="margin:10px 0 8px">時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
+    ${p.time && (p.auto || []).length ? `<p class="hint-s" style="margin:10px 0 0">⚡ 自動發的帳號時間到會自動發出，網頁和電腦都可以關掉。</p>` : ''}
+    ${p.time && postTargets(p).length ? `<p class="hint-s" style="margin:10px 0 8px">其他對象時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
       <button id="ics">📅 加到行事曆提醒</button>` : ''}
   </div>
   <div class="card">
@@ -417,6 +430,12 @@ function renderEditor() {
         return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
       }).join('')}</div>`
       : `<p class="empty">還沒有發送對象。<button class="link" style="color:var(--accent)" id="addFirst">＋ 新增 LINE、FB 社團、IG⋯</button></p>`}
+    <div class="auto-box">
+      <div class="auto-head">⚡ 自動發<small>時間到伺服器自動發出，網頁和電腦都可以關掉</small></div>
+      ${p.serverPost ? `<div id="autoStatus">${autoStatusHtml(p)}</div>`
+        : autoOptions().length ? `<div class="chips">${autoOptions().map(o => `<button class="chip ${(p.auto || []).includes(o.key) ? 'on' : ''}" data-auto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('')}</div>`
+        : `<button class="link" id="autoLink" style="color:var(--accent);padding:0">連結 Instagram／Threads 帳號，就能自動發 →</button>`}
+    </div>
   </div>`;
   renderThumbs();
   renderBar();
@@ -452,6 +471,13 @@ function renderEditor() {
     save(); renderEditor(); renderList();
   });
   if ($('#addFirst')) $('#addFirst').onclick = () => openTargets(true);
+  if ($('#autoLink')) $('#autoLink').onclick = openAuto;
+  ed.querySelectorAll('[data-auto]').forEach(b => b.onclick = () => {
+    const k = b.dataset.auto;
+    p.auto = (p.auto || []).includes(k) ? p.auto.filter(x => x !== k) : [...(p.auto || []), k];
+    save(); renderEditor();
+  });
+  bindAutoStatus(p);
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -496,6 +522,11 @@ function renderBar() {
   $('#lineBatch').hidden = !(lineLeft >= 2 && !empty);
   $('#lineBatch').textContent = `LINE 分批（${lineLeft}）`;
   btn.disabled = !n || empty;
+  const autoN = autoSelected(p).length;
+  $('#autoSend').hidden = !autoN || !!p.serverPost;
+  $('#autoSend').disabled = empty;
+  $('#autoSend').textContent = p.time ? `⚡ 排程自動發（${autoN}）` : `⚡ 立即自動發（${autoN}）`;
+  btn.hidden = !n && autoN > 0;
   btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
   $('#barInfo').textContent = empty ? '先輸入文字或加入圖片影片' : !n ? '選擇要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}，也可以現在就先發` : '';
 }
@@ -984,6 +1015,168 @@ document.addEventListener('keydown', e => {
   editingTarget = null; bulkOpen = false;
 });
 
+// ===== ⚡ 自動發（伺服器）=====
+// 連結的 IG／Threads 帳號由伺服器在時間到時自動發；登入狀態是一組 session，存在這個瀏覽器
+const API = 'https://multi-share-api.multi-share-api.workers.dev';
+const AUTO_KINDS = [
+  { platform: 'ig', kind: 'post', label: 'IG 貼文', color: '#d6249f' },
+  { platform: 'ig', kind: 'story', label: 'IG 限動', color: '#e1306c' },
+  { platform: 'threads', kind: 'post', label: 'Threads', color: '#111827' },
+];
+let session = '', autoAccounts = [];
+const serverPosts = {};
+async function apiCall(path, opts = {}) {
+  const r = await fetch(API + path, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + session } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { session = ''; autoAccounts = []; if (dbOk) DB.put('kv', 'session', '').catch(() => {}); }
+  if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+  return j;
+}
+async function loadAccounts() {
+  if (!session) { autoAccounts = []; return; }
+  try { autoAccounts = (await apiCall('/api/me')).accounts; } catch { autoAccounts = []; }
+}
+function autoOptions() {
+  return autoAccounts.flatMap(acc => AUTO_KINDS.filter(k => k.platform === acc.platform)
+    .map(k => ({ ...k, key: acc.id + ':' + k.kind, account: acc.id, username: acc.username })));
+}
+const autoSelected = p => autoOptions().filter(o => (p.auto || []).includes(o.key));
+const AUTO_STATUS = {
+  scheduled: ['', '⚡ 已排程'], running: ['due', '⚡ 發送中'], done: ['done', '⚡ 已發布'],
+  partial: ['due', '⚡ 部分失敗'], error: ['due', '⚡ 失敗'], canceled: ['', '⚡ 已取消'],
+};
+function listStatus(p) {
+  const sp = p.serverPost && serverPosts[p.serverPost];
+  if (!sp) return postStatus(p);
+  const [cls, text] = AUTO_STATUS[sp.status] || ['', '⚡'];
+  const manualDone = !postTargets(p).length || postStatus(p).finished;
+  return { cls, text, finished: sp.status === 'done' && manualDone };
+}
+function jobLabel(acc, kind) {
+  const a = autoAccounts.find(x => x.id === acc);
+  const k = AUTO_KINDS.find(x => x.platform === a?.platform && x.kind === kind);
+  return `${k ? k.label : kind} ${a ? '@' + esc(a.username) : ''}`;
+}
+function autoStatusHtml(p) {
+  const sp = serverPosts[p.serverPost];
+  if (!sp) return '<p class="hint-s" style="margin:0">讀取狀態中⋯</p>';
+  const head = {
+    scheduled: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出`,
+    running: '🔄 發送中（Instagram 處理影片可能要幾分鐘）', done: '✅ 全部發布完成',
+    partial: '⚠️ 有些發布失敗', error: '❌ 發布失敗', canceled: '已取消',
+  }[sp.status] || sp.status;
+  const rows = sp.jobs?.length
+    ? sp.jobs.map(j => `<div class="job-row"><span>${j.state === 'done' ? '✅' : j.state === 'error' ? '❌' : '⏳'}</span>${jobLabel(j.account_id, j.kind)}
+        <span class="hint-s">${j.state === 'done' ? '已發布' : j.state === 'error' ? '失敗' : '處理中'}</span>
+        ${j.error ? `<span class="err">${esc(j.error)}</span>` : ''}</div>`).join('')
+    : (sp.targets || []).map(t => `<div class="job-row"><span>⏰</span>${jobLabel(t.account, t.kind)}</div>`).join('');
+  const again = sp.status === 'canceled' || sp.status === 'error' || sp.status === 'partial';
+  return `<p style="margin:0 0 6px;font-weight:600">${head}</p>${rows}
+    <div class="row" style="margin-top:8px">
+      ${sp.status === 'scheduled' ? '<button class="link danger" id="autoCancel" style="padding:0">取消自動發</button>' : ''}
+      ${again ? '<button class="link" id="autoAgain" style="color:var(--accent);padding:0">重新設定自動發</button>' : ''}
+    </div>
+    ${sp.status === 'scheduled' ? '<p class="hint-s" style="margin:6px 0 0">已經送出的內容不會跟著修改；要改內容請先取消，再重新排程。</p>' : ''}`;
+}
+function bindAutoStatus(p) {
+  if ($('#autoCancel')) $('#autoCancel').onclick = async () => {
+    if (!confirm('取消這則自動發？')) return;
+    try { await apiCall('/api/posts/' + p.serverPost, { method: 'DELETE' }); p.serverPost = null; save(); toast('已取消自動發'); }
+    catch (e) { toast('取消失敗：' + e.message); }
+    renderAll();
+  };
+  if ($('#autoAgain')) $('#autoAgain').onclick = () => { p.serverPost = null; save(); renderAll(); };
+}
+// IG 只收 JPEG：圖片一律轉成 JPEG，最長邊縮到 2048
+async function toJpeg(blob) {
+  const bmp = await createImageBitmap(blob);
+  const sc = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+}
+async function submitAuto(p) {
+  const opts = autoSelected(p);
+  if (!opts.length) return;
+  const text = fullText(p);
+  if (opts.some(o => o.platform === 'ig') && !p.media.length) return toast('Instagram 一定要有圖片或影片');
+  if (opts.some(o => o.platform === 'threads') && [...text].length > 500) return toast('Threads 文字最多 500 字');
+  if (p.media.length > 10) return toast('自動發最多 10 個圖片影片');
+  const late = p.time && new Date(p.time) < Date.now();
+  const when = !p.time || late ? '現在' : fmtTime(p.time);
+  if (!confirm(`確定要在「${when}」自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n送出後時間到就會自動發出。`)) return;
+  const btn = $('#autoSend');
+  btn.disabled = true;
+  try {
+    const media = [];
+    for (const [i, m] of p.media.entries()) {
+      btn.textContent = `上傳中 ${i + 1}/${p.media.length}⋯`;
+      const blob = await mediaBlob(m);
+      if (!blob) throw new Error(`找不到「${m.name}」，請重新加入`);
+      let body = blob, type;
+      if (isVideo(m)) {
+        if (!/mp4|quicktime/.test(m.type)) throw new Error(`「${m.name}」要是 MP4 或 MOV 影片`);
+        if (blob.size > 25 * 1024 * 1024) throw new Error(`「${m.name}」超過 25MB，請先壓縮`);
+        type = /quicktime/.test(m.type) ? 'video/quicktime' : 'video/mp4';
+      } else { body = await toJpeg(blob); type = 'image/jpeg'; }
+      const r = await fetch(API + '/api/media', { method: 'POST', headers: { Authorization: 'Bearer ' + session, 'Content-Type': type }, body });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || '上傳失敗');
+      media.push(j);
+    }
+    btn.textContent = '送出中⋯';
+    const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, media, targets: opts.map(o => ({ account: o.account, kind: o.kind })), run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
+    p.serverPost = r.id; save();
+    serverPosts[r.id] = { status: 'scheduled', run_at: r.run_at, targets: opts.map(o => ({ account: o.account, kind: o.kind })), jobs: [] };
+    toast(when === '現在' ? '已送出，大約 1～2 分鐘內發出' : '已排程，時間到會自動發出');
+    setTimeout(refreshServerPosts, 8000);
+  } catch (e) { toast('自動發失敗：' + e.message); }
+  renderAll();
+}
+$('#autoSend').onclick = () => active() && submitAuto(active());
+async function refreshServerPosts() {
+  if (!session || !S.posts.some(p => p.serverPost)) return;
+  try { const { posts } = await apiCall('/api/posts'); for (const sp of posts) serverPosts[sp.id] = sp; } catch { return; }
+  renderList();
+  const p = active(), box = $('#autoStatus');
+  if (p?.serverPost && box) { box.innerHTML = autoStatusHtml(p); bindAutoStatus(p); }
+}
+
+// 帳號連結視窗
+async function openAuto() {
+  $('#autoModal').classList.add('open');
+  $('#autoBody').innerHTML = '<p class="empty">讀取中⋯</p>';
+  await loadAccounts();
+  renderAuto();
+}
+$('#openAuto').onclick = openAuto;
+function renderAuto() {
+  const name = { ig: 'Instagram', threads: 'Threads' }, color = { ig: '#d6249f', threads: '#111827' };
+  $('#autoBody').innerHTML = `
+    <p class="hint-s" style="margin-top:0">連結後，貼文可以設定時間，由伺服器自動發到 Instagram 和 Threads，網頁和電腦都可以關掉。IG 要是<b>創作者或商業帳號</b>，而且要先被加成「一鍵分享」應用程式的測試人員。</p>
+    ${autoAccounts.length ? autoAccounts.map(a => `<div class="t-row"><span class="badge" style="background:${color[a.platform]}">${name[a.platform]}</span>
+      <div class="name">@${esc(a.username)}<small>授權到 ${new Date(a.token_expires).toLocaleDateString()}，到期前會自動續期</small></div>
+      <button class="link danger" data-unlink="${a.id}">取消連結</button></div>`).join('') : '<p class="empty">還沒有連結任何帳號。</p>'}
+    <div class="row" style="margin-top:14px"><button class="primary" data-link="ig">＋ 連結 Instagram</button><button data-link="threads">＋ 連結 Threads</button></div>
+    ${session ? '<p class="hint-s" style="margin:14px 0 0"><button class="link" id="autoLogout" style="padding:0">在這台裝置登出</button></p>' : ''}`;
+  $('#autoBody').querySelectorAll('[data-link]').forEach(b => b.onclick = () => {
+    location.href = `${API}/auth/${b.dataset.link}/start${session ? '?s=' + encodeURIComponent(session) : ''}`;
+  });
+  $('#autoBody').querySelectorAll('[data-unlink]').forEach(b => b.onclick = async () => {
+    if (!confirm('取消連結這個帳號？已排程的自動發會失敗。')) return;
+    try { await apiCall('/api/accounts/' + b.dataset.unlink, { method: 'DELETE' }); } catch (e) { toast('失敗：' + e.message); }
+    await loadAccounts(); renderAuto(); renderAll();
+  });
+  if ($('#autoLogout')) $('#autoLogout').onclick = async () => {
+    if (!confirm('在這台裝置登出？帳號連結不會被取消，下次按「連結」就能回來。')) return;
+    try { await apiCall('/api/logout', { method: 'POST' }); } catch {}
+    session = ''; autoAccounts = []; if (dbOk) DB.put('kv', 'session', '').catch(() => {});
+    renderAuto(); renderAll();
+  };
+}
+
 // ===== 排程提醒（網頁開著時）=====
 function checkDue() {
   if (send || batch) return;
@@ -1005,11 +1198,20 @@ function renderAll() { renderList(); renderEditor(); }
     dbOk = false;
     toast('這個瀏覽器不能儲存資料（可能是無痕模式），關掉後內容會不見');
   }
-  S.posts.forEach(p => { p.media ||= []; p.done ||= {}; p.targets ||= []; });
+  S.posts.forEach(p => { p.media ||= []; p.done ||= {}; p.targets ||= []; p.auto ||= []; });
+  // 從 Instagram／Threads 連結回來時，網址後面會帶 #ms_session=... 或 #ms_error=...
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.has('ms_session') || h.has('ms_error')) history.replaceState(null, '', location.pathname + location.search);
+  if (dbOk) session = (await DB.get('kv', 'session').catch(() => '')) || '';
+  if (h.get('ms_session')) { session = h.get('ms_session'); if (dbOk) DB.put('kv', 'session', session).catch(() => {}); }
+  await loadAccounts();
   if (!active()) S.activeId = S.posts[S.posts.length - 1]?.id || null;
   if (!S.posts.length) newPost(); else renderAll();
   setInterval(() => { checkDue(); if (!send && !batch) renderList(); }, 15e3);
   checkDue();
+  refreshServerPosts(); setInterval(refreshServerPosts, 30e3);
+  if (h.get('ms_linked')) { toast('已連結 ' + h.get('ms_linked')); openAuto(); }
+  if (h.get('ms_error')) alert(h.get('ms_error'));
 })();
 </script>
 </body>
