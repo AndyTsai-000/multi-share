@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>一鍵分享</title>
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #fff; --ink: #1d2129; --sub: #6b7280; --line: #e3e5e8;
+  --accent: #2563eb; --accent-ink: #fff; --ok: #16a34a; --warn: #d97706; --danger: #dc2626;
+  --soft: #eef2ff; --soft-line: #c7d2fe; --soft-ink: #1e40af; --hint: #f1f2f4;
+  --warn-bg: #fef3c7; --warn-ink: #78350f; --radius: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111318; --panel: #1b1e25; --ink: #e8eaed; --sub: #9aa1ab; --line: #2c313a;
+    --accent: #4f7df5; --soft: #1e2a4a; --soft-line: #34477a; --soft-ink: #b9cbff; --hint: #232731;
+    --warn-bg: #3a2e10; --warn-ink: #f5d58a;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body { font: 15px/1.5 "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 14px; }
+button:hover { border-color: var(--sub); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; filter: none; }
+button.link { border: 0; background: none; color: var(--sub); padding: 4px 6px; }
+button.link:hover { color: var(--ink); }
+button.danger { color: var(--danger); }
+input, textarea, select { font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--panel); width: 100%; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--soft-line); border-color: var(--accent); }
+textarea { resize: vertical; min-height: 150px; }
+label.field { display: block; font-size: 13px; color: var(--sub); margin: 0 0 6px; font-weight: 600; }
+
+.app { display: grid; grid-template-columns: 270px 1fr; height: 100%; }
+aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+aside header { padding: 16px 16px 10px; }
+aside h1 { font-size: 19px; margin: 0 0 12px; }
+aside .new { width: 100%; }
+.posts { overflow: auto; padding: 4px 10px 16px; flex: 1; }
+.group-title { font-size: 12px; color: var(--sub); margin: 14px 6px 6px; font-weight: 600; }
+.post-item { display: block; width: 100%; text-align: left; border: 1px solid transparent; background: none; padding: 9px 10px; margin-bottom: 4px; border-radius: 10px; }
+.post-item:hover { background: var(--bg); border-color: transparent; }
+.post-item.active { background: var(--soft); border-color: var(--soft-line); }
+.post-item .when { font-size: 12px; color: var(--sub); display: flex; justify-content: space-between; gap: 6px; }
+.post-item .snip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.pill { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--hint); color: var(--sub); white-space: nowrap; }
+.pill.due { background: var(--warn-bg); color: var(--warn-ink); }
+.pill.done { background: #dcfce7; color: #166534; }
+aside footer { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 6px; }
+aside footer button { width: 100%; }
+
+main { overflow: auto; min-height: 0; }
+.editor { max-width: 760px; margin: 0 auto; padding: 22px 24px 110px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card h2 small { font-weight: 400; color: var(--sub); font-size: 13px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.empty { color: var(--sub); font-size: 14px; }
+
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--sub); cursor: pointer; }
+.drop.over { border-color: var(--accent); background: var(--soft); color: var(--accent); }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-top: 12px; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--hint); border: 1px solid var(--line); }
+.thumb img, .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .tag { position: absolute; left: 5px; bottom: 5px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 4px; }
+.thumb .x { position: absolute; right: 4px; top: 4px; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; line-height: 26px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border-radius: 99px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px; }
+.chip.on { background: var(--soft); border-color: var(--accent); color: var(--soft-ink); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.chip small { color: var(--sub); }
+.chip.cat { font-size: 13px; padding: 3px 10px; color: var(--sub); }
+.when-row .chip { min-width: 70px; justify-content: center; }
+.when-row input { width: auto; }
+
+.bar { position: fixed; left: 270px; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); }
+.bar .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+.bar .grow { flex: 1; color: var(--sub); font-size: 14px; }
+.bar .primary { padding: 10px 22px; font-size: 16px; }
+
+.modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+.modal-bg.open { display: flex; }
+.modal { background: var(--panel); border-radius: 14px; width: min(620px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+.modal h3 { margin: 0 0 14px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.t-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line); }
+.t-row .name { flex: 1; min-width: 0; }
+.t-row .name small { color: var(--sub); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 6px; color: #fff; white-space: nowrap; font-weight: 600; }
+.t-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg); border-radius: 10px; padding: 12px; margin-top: 12px; }
+.t-form .full { grid-column: 1 / -1; }
+.hint-s { font-size: 13px; color: var(--sub); }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+
+.send .progress { height: 6px; background: var(--hint); border-radius: 99px; overflow: hidden; margin-bottom: 16px; }
+.send .progress div { height: 100%; background: var(--accent); transition: width .2s; }
+.send .who { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.send .who b { font-size: 20px; }
+.count { color: var(--sub); font-size: 13px; margin-left: auto; font-weight: 400; }
+.send .hint { background: var(--hint); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: 12px 0; }
+.send .hint.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.steps { display: grid; gap: 8px; }
+.step { display: flex; align-items: center; gap: 10px; }
+.step .n { width: 26px; height: 26px; border-radius: 50%; background: var(--soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; flex: none; font-size: 14px; }
+.step button { flex: 1; text-align: left; padding: 11px 14px; font-size: 15px; }
+.step button.did, .chip.did { border-color: var(--ok); color: var(--ok); }
+.send .nav { display: flex; gap: 10px; margin-top: 18px; align-items: center; }
+.send .nav .primary { flex: 1; padding: 11px; font-size: 16px; }
+.preview { white-space: pre-wrap; font-size: 13px; color: var(--sub); max-height: 90px; overflow: auto; border-left: 3px solid var(--line); padding-left: 10px; margin-top: 8px; }
+.done-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.done-list li { padding: 5px 0; display: flex; gap: 8px; align-items: center; }
+
+.toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; font-size: 14px; max-width: calc(100% - 32px); text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 34vh; }
+  aside header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
+  aside h1 { margin: 0; font-size: 17px; flex: 1; }
+  aside .new { width: auto; }
+  aside footer { grid-template-columns: 1fr 1fr; padding: 8px 12px; }
+  .bar { left: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .bar .grow { display: none; }
+  .bar .primary { flex: 1; padding: 10px; font-size: 15px; }
+  .bar button { white-space: nowrap; }
+  .bar .link { padding: 4px 2px; }
+  .send .nav { flex-wrap: wrap; }
+  .send .nav .primary { flex-basis: 100%; order: -1; }
+  .send .nav #sSkip { margin-left: auto; }
+  .editor { padding: 14px 16px 110px; }
+  .t-form { grid-template-columns: 1fr; }
+  .modal { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <header>
+      <h1>一鍵分享</h1>
+      <button class="primary new" id="newPost">＋ 新增貼文</button>
+    </header>
+    <div class="posts" id="postList"></div>
+    <footer>
+      <button id="openTargets">管理發送對象</button>
+      <button id="openBackup">備份／搬資料</button>
+    </footer>
+  </aside>
+  <main>
+    <div class="editor" id="editor"></div>
+  </main>
+</div>
+<div class="bar"><div class="inner">
+  <span class="grow" id="barInfo"></span>
+  <button class="link danger" id="delPost">刪除這則</button>
+  <button id="lineBatch" hidden>LINE 分批</button>
+  <button class="primary" id="startSend">開始發送</button>
+</div></div>
+
+<div class="modal-bg" id="targetsModal"><div class="modal">
+  <h3>發送對象 <button class="link" data-close>關閉</button></h3>
+  <div id="targetList"></div>
+  <div id="targetForm"></div>
+</div></div>
+
+<div class="modal-bg" id="backupModal"><div class="modal">
+  <h3>備份／搬資料 <button class="link" data-close>關閉</button></h3>
+  <p class="hint-s" style="margin-top:0">資料只存在這個瀏覽器裡。清除瀏覽器資料、換電腦或換手機之前，先匯出備份。</p>
+  <div class="steps">
+    <div class="step"><span class="n">↓</span><button id="exportBtn">匯出備份檔（發送對象＋貼文文字）</button></div>
+    <div class="step"><span class="n">↑</span><button id="importBtn">匯入備份檔</button></div>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+  <p class="hint-s">圖片和影片檔案太大，不會放進備份檔。只想把發送對象給同事的話，匯出後傳給他匯入就好。</p>
+</div></div>
+
+<div class="modal-bg" id="sendModal"><div class="modal send" id="sendBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 裝置判斷 =====
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+const canShareFiles = files => { try { return !!navigator.canShare && navigator.canShare({ files }); } catch { return false; } };
+
+// ===== 各種發送對象 =====
+// open(text, link, t)：要開的網址；mobileShare：手機上用系統「分享」把圖片影片丟過去
+const enc = encodeURIComponent;
+const TYPES = {
+  line: {
+    label: 'LINE', color: '#06c755', kind: '訊息',
+    open: (text, link) => IS_MOBILE || !link
+      ? `https://line.me/R/share?text=${enc(text || link)}`
+      : `https://social-plugins.line.me/lineit/share?url=${enc(link)}&text=${enc(text.replace(link, '').trim())}`,
+    hint: n => IS_MOBILE
+      ? `LINE 會打開分享畫面，勾選「${n}」（可以一次勾很多個），按傳送。有圖片影片就用「分享圖片影片」選 LINE。`
+      : `會打開 LINE 的分享視窗（第一次要登入 LINE），勾選「${n}」後傳送。電腦版只能帶文字和連結，圖片請用手機或另外傳。`,
+  },
+  fbgroup: {
+    label: 'FB 社團', color: '#1877f2', kind: '貼文', needUrl: true, placeholder: 'https://www.facebook.com/groups/…',
+    open: (text, link, t) => t.url,
+    hint: () => IS_MOBILE ? '點「留個言⋯」，長按貼上文字。圖片影片用「分享圖片影片」選 Facebook → 分享到社團。' : '點「留個言⋯」，按 Ctrl+V（Mac 是 ⌘V）貼上文字；圖片可以先「複製圖片」再貼上，或下載後拖進去。',
+  },
+  fb: {
+    label: 'FB 動態', color: '#1877f2', kind: '貼文',
+    open: (text, link) => link ? `https://www.facebook.com/sharer/sharer.php?u=${enc(link)}` : 'https://www.facebook.com/',
+    hint: () => '文字已經複製好，在發文框貼上。有連結的話會自動帶出連結預覽。',
+  },
+  fbstory: {
+    label: 'FB 限動', color: '#0866ff', kind: '限動', needMedia: true,
+    open: () => 'https://www.facebook.com/stories/create',
+    hint: () => IS_MOBILE ? '用「分享圖片影片」選 Facebook →「限時動態」。' : '選「建立相片限時動態」，把下載的檔案選進去。',
+  },
+  ig: {
+    label: 'IG 貼文', color: '#d6249f', kind: '貼文', needMedia: true,
+    open: () => IS_MOBILE ? null : 'https://www.instagram.com/',
+    hint: () => IS_MOBILE ? '用「分享圖片影片」選 Instagram →「動態消息」，在說明文字長按貼上。' : '按左邊「建立」，把下載的檔案拖進去 → 下一步 → 在說明文字貼上。',
+  },
+  igstory: {
+    label: 'IG 限動', color: '#e1306c', kind: '限動', needMedia: true, phoneOnly: true,
+    open: () => null,
+    hint: () => IS_MOBILE ? '用「分享圖片影片」選 Instagram →「限時動態」。要加文字就在限動上長按貼上。' : 'IG 限動只能用手機發。在手機打開這個網頁，或把檔案傳到手機再發。',
+  },
+  threads: {
+    label: 'Threads', color: '#111827', kind: '貼文',
+    open: text => `https://www.threads.net/intent/post?text=${enc(text)}`,
+    hint: () => '文字會自動帶進發文框。有圖片的話，手機用「分享圖片影片」選 Threads。',
+  },
+  x: {
+    label: 'X', color: '#0f1419', kind: '貼文',
+    open: (text, link) => `https://twitter.com/intent/tweet?text=${enc(link ? text.replace(link, '').trim() : text)}${link ? `&url=${enc(link)}` : ''}`,
+    hint: () => '文字和連結會自動帶進發文框。',
+  },
+  other: {
+    label: '其他網址', color: '#64748b', kind: '貼文', needUrl: true, placeholder: 'https://…',
+    open: (text, link, t) => t.url,
+    hint: () => '文字已經複製好，在要發文的地方貼上。',
+  },
+};
+const WEEK = '日一二三四五六';
+const COOLDOWN_MS = 2 * 60 * 1000;
+
+let S = { posts: [], targets: [], activeId: null, batchSize: 15 };
+let saveTimer = null, editingTarget = null, bulkOpen = false, send = null, batch = null;
+const blobs = {}, urls = {};   // 媒體檔：id → Blob / 預覽網址
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const active = () => S.posts.find(p => p.id === S.activeId);
+const isVideo = m => /^video\//.test(m.type);
+
+// ===== 儲存：瀏覽器的 IndexedDB（設定＋媒體檔）=====
+const DB = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('multi-share', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('media'); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  const run = async (store, mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, mode), req = fn(tx.objectStore(store));
+      tx.oncomplete = () => res(req && req.result);
+      tx.onerror = tx.onabort = () => rej(tx.error);
+    });
+  };
+  return {
+    get: (s, k) => run(s, 'readonly', o => o.get(k)),
+    put: (s, k, v) => run(s, 'readwrite', o => o.put(v, k)),
+    del: (s, k) => run(s, 'readwrite', o => o.delete(k)),
+  };
+})();
+let dbOk = true;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    if (!dbOk) return;
+    DB.put('kv', 'state', JSON.parse(JSON.stringify(S))).catch(() => toast('存檔失敗，瀏覽器可能不允許儲存'));
+  }, 300);
+}
+async function mediaBlob(m) {
+  if (!blobs[m.id] && dbOk) blobs[m.id] = await DB.get('media', m.id).catch(() => null);
+  return blobs[m.id];
+}
+async function mediaUrl(m) {
+  if (urls[m.id]) return urls[m.id];
+  const b = await mediaBlob(m);
+  return b ? (urls[m.id] = URL.createObjectURL(b)) : '';
+}
+function dropMedia(m) {
+  if (urls[m.id]) URL.revokeObjectURL(urls[m.id]);
+  delete urls[m.id]; delete blobs[m.id];
+  if (dbOk) DB.del('media', m.id).catch(() => {});
+}
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function fmtTime(iso) {
+  if (!iso) return '立即';
+  const d = new Date(iso), now = new Date();
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day0(d) - day0(now)) / 864e5);
+  const dayLabel = diff === 0 ? '今天' : diff === 1 ? '明天' : diff === -1 ? '昨天' : `${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）`;
+  return `${dayLabel} ${hm}`;
+}
+function localInput(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function postTargets(p) { return p.targets.map(id => S.targets.find(t => t.id === id)).filter(Boolean); }
+function postStatus(p) {
+  const ts = postTargets(p), n = ts.filter(t => p.done?.[t.id]).length;
+  if (ts.length && n === ts.length) return { cls: 'done', text: '已完成', finished: true };
+  if (p.time && new Date(p.time) <= new Date()) return { cls: 'due', text: n ? `已發 ${n}/${ts.length}` : '時間到了' };
+  return { cls: '', text: n ? `已發 ${n}/${ts.length}` : (p.time ? '已排程' : '草稿') };
+}
+function fullText(p) { return [p.text.trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
+
+// ===== 左側列表 =====
+function renderList() {
+  const now = Date.now();
+  const sorted = [...S.posts].sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
+  const groups = [['待發送', p => !postStatus(p).finished], ['已完成', p => postStatus(p).finished]];
+  $('#postList').innerHTML = groups.map(([title, f]) => {
+    const items = sorted.filter(f);
+    if (!items.length) return '';
+    return `<div class="group-title">${title}</div>` + items.map(p => {
+      const st = postStatus(p);
+      const snip = p.text.trim().split('\n')[0] || p.link || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）');
+      return `<button class="post-item ${p.id === S.activeId ? 'active' : ''}" data-id="${p.id}">
+        <div class="when"><span>${esc(fmtTime(p.time))}</span><span class="pill ${st.cls}">${st.text}</span></div>
+        <div class="snip">${esc(snip)}</div></button>`;
+    }).join('');
+  }).join('') || '<p class="empty" style="padding:0 8px">還沒有貼文</p>';
+}
+$('#postList').onclick = e => {
+  const b = e.target.closest('.post-item'); if (!b) return;
+  S.activeId = b.dataset.id; save(); renderAll();
+};
+$('#newPost').onclick = () => newPost();
+function newPost() {
+  const last = S.posts[S.posts.length - 1];
+  const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], done: {}, reminded: false };
+  S.posts.push(p); S.activeId = p.id; save(); renderAll();
+  setTimeout(() => $('#text')?.focus(), 0);
+}
+
+// ===== 編輯區 =====
+function renderEditor() {
+  const p = active(), ed = $('#editor');
+  if (!p) { ed.innerHTML = '<p class="empty" style="margin-top:40px;text-align:center">按「新增貼文」開始</p>'; renderBar(); return; }
+  const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
+  ed.innerHTML = `
+  <div class="card">
+    <h2>內容</h2>
+    <label class="field" for="text">文字</label>
+    <textarea id="text" placeholder="要發的文字⋯">${esc(p.text)}</textarea>
+    <label class="field" for="link" style="margin-top:12px">連結（會接在文字最後面）</label>
+    <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
+  </div>
+  <div class="card">
+    <h2>圖片、影片、貼圖 <small>可多選；GIF 動圖也可以</small></h2>
+    <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
+    <input type="file" id="file" multiple accept="image/*,video/*" hidden>
+    <div class="thumbs" id="thumbs"></div>
+  </div>
+  <div class="card">
+    <h2>什麼時候發</h2>
+    <div class="row when-row">
+      <button class="chip ${p.time ? '' : 'on'}" data-when="now">現在</button>
+      <button class="chip ${p.time ? 'on' : ''}" data-when="later">排程</button>
+      ${p.time ? `<input type="datetime-local" id="time" value="${esc(p.time)}">` : ''}
+    </div>
+    ${p.time ? `<p class="hint-s" style="margin:10px 0 8px">時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
+      <button id="ics">📅 加到行事曆提醒</button>` : ''}
+  </div>
+  <div class="card">
+    <h2>發到哪裡 <small>${p.targets.length ? `已選 ${postTargets(p).length} 個` : ''}</small></h2>
+    ${S.targets.length ? `
+      ${cats.length ? `<div class="chips" style="margin-bottom:10px">
+        <button class="chip cat" data-cat="*">全選</button>
+        ${cats.map(c => `<button class="chip cat" data-cat="${esc(c)}">只選「${esc(c)}」</button>`).join('')}
+        <button class="chip cat" data-cat="">清除</button></div>` : ''}
+      <div class="chips">${S.targets.map(t => {
+        const ty = TYPES[t.type];
+        return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
+      }).join('')}</div>`
+      : `<p class="empty">還沒有發送對象。<button class="link" style="color:var(--accent)" id="addFirst">＋ 新增 LINE、FB 社團、IG⋯</button></p>`}
+  </div>`;
+  renderThumbs();
+  renderBar();
+
+  $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); };
+  $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); };
+  const drop = $('#drop'), file = $('#file');
+  drop.onclick = () => file.click();
+  file.onchange = () => { addFiles(p, file.files); file.value = ''; };
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(p, e.dataTransfer.files); };
+  ed.querySelectorAll('[data-when]').forEach(b => b.onclick = () => {
+    if (b.dataset.when === 'now') p.time = null;
+    else if (!p.time) { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); p.time = localInput(d); askNotify(); }
+    p.reminded = false; save(); renderAll();
+  });
+  if ($('#time')) $('#time').onchange = e => { p.time = e.target.value || null; p.reminded = false; save(); renderList(); renderBar(); };
+  if ($('#ics')) $('#ics').onclick = () => downloadIcs(p);
+  ed.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
+    const id = b.dataset.t;
+    p.targets = p.targets.includes(id) ? p.targets.filter(x => x !== id) : [...p.targets, id];
+    save(); renderEditor(); renderList();
+  });
+  ed.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
+    const c = b.dataset.cat;
+    p.targets = c === '*' ? S.targets.map(t => t.id) : c ? S.targets.filter(t => t.cat === c).map(t => t.id) : [];
+    save(); renderEditor(); renderList();
+  });
+  if ($('#addFirst')) $('#addFirst').onclick = () => openTargets(true);
+}
+async function renderThumbs() {
+  const p = active(), box = $('#thumbs'); if (!box) return;
+  box.innerHTML = p.media.map((m, i) => `<div class="thumb" data-i="${i}">
+    <span class="tag">${isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
+    <button class="x" data-i="${i}" title="移除">✕</button></div>`).join('');
+  box.querySelectorAll('.tag').forEach(t => { if (!t.textContent) t.remove(); });
+  box.querySelectorAll('.x').forEach(b => b.onclick = () => {
+    const m = p.media[+b.dataset.i];
+    p.media = p.media.filter(x => x !== m); dropMedia(m); save(); renderThumbs(); renderBar(); renderList();
+  });
+  for (const [i, m] of p.media.entries()) {
+    const src = await mediaUrl(m), cell = box.querySelector(`.thumb[data-i="${i}"]`);
+    if (!cell || !src) continue;
+    const el = document.createElement(isVideo(m) ? 'video' : 'img');
+    el.src = isVideo(m) ? src + '#t=0.5' : src;
+    if (isVideo(m)) { el.muted = true; el.preload = 'metadata'; el.playsInline = true; }
+    cell.prepend(el);
+  }
+}
+async function addFiles(p, files) {
+  for (const f of files) {
+    if (!/^(image|video)\//.test(f.type)) { toast(`「${f.name}」不是圖片或影片`); continue; }
+    const m = { id: uid(), name: f.name, type: f.type };
+    blobs[m.id] = f;
+    if (dbOk) {
+      try { await DB.put('media', m.id, f); }
+      catch { toast('檔案太大，瀏覽器存不下；重新整理後會不見'); }
+    }
+    p.media.push(m);
+  }
+  save(); renderThumbs(); renderBar(); renderList();
+}
+
+function renderBar() {
+  const p = active(), btn = $('#startSend');
+  $('#delPost').hidden = !p;
+  if (!p) { btn.disabled = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
+  const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
+  const empty = !fullText(p) && !p.media.length;
+  const lineLeft = lineTargets(p).filter(t => !p.done?.[t.id]).length;
+  $('#lineBatch').hidden = !(lineLeft >= 2 && !empty);
+  $('#lineBatch').textContent = `LINE 分批（${lineLeft}）`;
+  btn.disabled = !n || empty;
+  btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
+  $('#barInfo').textContent = empty ? '先輸入文字或加入圖片影片' : !n ? '選擇要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}，也可以現在就先發` : '';
+}
+$('#delPost').onclick = () => {
+  const p = active(); if (!p) return;
+  if (!confirm('確定刪除這則貼文？')) return;
+  p.media.forEach(dropMedia);
+  S.posts = S.posts.filter(x => x !== p);
+  S.activeId = S.posts[S.posts.length - 1]?.id || null;
+  save(); renderAll();
+};
+
+// ===== 行事曆提醒（.ics）=====
+function downloadIcs(p) {
+  const d = new Date(p.time), pad = n => String(n).padStart(2, '0');
+  const stamp = x => `${x.getUTCFullYear()}${pad(x.getUTCMonth() + 1)}${pad(x.getUTCDate())}T${pad(x.getUTCHours())}${pad(x.getUTCMinutes())}00Z`;
+  const icsText = s => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => '\\' + m);
+  const title = (p.text.trim().split('\n')[0] || p.link || '發文').slice(0, 40);
+  const names = postTargets(p).map(t => t.name).join('、');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//multi-share//TW', 'BEGIN:VEVENT',
+    `UID:${p.id}@multi-share`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(d)}`, `DTEND:${stamp(new Date(+d + 15 * 60e3))}`,
+    `SUMMARY:${icsText('發文提醒：' + title)}`,
+    `DESCRIPTION:${icsText(`要發到：${names}\n打開一鍵分享：${location.href.split('#')[0]}`)}`,
+    `URL:${location.href.split('#')[0]}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText('發文提醒：' + title)}`, 'TRIGGER:PT0M', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  saveFile(new Blob([ics], { type: 'text/calendar' }), '發文提醒.ics');
+  toast('打開下載的檔案，就會加進行事曆');
+}
+function saveFile(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function askNotify() { try { if (Notification.permission === 'default') Notification.requestPermission(); } catch {} }
+
+// ===== 發送對象管理 =====
+function openTargets(addNew) {
+  editingTarget = addNew ? { id: null, name: '', type: 'line', url: '', cat: '' } : null;
+  bulkOpen = false;
+  renderTargets(); $('#targetsModal').classList.add('open');
+}
+$('#openTargets').onclick = () => openTargets(false);
+function renderTargets() {
+  $('#targetList').innerHTML = S.targets.length ? S.targets.map(t => {
+    const ty = TYPES[t.type];
+    return `<div class="t-row"><span class="badge" style="background:${ty.color}">${ty.label}</span>
+      <div class="name">${esc(t.name)}${t.cat ? ` <span class="pill">${esc(t.cat)}</span>` : ''}${t.url && ty.needUrl ? `<small>${esc(t.url)}</small>` : ''}</div>
+      <button class="link" data-edit="${t.id}">編輯</button><button class="link danger" data-del="${t.id}">刪除</button></div>`;
+  }).join('') : '<p class="empty">還沒有任何對象。</p>';
+  const e = editingTarget;
+  const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
+  $('#targetForm').innerHTML = e ? `
+    <div class="t-form">
+      <div><label class="field">名稱</label><input id="tName" value="${esc(e.name)}" placeholder="例：客戶群、家人群"></div>
+      <div><label class="field">類型</label><select id="tType">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${k === e.type ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+      ${TYPES[e.type].needUrl ? `<div class="full"><label class="field">網址</label><input id="tUrl" type="url" value="${esc(e.url)}" placeholder="${TYPES[e.type].placeholder}">
+        ${e.type === 'fbgroup' ? '<div class="hint-s" style="margin-top:4px">打開那個社團，複製網址列的網址貼過來。</div>' : ''}</div>` : ''}
+      <div class="full"><label class="field">分類（選填，方便一次選一整組）</label><input id="tCat" list="catList" value="${esc(e.cat)}" placeholder="例：客戶、朋友">
+        <datalist id="catList">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
+      ${e.type === 'line' ? '<div class="full hint-s">名稱請跟 LINE 裡的聊天室名稱一樣，分享時比較好找。</div>' : ''}
+      ${TYPES[e.type].phoneOnly ? '<div class="full hint-s">這個只能用手機發。</div>' : ''}
+      <div class="full row" style="justify-content:flex-end"><button class="link" id="tCancel">取消</button><button class="primary" id="tSave">${e.id ? '儲存' : '新增'}</button></div>
+    </div>` : bulkOpen ? bulkForm()
+    : `<div class="row" style="margin-top:14px"><button class="primary" id="tAdd">＋ 新增對象</button><button id="tBulk">整批新增／匯入 FB 社團</button></div>`;
+
+  $('#targetList').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editingTarget = { ...S.targets.find(t => t.id === b.dataset.edit) }; bulkOpen = false; renderTargets(); });
+  $('#targetList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    const t = S.targets.find(x => x.id === b.dataset.del);
+    if (!confirm(`刪除「${t.name}」？`)) return;
+    S.targets = S.targets.filter(x => x !== t);
+    S.posts.forEach(p => p.targets = p.targets.filter(id => id !== t.id));
+    save(); renderTargets(); renderAll();
+  });
+  if (!e && bulkOpen) { bindBulk(); return; }
+  if (!e) { $('#tAdd').onclick = () => openTargets(true); $('#tBulk').onclick = () => { bulkOpen = true; renderTargets(); }; return; }
+  const sync = () => { e.name = $('#tName').value; e.cat = $('#tCat').value; if ($('#tUrl')) e.url = $('#tUrl').value; };
+  $('#tType').onchange = ev => { sync(); e.type = ev.target.value; renderTargets(); };
+  $('#tCancel').onclick = () => { editingTarget = null; renderTargets(); };
+  $('#tSave').onclick = () => {
+    sync();
+    e.name = e.name.trim(); e.cat = e.cat.trim(); e.url = (e.url || '').trim();
+    if (!e.name) return toast('請輸入名稱');
+    if (TYPES[e.type].needUrl && !/^https?:\/\//i.test(e.url)) return toast('請貼上完整網址（https:// 開頭）');
+    if (e.id) Object.assign(S.targets.find(t => t.id === e.id), e);
+    else { e.id = uid(); S.targets.push(e); const p = active(); if (p) p.targets.push(e.id); }
+    editingTarget = null; save(); renderTargets(); renderAll();
+  };
+  setTimeout(() => $('#tName')?.focus(), 0);
+}
+
+// ===== 整批新增／FB 社團匯入 =====
+function bulkForm() {
+  const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
+  return `<div class="t-form">
+    <div class="full"><label class="field">一行一個名稱；有網址的會自動變成 FB 社團</label>
+      <textarea id="bText" style="min-height:140px" placeholder="客戶群&#10;家人群&#10;同學會&#10;&#10;或貼上「匯入 FB 社團」複製的內容"></textarea></div>
+    <div><label class="field">沒有網址的當作</label><select id="bType">${Object.entries(TYPES).filter(([, v]) => !v.needUrl).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select></div>
+    <div><label class="field">分類（選填）</label><input id="bCat" list="bCatList" placeholder="例：客戶、朋友">
+      <datalist id="bCatList">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
+    <div class="full row" style="justify-content:flex-end"><button class="link" id="bCancel">取消</button><button class="primary" id="bSave">新增</button></div>
+    ${IS_MOBILE ? '' : `<div class="full box hint-s">
+      <b style="color:var(--ink)">一鍵匯入你加入的 FB 社團</b>（電腦的 Chrome 或 Edge）
+      <ol style="margin:6px 0 0;padding-left:20px;line-height:1.9">
+        <li>把這個按鈕拖到瀏覽器的書籤列：<a id="bmLink" href="#" style="display:inline-block;background:#1877f2;color:#fff;padding:2px 10px;border-radius:6px;text-decoration:none;font-weight:600">📥 匯入FB社團</a></li>
+        <li>到 Facebook 按一下這個書籤，它會自己捲動抓出所有社團</li>
+        <li>按「複製」，回來貼在上面的框框，按「新增」</li>
+      </ol>
+      <div style="margin-top:6px">拖不過去？<button class="link" id="bmCopy" style="color:var(--accent);padding:0">複製書籤程式碼</button>，在書籤列按右鍵 →「新增網頁」→ 網址欄貼上。</div>
+    </div>`}
+  </div>`;
+}
+function bindBulk() {
+  if ($('#bmLink')) {
+    const href = bookmarkletHref();
+    $('#bmLink').href = href;
+    $('#bmLink').onclick = ev => { ev.preventDefault(); toast('請用拖的，拖到瀏覽器的書籤列'); };
+    $('#bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(href); toast('已複製書籤程式碼'); } catch { toast('複製失敗'); } };
+  }
+  $('#bCancel').onclick = () => { bulkOpen = false; renderTargets(); };
+  $('#bSave').onclick = () => {
+    const r = addBulk($('#bText').value, $('#bType').value, $('#bCat').value.trim());
+    if (!r.added && !r.skipped) return toast('框框裡沒有內容');
+    bulkOpen = false; save(); renderTargets(); renderAll();
+    toast(`新增 ${r.added} 個` + (r.skipped ? `，${r.skipped} 個已經有了所以略過` : ''));
+  };
+  setTimeout(() => $('#bText')?.focus(), 0);
+}
+// 每行：「名稱」或「名稱 網址」或只有網址；FB 社團網址統一成 https://www.facebook.com/groups/<id>/
+function parseBulkLine(line, defType) {
+  line = line.trim();
+  if (!line) return null;
+  const m = line.match(/https?:\/\/\S+/i);
+  if (!m) return { name: line.slice(0, 80), type: defType, url: '' };
+  let url = m[0], name = line.replace(m[0], '').replace(/\s+/g, ' ').trim();
+  const g = url.match(/facebook\.com\/groups\/([^/?#\s]+)/i);
+  if (g) url = `https://www.facebook.com/groups/${g[1]}/`;
+  return { name: (name || url).slice(0, 80), type: g ? 'fbgroup' : 'other', url };
+}
+function addBulk(text, defType, cat) {
+  let added = 0, skipped = 0;
+  for (const line of text.split(/\r?\n/)) {
+    const t = parseBulkLine(line, defType);
+    if (!t) continue;
+    const dup = S.targets.some(x => t.url ? x.url === t.url : x.type === t.type && x.name === t.name);
+    if (dup) { skipped++; continue; }
+    S.targets.push({ id: uid(), cat, ...t });
+    added++;
+  }
+  return { added, skipped };
+}
+// 書籤程式：在 FB「你的社團」頁面自動捲到底，抓出社團名稱和網址，顯示在畫面上讓你複製
+function fbImporter() {
+  const SKIP = /^(joins|feed|discover|create|notifications|search|your_groups|category|invites|requests|learning_content)$/i;
+  const collect = () => {
+    const m = new Map();
+    document.querySelectorAll('a[href*="/groups/"]').forEach(a => {
+      let u; try { u = new URL(a.href, location.href); } catch { return; }
+      const seg = u.pathname.split('/').filter(Boolean), i = seg.indexOf('groups'), id = seg[i + 1];
+      if (i < 0 || !id || SKIP.test(id) || seg.length > i + 2) return;
+      const key = `https://www.facebook.com/groups/${id}/`;
+      const name = (a.innerText || a.getAttribute('aria-label') || '').trim().split('\n')[0].trim();
+      if (!name || name.length > 100 || /^(查看社團|檢視社團|View group|前往社團|Visit group)$/i.test(name)) return;
+      if (!m.has(key)) m.set(key, name);
+    });
+    return m;
+  };
+  if (!/(^|\.)facebook\.com$/.test(location.hostname)) { alert('請在 Facebook 網站上按這個書籤'); return; }
+  if (!/^\/groups\/joins/.test(location.pathname)) {
+    if (confirm('要先打開「你的社團」頁面嗎？\n打開後請再按一次這個書籤。')) location.href = 'https://www.facebook.com/groups/joins/';
+    return;
+  }
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;z-index:2147483647;top:20px;right:20px;width:360px;background:#fff;color:#111;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:16px;font:14px/1.5 system-ui,sans-serif';
+  box.textContent = '正在往下捲動，載入你所有的社團⋯';
+  document.body.appendChild(box);
+  (async () => {
+    let last = 0, same = 0;
+    for (let k = 0; k < 80 && same < 3; k++) {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      await new Promise(r => setTimeout(r, 1300));
+      const h = document.documentElement.scrollHeight;
+      same = h === last ? same + 1 : 0; last = h;
+      box.textContent = `正在往下捲動⋯已找到 ${collect().size} 個社團`;
+    }
+    const found = collect();
+    const text = [...found].map(([url, name]) => `${name}\t${url}`).join('\n');
+    box.innerHTML = '';
+    const h = document.createElement('b'); h.textContent = `找到 ${found.size} 個社團`;
+    const ta = document.createElement('textarea'); ta.value = text; ta.readOnly = true;
+    ta.style.cssText = 'width:100%;height:180px;margin:8px 0;font-size:12px;border:1px solid #ccc;border-radius:6px;padding:6px;box-sizing:border-box';
+    const btn = document.createElement('button'); btn.textContent = '複製';
+    btn.style.cssText = 'background:#1877f2;color:#fff;border:0;border-radius:6px;padding:8px 18px;font-weight:600;cursor:pointer;margin-right:8px';
+    btn.onclick = async () => {
+      try { await navigator.clipboard.writeText(text); } catch { ta.select(); document.execCommand('copy'); }
+      btn.textContent = '已複製 ✓，回一鍵分享貼上';
+    };
+    const close = document.createElement('button'); close.textContent = '關閉';
+    close.style.cssText = 'background:#eee;border:0;border-radius:6px;padding:8px 14px;cursor:pointer';
+    close.onclick = () => box.remove();
+    box.append(h, ta, btn, close);
+  })();
+}
+function bookmarkletHref() { return 'javascript:' + encodeURIComponent(`(${fbImporter.toString()})()`); }
+
+// ===== 備份／搬資料 =====
+$('#openBackup').onclick = () => $('#backupModal').classList.add('open');
+$('#exportBtn').onclick = () => {
+  const data = { app: 'multi-share', version: 1, targets: S.targets, posts: S.posts.map(p => ({ ...p, media: [] })) };
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  saveFile(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `一鍵分享備份-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`);
+};
+$('#importBtn').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.app !== 'multi-share') throw new Error();
+    let nt = 0, np = 0;
+    for (const t of data.targets || []) {
+      if (!TYPES[t.type] || S.targets.some(x => x.id === t.id || (t.url ? x.url === t.url : x.type === t.type && x.name === t.name))) continue;
+      S.targets.push({ id: t.id || uid(), name: String(t.name || ''), type: t.type, url: String(t.url || ''), cat: String(t.cat || '') }); nt++;
+    }
+    for (const p of data.posts || []) {
+      if (S.posts.some(x => x.id === p.id)) continue;
+      S.posts.push({ id: p.id || uid(), text: String(p.text || ''), link: String(p.link || ''), media: [], time: p.time || null,
+        targets: (p.targets || []).filter(id => S.targets.some(t => t.id === id)), done: p.done || {}, reminded: !!p.reminded }); np++;
+    }
+    if (!active()) S.activeId = S.posts[S.posts.length - 1]?.id || null;
+    save(); renderAll();
+    $('#backupModal').classList.remove('open');
+    toast(`匯入 ${nt} 個發送對象、${np} 則貼文`);
+  } catch { toast('這不是一鍵分享的備份檔'); }
+};
+
+// ===== 媒體：複製、下載、手機分享 =====
+async function mediaFiles(p) {
+  const out = [];
+  for (const m of p.media) { const b = await mediaBlob(m); if (b) out.push(new File([b], m.name, { type: m.type })); }
+  return out;
+}
+// 剪貼簿只收 PNG；把轉檔的 Promise 直接交給 ClipboardItem，Mac 的 Safari 才不會擋
+async function copyImage(m) {
+  const png = (async () => {
+    const bmp = await createImageBitmap(await mediaBlob(m));
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+    c.getContext('2d').drawImage(bmp, 0, 0);
+    return new Promise(r => c.toBlob(r, 'image/png'));
+  })();
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+}
+async function downloadAll(p) {
+  for (const m of p.media) {
+    const b = await mediaBlob(m); if (!b) continue;
+    saveFile(b, m.name);
+    await new Promise(r => setTimeout(r, 400));
+  }
+}
+// iPhone 的 Safari 規定「分享」要在按下的當下呼叫，中間不能先等讀檔，所以檔案要事先準備好
+const shareCache = {};
+function prepareShare(p) {
+  const key = p.id + ':' + p.media.map(m => m.id).join(',');
+  if (!shareCache[key]) { shareCache[key] = { files: null }; mediaFiles(p).then(f => shareCache[key].files = f); }
+  return shareCache[key];
+}
+async function shareMedia(p, withText = true) {
+  const files = prepareShare(p).files, text = fullText(p);
+  if (!files) { toast('檔案準備中，請再按一次'); return; }
+  const data = files.length ? { files } : {};
+  if (withText && text) data.text = text;
+  const copy = text ? navigator.clipboard.writeText(text).catch(() => {}) : null;
+  await navigator.share(data);
+  await copy;
+}
+
+// ===== 發送步驟 =====
+function startSend(p) {
+  const list = postTargets(p);
+  if (!list.length) return;
+  S.activeId = p.id;
+  let i = list.findIndex(t => !p.done?.[t.id]);
+  if (i < 0) { p.done = {}; i = 0; }
+  send = { post: p, list, i, did: {} };
+  p.reminded = true; save(); renderAll();
+  renderSend(); $('#sendModal').classList.add('open');
+}
+$('#startSend').onclick = () => active() && startSend(active());
+function renderSend() {
+  const { post: p, list, i, did } = send;
+  const box = $('#sendBox');
+  if (i >= list.length) {
+    box.innerHTML = `<h3>發送完成 🎉</h3>
+      <ul class="done-list">${list.map(t => `<li>${p.done[t.id] ? '✅' : '⏭️'} <span class="badge" style="background:${TYPES[t.type].color}">${TYPES[t.type].label}</span>${esc(t.name)}${p.done[t.id] ? '' : '（跳過）'}</li>`).join('')}</ul>
+      <div class="nav"><button id="sClose" class="primary">關閉</button></div>`;
+    $('#sClose').onclick = closeSend;
+    return;
+  }
+  const t = list[i], ty = TYPES[t.type];
+  const text = fullText(p), hasMedia = p.media.length > 0;
+  const url = ty.open(text, p.link.trim(), t);
+  const shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
+  if (shareOk) prepareShare(p);
+  const images = p.media.filter(m => !isVideo(m));
+  const warn = ty.needMedia && !hasMedia ? `${ty.label}一定要有圖片或影片，這則沒有，建議跳過。`
+    : ty.phoneOnly && !IS_MOBILE ? '這個只能用手機發。' : '';
+  const steps = [];
+  if (url) steps.push(`<button data-act="open">開啟 ${ty.label}${text ? '＋複製文字' : ''}</button>`);
+  else if (text) steps.push(`<button data-act="text">複製文字</button>`);
+  if (shareOk) steps.push(`<button data-act="share">分享圖片影片（${p.media.length} 個）</button>`);
+  else if (hasMedia && !IS_MOBILE) {
+    if (images.length === 1 && !(ty.needMedia || ty.phoneOnly)) steps.push(`<button data-act="copyimg">複製圖片</button>`);
+    steps.push(`<button data-act="download">下載圖片影片（${p.media.length} 個）</button>`);
+  }
+  if (url && text && hasMedia) steps.push(`<button data-act="text">再複製一次文字</button>`);
+  box.innerHTML = `
+    <div class="progress"><div style="width:${i / list.length * 100}%"></div></div>
+    <div class="who"><span class="badge" style="background:${ty.color}">${ty.label}</span><b>${esc(t.name)}</b><span class="count">${i + 1} / ${list.length}</span></div>
+    ${warn ? `<div class="hint warn">${warn}</div>` : ''}
+    <div class="hint">${ty.hint(esc(t.name))}</div>
+    <div class="steps">${steps.map((s, k) => `<div class="step"><span class="n">${k + 1}</span>${s}</div>`).join('')}</div>
+    ${text ? `<div class="preview">${esc(text)}</div>` : ''}
+    <div class="nav">
+      <button class="link" id="sStop">先停在這裡</button>
+      <button id="sSkip">跳過</button>
+      <button class="primary" id="sNext">${i + 1 < list.length ? '✓ 已發送，開下一個' : '✓ 已發送'}</button>
+    </div>`;
+  box.querySelectorAll('[data-act]').forEach(b => {
+    if (did[b.dataset.act]) b.classList.add('did');
+    b.onclick = () => doAct(b.dataset.act, t, b);
+  });
+  // 連續模式：按下一個就順便開啟下一個對象並複製文字
+  $('#sNext').onclick = () => { p.done = { ...p.done, [t.id]: true }; save(); next(true); };
+  $('#sSkip').onclick = () => next();
+  $('#sStop').onclick = closeSend;
+}
+async function doAct(act, t, btn) {
+  const p = send.post, ty = TYPES[t.type], text = fullText(p);
+  try {
+    if (act === 'open') {
+      const url = ty.open(text, p.link.trim(), t);
+      // 複製和開視窗都要在按下的當下開始（不能先 await），不然手機會擋
+      const copy = text ? navigator.clipboard.writeText(text).catch(() => {}) : null;
+      const w = window.open(url, '_blank');
+      await copy;
+      if (!w && !IS_MOBILE) toast('視窗被瀏覽器擋住了，請允許這個網站開新視窗');
+      else toast(text ? '已開啟，文字已複製' : '已開啟');
+    } else if (act === 'text') {
+      await navigator.clipboard.writeText(text);
+      toast('文字已複製');
+    } else if (act === 'share') {
+      await shareMedia(p, t.type !== 'ig' && t.type !== 'igstory');
+      if (text) toast('文字也複製好了，需要時長按貼上');
+    } else if (act === 'copyimg') {
+      await copyImage(p.media.find(m => !isVideo(m)));
+      toast('圖片已複製，到發文框貼上');
+    } else if (act === 'download') {
+      await downloadAll(p);
+      toast('檔案已下載，拖進發文框就好');
+    }
+    send.did[act] = true; btn.classList.add('did');
+  } catch (e) {
+    if (e?.name !== 'AbortError') toast('失敗：' + (e?.message || e));
+  }
+}
+function next(auto) {
+  send.did = {};
+  do send.i++; while (send.i < send.list.length && send.post.done?.[send.list[send.i].id]);
+  renderSend(); renderAll();
+  if (auto) $('#sendBox [data-act="open"]')?.click();
+}
+function closeSend() {
+  $('#sendModal').classList.remove('open');
+  send = null;
+  if (batch) { clearInterval(batch.timer); batch = null; }
+  renderAll();
+}
+
+// ===== LINE 分批 =====
+// LINE 分享一次能勾的人數有限：照名單一批一批傳，批與批之間休息，避免被判定洗版
+function lineTargets(p) { return postTargets(p).filter(t => t.type === 'line'); }
+function openBatch(p) {
+  batch = { post: p, picked: {}, timer: null };
+  p.reminded = true; save();
+  renderBatch(); $('#sendModal').classList.add('open');
+}
+$('#lineBatch').onclick = () => active() && openBatch(active());
+function beep() {
+  try {
+    const ac = new AudioContext(), o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination); o.frequency.value = 880; g.gain.value = .15;
+    o.start(); o.stop(ac.currentTime + .35);
+  } catch {}
+}
+function renderBatch() {
+  const p = batch.post, box = $('#sendBox');
+  clearInterval(batch.timer);
+  const size = S.batchSize || 15;
+  const all = lineTargets(p), left = all.filter(t => !p.done?.[t.id]);
+  const total = Math.ceil(all.length / size), no = Math.min(total, Math.floor((all.length - left.length) / size) + 1);
+  const progress = `<div class="progress"><div style="width:${(all.length - left.length) / all.length * 100}%"></div></div>`;
+  if (!left.length) {
+    box.innerHTML = `<h3>LINE 分批完成 🎉</h3><p>${all.length} 個聊天室都傳好了。</p>
+      <div class="nav"><button class="primary" id="bClose">關閉</button></div>`;
+    $('#bClose').onclick = closeSend;
+    return;
+  }
+  const group = left.slice(0, size);
+  const wait = (p.cooldownUntil || 0) - Date.now();
+  if (wait > 0) {
+    const fmt = ms => { const sec = Math.ceil(ms / 1000); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+    box.innerHTML = `${progress}<h3>休息一下 <span class="count">下一批：第 ${no} / ${total} 批</span></h3>
+      <div style="text-align:center;font-size:44px;font-weight:700;margin:6px 0" id="bClock">${fmt(wait)}</div>
+      <p class="empty" style="text-align:center;margin:0 0 12px">太快連續傳容易被 LINE 判定洗版。時間到會響一聲。</p>
+      <div class="hint">下一批：${group.map(t => esc(t.name)).join('、')}</div>
+      <div class="nav"><button class="link" id="bStop">先停在這裡</button><button class="link" id="bNow" style="margin-left:auto">不等了，直接下一批</button></div>`;
+    $('#bStop').onclick = closeSend;
+    $('#bNow').onclick = () => { if (confirm('連續太快傳可能被 LINE 限制，確定不等？')) { p.cooldownUntil = 0; save(); renderBatch(); } };
+    batch.timer = setInterval(() => {
+      const w = (p.cooldownUntil || 0) - Date.now();
+      if (w > 0) { $('#bClock').textContent = fmt(w); return; }
+      beep();
+      try { if (document.hidden && Notification.permission === 'granted') new Notification('一鍵分享：可以傳下一批了'); } catch {}
+      renderBatch();
+    }, 500);
+    return;
+  }
+  const hasMedia = p.media.length > 0, shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
+  if (shareOk) prepareShare(p);
+  box.innerHTML = `${progress}<h3>LINE 第 ${no} / ${total} 批 <span class="count">這批 ${group.length} 個 · 每批
+      <select id="bSize" style="width:auto;padding:1px 4px">${[5, 10, 15, 20].map(n => `<option ${n === size ? 'selected' : ''}>${n}</option>`).join('')}</select></span></h3>
+    <div class="hint">按下面的按鈕打開 LINE 分享畫面，勾選這批聊天室後傳送。點名字會複製名字，可以貼到 LINE 的搜尋欄。</div>
+    <div class="chips" id="bNames">${group.map(t => `<button class="chip ${batch.picked[t.id] ? 'did' : ''}" data-id="${t.id}">${batch.picked[t.id] ? '✓ ' : ''}${esc(t.name)}</button>`).join('')}</div>
+    <div class="steps" style="margin-top:14px">
+      <div class="step"><span class="n">↗</span><button data-b="${shareOk ? 'share' : 'open'}">${shareOk ? `分享圖片影片＋文字 → 選 LINE` : '開啟 LINE 分享（已帶入文字）'}</button></div>
+    </div>
+    ${hasMedia && !IS_MOBILE ? '<p class="hint-s" style="margin:8px 0 0">電腦版 LINE 分享只能帶文字和連結。要連圖片一起傳，請用手機打開這個網頁做分批。</p>' : ''}
+    <div class="nav">
+      <button class="link" id="bStop">先停在這裡</button>
+      <button class="primary" id="bDone">✓ 這批已傳完成</button>
+    </div>`;
+  $('#bSize').onchange = e => { S.batchSize = +e.target.value; save(); renderBatch(); };
+  box.querySelectorAll('#bNames [data-id]').forEach(b => b.onclick = async () => {
+    const t = S.targets.find(x => x.id === b.dataset.id);
+    try { await navigator.clipboard.writeText(t.name); toast(`已複製「${t.name}」`); } catch {}
+    batch.picked[t.id] = true; b.classList.add('did'); b.textContent = '✓ ' + t.name;
+  });
+  box.querySelector('[data-b]').onclick = async ev => {
+    try {
+      if (ev.currentTarget.dataset.b === 'share') await shareMedia(p);
+      else {
+        const copy = fullText(p) ? navigator.clipboard.writeText(fullText(p)).catch(() => {}) : null;
+        window.open(TYPES.line.open(fullText(p), p.link.trim()), '_blank');
+        await copy;
+      }
+    } catch (e) { if (e?.name !== 'AbortError') toast('失敗：' + (e?.message || e)); }
+  };
+  $('#bStop').onclick = closeSend;
+  $('#bDone').onclick = () => {
+    group.forEach(t => p.done = { ...p.done, [t.id]: true });
+    batch.picked = {};
+    p.cooldownUntil = left.length > group.length ? Date.now() + COOLDOWN_MS : 0;
+    save(); renderAll(); renderBatch();
+  };
+}
+
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { b.closest('.modal-bg').classList.remove('open'); editingTarget = null; bulkOpen = false; });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  ['#targetsModal', '#backupModal'].forEach(s => $(s).classList.remove('open'));
+  editingTarget = null; bulkOpen = false;
+});
+
+// ===== 排程提醒（網頁開著時）=====
+function checkDue() {
+  if (send || batch) return;
+  const due = S.posts.find(p => p.time && !p.reminded && new Date(p.time) <= new Date() && postTargets(p).length && !postStatus(p).finished);
+  if (!due) return;
+  beep();
+  try { if (Notification.permission === 'granted') new Notification('一鍵分享：發文時間到了', { body: (due.text || due.link || '').slice(0, 80) }); } catch {}
+  startSend(due);
+}
+
+function renderAll() { renderList(); renderEditor(); }
+
+(async () => {
+  try {
+    const st = await DB.get('kv', 'state');
+    if (st) S = { batchSize: 15, ...st };
+    navigator.storage?.persist?.().catch(() => {});
+  } catch {
+    dbOk = false;
+    toast('這個瀏覽器不能儲存資料（可能是無痕模式），關掉後內容會不見');
+  }
+  S.posts.forEach(p => { p.media ||= []; p.done ||= {}; p.targets ||= []; });
+  if (!active()) S.activeId = S.posts[S.posts.length - 1]?.id || null;
+  if (!S.posts.length) newPost(); else renderAll();
+  setInterval(() => { checkDue(); if (!send && !batch) renderList(); }, 15e3);
+  checkDue();
+})();
+</script>
+</body>
+</html>
