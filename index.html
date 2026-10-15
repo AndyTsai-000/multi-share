@@ -142,6 +142,38 @@ main { overflow: auto; min-height: 0; }
 .tag-pin button { border: 0; background: none; color: #fff; padding: 0 3px; font-size: 12px; }
 .tag-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.3); pointer-events: none; }
 .place-new summary { cursor: pointer; color: var(--accent); font-size: 14px; margin-top: 10px; }
+.stepper { display: flex; align-items: center; gap: 6px; margin: 0 0 14px; }
+.stepper .st { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 6px 4px; text-align: left; color: var(--sub); }
+.stepper .st-n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--hint); font-weight: 700; font-size: 13px; flex: none; }
+.stepper .st-t { display: flex; flex-direction: column; font-size: 14px; line-height: 1.25; }
+.stepper .st-t small { font-size: 12px; color: var(--sub); }
+.stepper .st.done .st-n { background: var(--soft); color: var(--accent); }
+.stepper .st.on { color: var(--ink); font-weight: 600; }
+.stepper .st.on .st-n { background: var(--accent); color: #fff; }
+.stepper .st-line { flex: 1; height: 2px; background: var(--line); min-width: 12px; }
+.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mode-card { text-align: left; padding: 16px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); display: flex; flex-direction: column; gap: 6px; }
+.mode-card:hover { border-color: var(--soft-line); }
+.mode-card.on { border-color: var(--accent); background: var(--soft); }
+.mode-title { font-size: 17px; font-weight: 700; }
+.mode-lead { margin: 0; color: var(--ink); font-size: 14px; }
+.mode-where { margin: 4px 0 0; font-size: 13px; color: var(--sub); }
+.mode-card ul { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; display: grid; gap: 4px; }
+.mode-card li::before { margin-right: 6px; }
+.mode-card li.ok::before { content: '✅'; }
+.mode-card li.no::before { content: '❌'; }
+.mode-card li.no { color: var(--sub); }
+.mode-foot { margin: 6px 0 0; font-size: 12px; color: var(--sub); }
+.mode-pick { margin-top: auto; padding-top: 8px; font-weight: 600; color: var(--accent); font-size: 14px; }
+.step-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.set-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+.set-row + .set-row { border-top: 1px dashed var(--line); }
+.set-row .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+@media (max-width: 760px) {
+  .mode-cards { grid-template-columns: 1fr; }
+  .stepper .st-t small { display: none; }
+  .stepper .st-t { font-size: 13px; }
+}
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; font-size: 14px; max-width: calc(100% - 32px); text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -151,7 +183,8 @@ main { overflow: auto; min-height: 0; }
   aside header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
   aside h1 { margin: 0; font-size: 17px; flex: 1; }
   aside .new { width: auto; }
-  aside footer { grid-template-columns: 1fr 1fr; padding: 8px 12px; }
+  aside footer { grid-template-columns: 1fr 1fr 1fr; padding: 8px 12px; }
+  aside footer button { font-size: 13px; padding: 6px 4px; }
   .bar { left: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
   .bar .grow { display: none; }
   .bar .primary { flex: 1; padding: 10px; font-size: 15px; }
@@ -399,7 +432,7 @@ function localInput(d) {
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function postTargets(p) { return p.targets.map(id => S.targets.find(t => t.id === id)).filter(Boolean); }
+function postTargets(p) { return p.mode === 'auto' ? [] : p.targets.map(id => S.targets.find(t => t.id === id)).filter(Boolean); }
 function postStatus(p) {
   const ts = postTargets(p), n = ts.filter(t => p.done?.[t.id]).length;
   if (ts.length && n === ts.length) return { cls: 'done', text: '已完成', finished: true };
@@ -432,18 +465,118 @@ $('#postList').onclick = e => {
 $('#newPost').onclick = () => newPost();
 function newPost() {
   const last = S.posts[S.posts.length - 1];
-  const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], auto: last ? [...(last.auto || [])] : [], serverPost: null, done: {}, reminded: false };
+  const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], auto: last ? [...(last.auto || [])] : [], mode: null, step: 1, serverPost: null, done: {}, reminded: false };
   S.posts.push(p); S.activeId = p.id; save(); renderAll();
   setTimeout(() => $('#text')?.focus(), 0);
 }
 
 // ===== 編輯區 =====
+// 每則貼文選一種方式：p.mode = 'auto'（全自動）或 'manual'（半自動）；p.step = 1～3
+const MODE_INFO = {
+  auto: {
+    icon: '⚡', title: '全自動發送', lead: '排好時間就不用管。時間到由伺服器自動發出，電腦、手機都可以關掉。',
+    where: 'Instagram 貼文、Instagram 限動、Threads（要先連結帳號）',
+    yes: ['IG 貼文最多 10 張，可標註人物、協作者 3 位、常用地點', 'IG 限動：文字畫進圖片，發布前先預覽', '一次發到多個帳號'],
+    no: ['不能加音樂、限動貼圖（連結、投票…）', '不能發 LINE、Facebook（平台不開放）'],
+  },
+  manual: {
+    icon: '📱', title: '半自動發送', lead: '網站幫你準備好文字和圖片，打開 App 貼上、按發送就好。',
+    where: 'LINE、FB 社團／動態／限動、IG 貼文／限動、Threads、X、其他網址',
+    yes: ['所有平台都能發，包括 LINE 群組和 FB 社團', 'IG 完整功能：音樂、20 張、協作者 5 位、搜尋地點、限動貼圖', 'IG 貼文可以用 IG App 的「排定時間」'],
+    no: ['時間到要自己按（網頁或行事曆會提醒）', '每個地方各操作一次，大約 30 秒'],
+  },
+};
+const STEP_NAMES = ['發送方式', '發到哪裡', '內容與設定'];
+function stepSelCount(p) { return p.mode === 'auto' ? autoSelected(p).length : p.mode === 'manual' ? postTargets(p).length : 0; }
+function goStep(p, n) {
+  if (n >= 2 && !p.mode) return toast('先選發送方式');
+  if (n >= 3 && !stepSelCount(p)) return toast('先選要發到哪裡');
+  p.step = n; save(); renderEditor();
+  $('main').scrollTop = 0;
+}
+function stepperHtml(p) {
+  const done = [!!p.mode, stepSelCount(p) > 0, false];
+  const sub = [p.mode ? MODE_INFO[p.mode].title : '', stepSelCount(p) ? `已選 ${stepSelCount(p)} 個` : '', ''];
+  return `<div class="stepper">${STEP_NAMES.map((n, i) => `<button class="st ${p.step === i + 1 ? 'on' : ''} ${done[i] ? 'done' : ''}" data-step="${i + 1}">
+    <span class="st-n">${done[i] && p.step !== i + 1 ? '✓' : i + 1}</span><span class="st-t">${n}${sub[i] ? `<small>${esc(sub[i])}</small>` : ''}</span></button>`).join('<span class="st-line"></span>')}</div>`;
+}
+function modeCardHtml(p, key) {
+  const m = MODE_INFO[key], linked = autoAccounts.map(a => `@${esc(a.username)}（${a.platform === 'ig' ? 'IG' : 'Threads'}）`).join('、');
+  return `<button class="mode-card ${p.mode === key ? 'on' : ''}" data-mode="${key}">
+    <div class="mode-title">${m.icon} ${m.title}</div>
+    <p class="mode-lead">${m.lead}</p>
+    <p class="mode-where"><b>能發到：</b>${m.where}</p>
+    <ul>${m.yes.map(x => `<li class="ok">${x}</li>`).join('')}${m.no.map(x => `<li class="no">${x}</li>`).join('')}</ul>
+    ${key === 'auto' ? `<p class="mode-foot">${linked ? '已連結：' + linked : '還沒連結帳號，下一步會帶你連結'}</p>` : ''}
+    <span class="mode-pick">${p.mode === key ? '✓ 已選擇' : '選這個'}</span>
+  </button>`;
+}
+// 半自動選到的對象，各給一行提示
+const MANUAL_TIP = {
+  line: 'LINE：會打開分享畫面，可以一次勾很多聊天室；聊天室多的話用下方的「LINE 分批」。',
+  fbgroup: 'FB 社團：打開社團後貼上文字；圖片可以用手機分享，或下載後拖進去。',
+  fb: 'FB 動態：文字已複製好，貼上就好；有連結會自動帶出預覽。',
+  fbstory: 'FB 限動：用手機分享選 Facebook 限時動態；電腦要下載檔案後上傳。',
+  ig: 'IG 貼文：用手機分享到 Instagram，在 App 裡可以加音樂、最多 20 張、協作者 5 位、搜尋地點；不想到時間再發，可以在「進階設定」用「排定時間」。',
+  igstory: 'IG 限動：只能用手機發，在 App 裡可以加連結、投票、提及等貼圖。',
+  threads: 'Threads：文字會自動帶進發文框；有圖片用手機分享。',
+  x: 'X：文字和連結會自動帶進發文框。',
+  other: '其他網址：會打開網址，文字已複製好。',
+};
+function settingsHtml(p) {
+  if (p.mode === 'auto') {
+    const opts = autoSelected(p), parts = [];
+    if (p.media.length > 10) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 10 個圖片影片，現在有 ${p.media.length} 個。要發更多張請改用半自動。</p>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button></div>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先讓你確認限動畫面，文字會畫進圖片裡${p.media.some(isVideo) ? '（影片不能加字）' : ''}</span></div>`);
+    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
+    if (opts.some(o => o.platform === 'ig') && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">Instagram 一定要有圖片或影片</p>');
+    return parts.join('');
+  }
+  const types = [...new Set(postTargets(p).map(t => t.type))];
+  return types.map(t => `<div class="set-row"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span></div>`).join('');
+}
 function renderEditor() {
   const p = active(), ed = $('#editor');
   if (!p) { ed.innerHTML = '<p class="empty" style="margin-top:40px;text-align:center">按「新增貼文」開始</p>'; renderBar(); return; }
+  if (p.serverPost) { p.mode = 'auto'; p.step = 3; }
+  if (!p.step || (p.step >= 2 && !p.mode) || (p.step >= 3 && !stepSelCount(p))) p.step = !p.mode ? 1 : !stepSelCount(p) ? 2 : 3;
   const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
   const plats = PLATFORMS.filter(pl => S.targets.some(t => t.type in pl.types));
-  ed.innerHTML = `
+  let body = '';
+  if (p.step === 1) body = `
+  <div class="card">
+    <h2>要怎麼發？</h2>
+    <div class="mode-cards">${modeCardHtml(p, 'auto')}${modeCardHtml(p, 'manual')}</div>
+    <p class="hint-s" style="margin:12px 0 0">每則貼文選一種。同一則內容兩種都想用的話，可以按左上角「新增貼文」再做一則。</p>
+  </div>`;
+  else if (p.step === 2 && p.mode === 'auto') body = `
+  <div class="card">
+    <h2>發到哪裡 <small>⚡ 全自動</small></h2>
+    ${autoOptions().length ? `<div class="chips">${autoOptions().map(o => `<button class="chip ${(p.auto || []).includes(o.key) ? 'on' : ''}" data-auto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('')}</div>
+      <p class="hint-s" style="margin:12px 0 0">要加其他帳號？<button class="link" id="autoLink" style="color:var(--accent);padding:0">連結 Instagram／Threads 帳號</button></p>`
+      : `<p class="empty" style="margin-top:0">全自動要先連結你的 Instagram（創作者或商業帳號）或 Threads 帳號。</p><button class="primary" id="autoLink">連結帳號</button>`}
+    <div class="step-nav"><button class="link" data-step="1">← 上一步</button><button class="primary" data-step="3" ${stepSelCount(p) ? '' : 'disabled'}>下一步：內容與設定 →</button></div>
+  </div>`;
+  else if (p.step === 2) body = `
+  <div class="card">
+    <h2>發到哪裡 <small>📱 半自動 ${postTargets(p).length ? `・已選 ${postTargets(p).length} 個` : ''}</small></h2>
+    ${S.targets.length ? `
+      ${cats.length || plats.length > 1 ? `<div class="chips" style="margin-bottom:10px">
+        <button class="chip cat" data-cat="*">全選</button>
+        ${plats.length > 1 ? plats.map(pl => `<button class="chip cat" data-plat="${pl.id}"><span class="dot" style="background:${pl.color}"></span>只選 ${pl.label}</button>`).join('') : ''}
+        ${cats.map(c => `<button class="chip cat" data-cat="${esc(c)}">只選「${esc(c)}」</button>`).join('')}
+        <button class="chip cat" data-cat="">清除</button></div>` : ''}
+      <div class="chips">${byPlatform(S.targets).map(t => {
+        const ty = TYPES[t.type];
+        return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
+      }).join('')}</div>
+      <p class="hint-s" style="margin:12px 0 0"><button class="link" id="manageTargets" style="color:var(--accent);padding:0">＋ 新增或修改發送對象</button></p>`
+      : `<p class="empty" style="margin-top:0">還沒有發送對象。</p><button class="primary" id="addFirst">＋ 新增 LINE、FB 社團、IG⋯</button>`}
+    <div class="step-nav"><button class="link" data-step="1">← 上一步</button><button class="primary" data-step="3" ${stepSelCount(p) ? '' : 'disabled'}>下一步：內容與設定 →</button></div>
+  </div>`;
+  else body = `
+  ${p.serverPost ? `<div class="card"><h2>⚡ 自動發狀態</h2><div id="autoStatus">${autoStatusHtml(p)}</div></div>` : ''}
   <div class="card">
     <h2>內容</h2>
     <label class="field" for="text">文字</label>
@@ -452,7 +585,7 @@ function renderEditor() {
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
   </div>
   <div class="card">
-    <h2>圖片、影片、貼圖 <small>可多選；GIF 動圖也可以</small></h2>
+    <h2>圖片、影片、貼圖 <small>${p.mode === 'auto' ? '最多 10 個' : '可多選；GIF 動圖也可以'}</small></h2>
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
@@ -464,44 +597,56 @@ function renderEditor() {
       <button class="chip ${p.time ? 'on' : ''}" data-when="later">排程</button>
     </div>
     ${p.time ? schedulePicker(p) : ''}
-    ${p.time && (p.auto || []).length ? `<p class="hint-s" style="margin:10px 0 0">⚡ 自動發的帳號時間到會自動發出，網頁和電腦都可以關掉。</p>` : ''}
-    ${p.time && postTargets(p).length ? `<p class="hint-s" style="margin:10px 0 8px">其他對象時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
+    ${p.time && p.mode === 'auto' ? `<p class="hint-s" style="margin:10px 0 0">⚡ 時間到會自動發出，網頁和電腦都可以關掉。</p>` : ''}
+    ${p.time && p.mode === 'manual' ? `<p class="hint-s" style="margin:10px 0 8px">時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
       <button id="ics">📅 加到行事曆提醒</button>` : ''}
   </div>
   <div class="card">
-    <h2>發到哪裡 <small>${p.targets.length ? `已選 ${postTargets(p).length} 個` : ''}</small></h2>
-    ${S.targets.length ? `
-      ${cats.length || plats.length > 1 ? `<div class="chips" style="margin-bottom:10px">
-        <button class="chip cat" data-cat="*">全選</button>
-        ${plats.length > 1 ? plats.map(pl => `<button class="chip cat" data-plat="${pl.id}"><span class="dot" style="background:${pl.color}"></span>只選 ${pl.label}</button>`).join('') : ''}
-        ${cats.map(c => `<button class="chip cat" data-cat="${esc(c)}">只選「${esc(c)}」</button>`).join('')}
-        <button class="chip cat" data-cat="">清除</button></div>` : ''}
-      <div class="chips">${byPlatform(S.targets).map(t => {
-        const ty = TYPES[t.type];
-        return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
-      }).join('')}</div>`
-      : `<p class="empty">還沒有發送對象。<button class="link" style="color:var(--accent)" id="addFirst">＋ 新增 LINE、FB 社團、IG⋯</button></p>`}
-    <div class="auto-box">
-      <div class="auto-head">⚡ 自動發<small>時間到伺服器自動發出，網頁和電腦都可以關掉</small></div>
-      ${p.serverPost ? `<div id="autoStatus">${autoStatusHtml(p)}</div>`
-        : autoOptions().length ? `<div class="chips">${autoOptions().map(o => `<button class="chip ${(p.auto || []).includes(o.key) ? 'on' : ''}" data-auto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('')}</div>`
-        : `<button class="link" id="autoLink" style="color:var(--accent);padding:0">連結 Instagram／Threads 帳號，就能自動發 →</button>`}
-      ${!p.serverPost && autoSelected(p).some(o => o.platform === 'ig' && o.kind === 'post') ? `<div class="ig-sum"><span class="hint-s">IG 貼文：${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button></div>` : ''}
-    </div>
+    <h2>發文設定 <small>${p.mode === 'auto' ? '⚡ 全自動' : '📱 半自動'}・${stepSelCount(p)} 個對象 <button class="link" data-step="2" style="padding:0 0 0 6px;color:var(--accent)">修改</button></small></h2>
+    ${settingsHtml(p) || '<p class="hint-s" style="margin:0">沒有需要另外設定的項目。</p>'}
   </div>`;
-  renderThumbs();
+  ed.innerHTML = stepperHtml(p) + body;
   renderBar();
 
-  $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); };
-  $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); };
+  ed.querySelectorAll('[data-step]').forEach(x => x.onclick = () => !p.serverPost && goStep(p, +x.dataset.step));
+  ed.querySelectorAll('[data-mode]').forEach(x => x.onclick = () => { p.mode = x.dataset.mode; save(); goStep(p, 2); renderList(); });
+  if ($('#autoLink')) $('#autoLink').onclick = openAuto;
+  if ($('#addFirst')) $('#addFirst').onclick = () => openTargets(true);
+  if ($('#manageTargets')) $('#manageTargets').onclick = () => openTargets(false);
+  ed.querySelectorAll('[data-auto]').forEach(x => x.onclick = () => {
+    const k = x.dataset.auto;
+    p.auto = (p.auto || []).includes(k) ? p.auto.filter(y => y !== k) : [...(p.auto || []), k];
+    save(); renderEditor();
+  });
+  ed.querySelectorAll('[data-t]').forEach(x => x.onclick = () => {
+    const id = x.dataset.t;
+    p.targets = p.targets.includes(id) ? p.targets.filter(y => y !== id) : [...p.targets, id];
+    save(); renderEditor(); renderList();
+  });
+  ed.querySelectorAll('[data-plat]').forEach(x => x.onclick = () => {
+    const pl = PLATFORMS.find(y => y.id === x.dataset.plat);
+    p.targets = S.targets.filter(t => t.type in pl.types).map(t => t.id);
+    save(); renderEditor(); renderList();
+  });
+  ed.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => {
+    const c = x.dataset.cat;
+    p.targets = c === '*' ? S.targets.map(t => t.id) : c ? S.targets.filter(t => t.cat === c).map(t => t.id) : [];
+    save(); renderEditor(); renderList();
+  });
+  if (p.step !== 3) return;
+
+  renderThumbs();
+  const refreshSettings = () => { const c = $('#editor .card:last-child'); if (c && !p.serverPost) { renderEditorSettings(p); } };
+  $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshSettings(); };
+  $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshSettings(); };
   const drop = $('#drop'), file = $('#file');
   drop.onclick = () => file.click();
   file.onchange = () => { addFiles(p, file.files); file.value = ''; };
   drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(p, e.dataTransfer.files); };
-  ed.querySelectorAll('[data-when]').forEach(b => b.onclick = () => {
-    if (b.dataset.when === 'now') p.time = null;
+  ed.querySelectorAll('[data-when]').forEach(x => x.onclick = () => {
+    if (x.dataset.when === 'now') p.time = null;
     else if (!p.time) { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); p.time = localInput(d); askNotify(); }
     p.reminded = false; save(); renderAll();
   });
@@ -511,35 +656,25 @@ function renderEditor() {
     p.time = `${date || d0}T${time || t0}`; p.reminded = false;
     save(); renderEditor(); renderList();
   };
-  ed.querySelectorAll('[data-day]').forEach(b => b.onclick = () => setWhen(b.dataset.day, null));
-  ed.querySelectorAll('[data-hm]').forEach(b => b.onclick = () => setWhen(null, b.dataset.hm));
+  ed.querySelectorAll('[data-day]').forEach(x => x.onclick = () => setWhen(x.dataset.day, null));
+  ed.querySelectorAll('[data-hm]').forEach(x => x.onclick = () => setWhen(null, x.dataset.hm));
   ed.querySelectorAll('.pick-input').forEach(l => l.onclick = e => { e.preventDefault(); const i = l.querySelector('input'); try { i.showPicker(); } catch { i.focus(); i.click(); } });
   if ($('#pickDate')) $('#pickDate').onchange = e => e.target.value && setWhen(e.target.value, null);
   if ($('#pickTime')) $('#pickTime').onchange = e => e.target.value && setWhen(null, e.target.value);
   if ($('#ics')) $('#ics').onclick = () => downloadIcs(p);
-  ed.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
-    const id = b.dataset.t;
-    p.targets = p.targets.includes(id) ? p.targets.filter(x => x !== id) : [...p.targets, id];
-    save(); renderEditor(); renderList();
-  });
-  ed.querySelectorAll('[data-plat]').forEach(b => b.onclick = () => {
-    const pl = PLATFORMS.find(x => x.id === b.dataset.plat);
-    p.targets = S.targets.filter(t => t.type in pl.types).map(t => t.id);
-    save(); renderEditor(); renderList();
-  });
-  ed.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
-    const c = b.dataset.cat;
-    p.targets = c === '*' ? S.targets.map(t => t.id) : c ? S.targets.filter(t => t.cat === c).map(t => t.id) : [];
-    save(); renderEditor(); renderList();
-  });
-  if ($('#addFirst')) $('#addFirst').onclick = () => openTargets(true);
-  if ($('#autoLink')) $('#autoLink').onclick = openAuto;
-  ed.querySelectorAll('[data-auto]').forEach(b => b.onclick = () => {
-    const k = b.dataset.auto;
-    p.auto = (p.auto || []).includes(k) ? p.auto.filter(x => x !== k) : [...(p.auto || []), k];
-    save(); renderEditor();
-  });
   bindAutoStatus(p);
+  bindSettings(p);
+}
+// 「發文設定」卡片只重畫自己（打字時不要整頁重畫，游標才不會跑掉）
+function renderEditorSettings(p) {
+  const card = [...document.querySelectorAll('#editor .card')].pop();
+  if (!card) return;
+  const h2 = card.querySelector('h2').outerHTML;
+  card.innerHTML = h2 + (settingsHtml(p) || '<p class="hint-s" style="margin:0">沒有需要另外設定的項目。</p>');
+  card.querySelectorAll('[data-step]').forEach(x => x.onclick = () => goStep(p, +x.dataset.step));
+  bindSettings(p);
+}
+function bindSettings(p) {
   if ($('#igOptsOpen')) $('#igOptsOpen').onclick = () => openIgOpts(p);
 }
 async function renderThumbs() {
@@ -550,7 +685,7 @@ async function renderThumbs() {
   box.querySelectorAll('.tag').forEach(t => { if (!t.textContent) t.remove(); });
   box.querySelectorAll('.x').forEach(b => b.onclick = () => {
     const m = p.media[+b.dataset.i];
-    p.media = p.media.filter(x => x !== m); dropMedia(m); save(); renderThumbs(); renderBar(); renderList();
+    p.media = p.media.filter(x => x !== m); dropMedia(m); save(); renderThumbs(); renderBar(); renderList(); if (p.step === 3) renderEditorSettings(p);
   });
   for (const [i, m] of p.media.entries()) {
     const src = await mediaUrl(m), cell = box.querySelector(`.thumb[data-i="${i}"]`);
@@ -573,6 +708,7 @@ async function addFiles(p, files) {
     p.media.push(m);
   }
   save(); renderThumbs(); renderBar(); renderList();
+  if (active() === p && p.step === 3) renderEditorSettings(p);
 }
 
 function renderBar() {
@@ -586,12 +722,14 @@ function renderBar() {
   $('#lineBatch').textContent = `LINE 分批（${lineLeft}）`;
   btn.disabled = !n || empty;
   const autoN = autoSelected(p).length;
-  $('#autoSend').hidden = !autoN || !!p.serverPost;
+  const last = p.step === 3;
+  $('#autoSend').hidden = !last || !autoN || !!p.serverPost;
   $('#autoSend').disabled = empty;
   $('#autoSend').textContent = p.time ? `⚡ 排程自動發（${autoN}）` : `⚡ 立即自動發（${autoN}）`;
-  btn.hidden = !n && autoN > 0;
+  btn.hidden = !last || p.mode === 'auto';
+  if (!last) $('#lineBatch').hidden = true;
   btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
-  $('#barInfo').textContent = empty ? '先輸入文字或加入圖片影片' : !n ? '選擇要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}，也可以現在就先發` : '';
+  $('#barInfo').textContent = p.step === 1 ? '① 先選發送方式' : p.step === 2 ? '② 選好要發到哪裡，按「下一步」' : empty ? '先輸入文字或加入圖片影片' : p.time ? `排程：${fmtTime(p.time)}` : '';
 }
 $('#delPost').onclick = () => {
   const p = active(); if (!p) return;
@@ -1103,7 +1241,7 @@ function autoOptions() {
   return autoAccounts.flatMap(acc => AUTO_KINDS.filter(k => k.platform === acc.platform)
     .map(k => ({ ...k, key: acc.id + ':' + k.kind, account: acc.id, username: acc.username })));
 }
-const autoSelected = p => autoOptions().filter(o => (p.auto || []).includes(o.key));
+const autoSelected = p => p.mode === 'manual' ? [] : autoOptions().filter(o => (p.auto || []).includes(o.key));
 const AUTO_STATUS = {
   scheduled: ['', '⚡ 已排程'], running: ['due', '⚡ 發送中'], done: ['done', '⚡ 已發布'],
   partial: ['due', '⚡ 部分失敗'], error: ['due', '⚡ 失敗'], canceled: ['', '⚡ 已取消'],
@@ -1517,7 +1655,11 @@ function renderAll() { renderList(); renderEditor(); }
     dbOk = false;
     toast('這個瀏覽器不能儲存資料（可能是無痕模式），關掉後內容會不見');
   }
-  S.posts.forEach(p => { p.media ||= []; p.done ||= {}; p.targets ||= []; p.auto ||= []; });
+  S.posts.forEach(p => {
+    p.media ||= []; p.done ||= {}; p.targets ||= []; p.auto ||= [];
+    // 改版前的貼文：依原本選的對象判斷是全自動還是半自動
+    if (p.mode === undefined) p.mode = p.serverPost || (p.auto.length && !p.targets.length) ? 'auto' : p.targets.length ? 'manual' : null;
+  });
   // 從 Instagram／Threads 連結回來時，網址後面會帶 #ms_session=... 或 #ms_error=...
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.has('ms_session') || h.has('ms_error')) history.replaceState(null, '', location.pathname + location.search);
