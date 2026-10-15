@@ -81,6 +81,13 @@ main { overflow: auto; min-height: 0; }
 .chip.cat { font-size: 13px; padding: 3px 10px; color: var(--sub); }
 .when-row .chip { min-width: 70px; justify-content: center; }
 .when-row input { width: auto; }
+.pick-label { font-size: 13px; color: var(--sub); margin: 14px 0 6px; font-weight: 600; }
+.chip.past { opacity: .35; pointer-events: none; text-decoration: line-through; }
+/* 「其他日期／自訂時間」：整顆按鈕都能點，點下去打開系統的選擇器 */
+.pick-input { position: relative; cursor: pointer; }
+.pick-input input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; padding: 0; border: 0; pointer-events: none; }
+.when-line, .warn-line { margin: 12px 0 0; font-size: 14px; }
+.warn-line { color: var(--danger); }
 
 .bar { position: fixed; left: 270px; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); }
 .bar .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
@@ -123,6 +130,10 @@ main { overflow: auto; min-height: 0; }
 .auto-head small { font-weight: 400; color: var(--sub); margin-left: 6px; font-size: 13px; }
 .job-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 14px; flex-wrap: wrap; }
 .job-row .err { color: var(--danger); font-size: 13px; flex-basis: 100%; padding-left: 22px; }
+.story-frames { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.story-frame { flex: none; width: 200px; aspect-ratio: 9 / 16; border-radius: 14px; overflow: hidden; background: #16181d; border: 1px solid var(--line); display: grid; place-items: center; }
+.story-frame img, .story-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 760px) { .story-frame { width: 150px; } }
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; font-size: 14px; max-width: calc(100% - 32px); text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -177,6 +188,11 @@ main { overflow: auto; min-height: 0; }
   <h3>發送對象 <button class="link" data-close>關閉</button></h3>
   <div id="targetList"></div>
   <div id="targetForm"></div>
+</div></div>
+
+<div class="modal-bg" id="storyModal"><div class="modal" style="width:min(760px,100%)">
+  <h3>確認限動畫面 <button class="link" id="storyClose">關閉</button></h3>
+  <div id="storyBody"></div>
 </div></div>
 
 <div class="modal-bg" id="autoModal"><div class="modal">
@@ -344,6 +360,28 @@ function fmtTime(iso) {
   const dayLabel = diff === 0 ? '今天' : diff === 1 ? '明天' : diff === -1 ? '昨天' : `${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）`;
   return `${dayLabel} ${hm}`;
 }
+// 排程用的日期、時間按鈕（今天起 7 天＋常用時段；也可以選其他日期、自訂時間）
+const QUICK_TIMES = ['08:00', '09:00', '10:00', '12:00', '15:00', '18:00', '20:00', '21:00'];
+function schedulePicker(p) {
+  const [date, hm] = p.time.split('T');
+  const now = new Date(), today = localInput(now).slice(0, 10);
+  const days = [...Array(7)].map((_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    return { v: localInput(d).slice(0, 10), label: i === 0 ? '今天' : i === 1 ? '明天' : i === 2 ? '後天' : `${d.getMonth() + 1}/${d.getDate()}`, wk: WEEK[d.getDay()] };
+  });
+  const nowHm = localInput(now).slice(11);
+  const isPast = new Date(p.time) <= now;
+  const otherDay = !days.some(d => d.v === date);
+  const otherTime = !QUICK_TIMES.includes(hm);
+  return `
+    <div class="pick-label">日期</div>
+    <div class="chips">${days.map(d => `<button class="chip ${d.v === date ? 'on' : ''}" data-day="${d.v}">${d.label}<small>（${d.wk}）</small></button>`).join('')}
+      <label class="chip ${otherDay ? 'on' : ''} pick-input">${otherDay ? esc(fmtTime(p.time).split(' ')[0]) : '其他日期'}<input type="date" id="pickDate" value="${date}" min="${today}"></label></div>
+    <div class="pick-label">時間</div>
+    <div class="chips">${QUICK_TIMES.map(t => `<button class="chip ${t === hm ? 'on' : ''} ${date === today && t <= nowHm ? 'past' : ''}" data-hm="${t}">${t}</button>`).join('')}
+      <label class="chip ${otherTime ? 'on' : ''} pick-input">${otherTime ? hm : '自訂時間'}<input type="time" id="pickTime" value="${hm}"></label></div>
+    <p class="${isPast ? 'warn-line' : 'when-line'}">${isPast ? '⚠️ 這個時間已經過了，請選之後的時間' : `📅 將在 <b>${esc(fmtTime(p.time))}</b> 發出`}</p>`;
+}
 function localInput(d) {
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
@@ -411,8 +449,8 @@ function renderEditor() {
     <div class="row when-row">
       <button class="chip ${p.time ? '' : 'on'}" data-when="now">現在</button>
       <button class="chip ${p.time ? 'on' : ''}" data-when="later">排程</button>
-      ${p.time ? `<input type="datetime-local" id="time" value="${esc(p.time)}">` : ''}
     </div>
+    ${p.time ? schedulePicker(p) : ''}
     ${p.time && (p.auto || []).length ? `<p class="hint-s" style="margin:10px 0 0">⚡ 自動發的帳號時間到會自動發出，網頁和電腦都可以關掉。</p>` : ''}
     ${p.time && postTargets(p).length ? `<p class="hint-s" style="margin:10px 0 8px">其他對象時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
       <button id="ics">📅 加到行事曆提醒</button>` : ''}
@@ -453,7 +491,17 @@ function renderEditor() {
     else if (!p.time) { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); p.time = localInput(d); askNotify(); }
     p.reminded = false; save(); renderAll();
   });
-  if ($('#time')) $('#time').onchange = e => { p.time = e.target.value || null; p.reminded = false; save(); renderList(); renderBar(); };
+  // 排程：點日期、點時間；也可以用「其他日期／自訂時間」
+  const setWhen = (date, time) => {
+    const [d0, t0] = p.time.split('T');
+    p.time = `${date || d0}T${time || t0}`; p.reminded = false;
+    save(); renderEditor(); renderList();
+  };
+  ed.querySelectorAll('[data-day]').forEach(b => b.onclick = () => setWhen(b.dataset.day, null));
+  ed.querySelectorAll('[data-hm]').forEach(b => b.onclick = () => setWhen(null, b.dataset.hm));
+  ed.querySelectorAll('.pick-input').forEach(l => l.onclick = e => { e.preventDefault(); const i = l.querySelector('input'); try { i.showPicker(); } catch { i.focus(); i.click(); } });
+  if ($('#pickDate')) $('#pickDate').onchange = e => e.target.value && setWhen(e.target.value, null);
+  if ($('#pickTime')) $('#pickTime').onchange = e => e.target.value && setWhen(null, e.target.value);
   if ($('#ics')) $('#ics').onclick = () => downloadIcs(p);
   ed.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
     const id = b.dataset.t;
@@ -1096,6 +1144,7 @@ async function toJpeg(blob) {
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
 }
+const isStory = o => o.platform === 'ig' && o.kind === 'story';
 async function submitAuto(p) {
   const opts = autoSelected(p);
   if (!opts.length) return;
@@ -1103,31 +1152,52 @@ async function submitAuto(p) {
   if (opts.some(o => o.platform === 'ig') && !p.media.length) return toast('Instagram 一定要有圖片或影片');
   if (opts.some(o => o.platform === 'threads') && [...text].length > 500) return toast('Threads 文字最多 500 字');
   if (p.media.length > 10) return toast('自動發最多 10 個圖片影片');
-  const late = p.time && new Date(p.time) < Date.now();
-  const when = !p.time || late ? '現在' : fmtTime(p.time);
+  // 有 IG 限動：先看限動畫面，確認了才送出
+  if (opts.some(isStory)) return openStoryPreview(p, opts);
+  const when = autoWhen(p);
   if (!confirm(`確定要在「${when}」自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n送出後時間到就會自動發出。`)) return;
+  await sendAuto(p, opts, null);
+}
+const autoWhen = p => !p.time || new Date(p.time) < Date.now() ? '現在' : fmtTime(p.time);
+
+async function uploadMedia(blob, type) {
+  const r = await fetch(API + '/api/media', { method: 'POST', headers: { Authorization: 'Bearer ' + session, 'Content-Type': type }, body: blob });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || '上傳失敗');
+  return j;
+}
+function videoType(m, blob) {
+  if (!/mp4|quicktime/.test(m.type)) throw new Error(`「${m.name}」要是 MP4 或 MOV 影片`);
+  if (blob.size > 25 * 1024 * 1024) throw new Error(`「${m.name}」超過 25MB，請先壓縮`);
+  return /quicktime/.test(m.type) ? 'video/quicktime' : 'video/mp4';
+}
+// storyBlobs：限動用的檔案（圖片已經加上文字），和 p.media 一一對應
+async function sendAuto(p, opts, storyBlobs) {
+  const text = fullText(p), late = p.time && new Date(p.time) < Date.now(), when = autoWhen(p);
   const btn = $('#autoSend');
   btn.disabled = true;
   try {
+    const needMain = opts.some(o => !isStory(o));
+    const total = (needMain ? p.media.length : 0) + (storyBlobs ? storyBlobs.length : 0);
+    let done = 0;
+    const tick = () => { btn.textContent = `上傳中 ${++done}/${total}⋯`; };
     const media = [];
-    for (const [i, m] of p.media.entries()) {
-      btn.textContent = `上傳中 ${i + 1}/${p.media.length}⋯`;
+    if (needMain) for (const m of p.media) {
+      tick();
       const blob = await mediaBlob(m);
       if (!blob) throw new Error(`找不到「${m.name}」，請重新加入`);
-      let body = blob, type;
-      if (isVideo(m)) {
-        if (!/mp4|quicktime/.test(m.type)) throw new Error(`「${m.name}」要是 MP4 或 MOV 影片`);
-        if (blob.size > 25 * 1024 * 1024) throw new Error(`「${m.name}」超過 25MB，請先壓縮`);
-        type = /quicktime/.test(m.type) ? 'video/quicktime' : 'video/mp4';
-      } else { body = await toJpeg(blob); type = 'image/jpeg'; }
-      const r = await fetch(API + '/api/media', { method: 'POST', headers: { Authorization: 'Bearer ' + session, 'Content-Type': type }, body });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || '上傳失敗');
-      media.push(j);
+      media.push(isVideo(m) ? await uploadMedia(blob, videoType(m, blob)) : await uploadMedia(await toJpeg(blob), 'image/jpeg'));
+    }
+    const storyMedia = [];
+    if (storyBlobs) for (const [i, b] of storyBlobs.entries()) {
+      tick();
+      const m = p.media[i];
+      storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType(m, b)) : await uploadMedia(b, 'image/jpeg'));
     }
     btn.textContent = '送出中⋯';
+    const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia } : { account: o.account, kind: o.kind });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, media, targets: opts.map(o => ({ account: o.account, kind: o.kind })), run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
+      body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
     serverPosts[r.id] = { status: 'scheduled', run_at: r.run_at, targets: opts.map(o => ({ account: o.account, kind: o.kind })), jobs: [] };
     toast(when === '現在' ? '已送出，大約 1～2 分鐘內發出' : '已排程，時間到會自動發出');
@@ -1135,7 +1205,124 @@ async function submitAuto(p) {
   } catch (e) { toast('自動發失敗：' + e.message); }
   renderAll();
 }
+
+// ===== IG 限動預覽：文字畫進圖片（IG 的 API 不能在限動上加文字）=====
+const STORY_POS = [['top', '上方'], ['middle', '中間'], ['bottom', '下方'], ['none', '不加文字']];
+const STORY_STYLE = [['dark', '黑底白字'], ['light', '白底黑字'], ['plain', '只有白字']];
+function storySettings(p) {
+  p.story ||= { text: p.text.trim(), pos: 'bottom', style: 'dark' };
+  return p.story;
+}
+function roundRectPath(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function drawStoryText(g, text, st, W, H) {
+  const size = 68, lh = Math.round(size * 1.35), maxW = W - 200, pad = 40;
+  g.font = `bold ${size}px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif`;
+  const lines = [];
+  for (const para of text.split('\n')) {
+    let line = '';
+    for (const ch of [...para]) {
+      if (line && g.measureText(line + ch).width > maxW) { lines.push(line); line = ch; } else line += ch;
+    }
+    lines.push(line);
+  }
+  const shown = lines.slice(0, 8);
+  if (lines.length > 8) shown[7] = shown[7].slice(0, -1) + '…';
+  const boxW = Math.max(...shown.map(l => g.measureText(l).width)) + pad * 2;
+  const boxH = shown.length * lh + pad * 2 - (lh - size);
+  // IG 限動上下各有一段會被頭像和回覆框蓋住，避開那兩段
+  const y = st.pos === 'top' ? 280 : st.pos === 'middle' ? (H - boxH) / 2 : H - boxH - 330;
+  const [bg, fg] = { dark: ['rgba(0,0,0,.62)', '#fff'], light: ['rgba(255,255,255,.93)', '#111'], plain: [null, '#fff'] }[st.style] || [null, '#fff'];
+  if (bg) { g.fillStyle = bg; roundRectPath(g, (W - boxW) / 2, y, boxW, boxH, 28); g.fill(); }
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'top';
+  if (!bg) { g.shadowColor = 'rgba(0,0,0,.75)'; g.shadowBlur = 14; }
+  shown.forEach((l, i) => g.fillText(l, W / 2, y + pad + i * lh));
+  g.shadowBlur = 0;
+}
+// 1080×1920：背景用同一張圖放大模糊，前面放完整的原圖，再疊文字
+async function composeStory(blob, st) {
+  const W = 1080, H = 1920, bmp = await createImageBitmap(blob);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#16181d'; g.fillRect(0, 0, W, H);
+  const cover = Math.max(W / bmp.width, H / bmp.height);
+  if ('filter' in g) {
+    g.filter = 'blur(40px) brightness(0.55)';
+    g.drawImage(bmp, (W - bmp.width * cover) / 2, (H - bmp.height * cover) / 2, bmp.width * cover, bmp.height * cover);
+    g.filter = 'none';
+  }
+  const fit = Math.min(W / bmp.width, H / bmp.height), w = bmp.width * fit, h = bmp.height * fit;
+  g.drawImage(bmp, (W - w) / 2, (H - h) / 2, w, h);
+  const text = (st.text || '').trim();
+  if (text && st.pos !== 'none') drawStoryText(g, text, st, W, H);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+}
+let storyCtx = null;   // { p, opts, blobs, urls }
+function openStoryPreview(p, opts) {
+  storyCtx = { p, opts, blobs: [], urls: [] };
+  $('#storyModal').classList.add('open');
+  renderStoryModal();
+}
+function renderStoryModal() {
+  const { p, opts } = storyCtx, st = storySettings(p);
+  const stories = opts.filter(isStory), others = opts.filter(o => !isStory(o));
+  $('#storyBody').innerHTML = `
+    <p class="hint-s" style="margin-top:0">這是發布後的限動畫面。IG 不能在限動上另外加字，所以文字會直接畫在圖片上${p.media.length > 1 ? `，${p.media.length} 個檔案會各發一則` : ''}。</p>
+    <div class="story-frames" id="storyFrames">${p.media.map((m, i) => `<div class="story-frame" data-i="${i}"><span class="hint-s">產生中⋯</span></div>`).join('')}</div>
+    <label class="field" for="storyText" style="margin-top:14px">限動上的文字</label>
+    <textarea id="storyText" style="min-height:80px">${esc(st.text)}</textarea>
+    <div class="pick-label">文字位置</div>
+    <div class="chips">${STORY_POS.map(([v, l]) => `<button class="chip ${st.pos === v ? 'on' : ''}" data-spos="${v}">${l}</button>`).join('')}</div>
+    ${st.pos === 'none' ? '' : `<div class="pick-label">樣式</div>
+    <div class="chips">${STORY_STYLE.map(([v, l]) => `<button class="chip ${st.style === v ? 'on' : ''}" data-sstyle="${v}">${l}</button>`).join('')}</div>`}
+    ${p.media.some(isVideo) ? '<p class="hint-s">影片限動沒辦法加文字，會照原樣發出。</p>' : ''}
+    <div class="box hint-s" style="margin-top:14px">
+      <b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${stories.map(o => `IG 限動 @${esc(o.username)}`).concat(others.map(o => `${o.label} @${esc(o.username)}`)).join('、')}
+    </div>
+    <div class="send"><div class="nav"><button class="link" id="storyCancel">先不要</button><button class="primary" id="storyOk" disabled>產生中⋯</button></div></div>`;
+  const box = $('#storyBody');
+  box.querySelectorAll('[data-spos]').forEach(b => b.onclick = () => { st.pos = b.dataset.spos; save(); renderStoryModal(); });
+  box.querySelectorAll('[data-sstyle]').forEach(b => b.onclick = () => { st.style = b.dataset.sstyle; save(); renderStoryModal(); });
+  let typing;
+  $('#storyText').oninput = e => { st.text = e.target.value; save(); clearTimeout(typing); typing = setTimeout(drawStoryFrames, 350); };
+  $('#storyCancel').onclick = closeStoryModal;
+  $('#storyOk').onclick = async () => {
+    const { p, opts, blobs } = storyCtx;
+    closeStoryModal();
+    await sendAuto(p, opts, blobs);
+  };
+  drawStoryFrames();
+}
+async function drawStoryFrames() {
+  if (!storyCtx) return;
+  const ctx = storyCtx, { p } = ctx, st = storySettings(p), run = (ctx.run = (ctx.run || 0) + 1);
+  const ok = $('#storyOk'); if (ok) { ok.disabled = true; ok.textContent = '產生中⋯'; }
+  const blobs = [];
+  for (const [i, m] of p.media.entries()) {
+    const src = await mediaBlob(m);
+    if (!src) { toast(`找不到「${m.name}」，請重新加入`); return; }
+    const b = isVideo(m) ? src : await composeStory(src, st);
+    if (ctx.run !== run || storyCtx !== ctx) return;   // 又改了設定，這一輪作廢
+    blobs.push(b);
+    const cell = document.querySelector(`#storyFrames [data-i="${i}"]`);
+    if (!cell) return;
+    if (ctx.urls[i]) URL.revokeObjectURL(ctx.urls[i]);
+    ctx.urls[i] = URL.createObjectURL(b);
+    cell.innerHTML = isVideo(m) ? `<video src="${ctx.urls[i]}" muted playsinline controls></video>` : `<img src="${ctx.urls[i]}" alt="限動預覽 ${i + 1}">`;
+  }
+  ctx.blobs = blobs;
+  if (ok) { ok.disabled = false; ok.textContent = `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發`; }
+}
+function closeStoryModal() {
+  if (storyCtx) storyCtx.urls.forEach(u => u && URL.revokeObjectURL(u));
+  storyCtx = null;
+  $('#storyModal').classList.remove('open');
+}
 $('#autoSend').onclick = () => active() && submitAuto(active());
+$('#storyClose').onclick = closeStoryModal;
 async function refreshServerPosts() {
   if (!session || !S.posts.some(p => p.serverPost)) return;
   try { const { posts } = await apiCall('/api/posts'); for (const sp of posts) serverPosts[sp.id] = sp; } catch { return; }
