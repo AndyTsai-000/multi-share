@@ -134,6 +134,14 @@ main { overflow: auto; min-height: 0; }
 .story-frame { flex: none; width: 200px; aspect-ratio: 9 / 16; border-radius: 14px; overflow: hidden; background: #16181d; border: 1px solid var(--line); display: grid; place-items: center; }
 .story-frame img, .story-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
 @media (max-width: 760px) { .story-frame { width: 150px; } }
+.ig-sum { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.tag-stage { position: relative; background: var(--hint); border-radius: 10px; overflow: hidden; max-height: 42vh; display: flex; justify-content: center; }
+.tag-stage img { display: block; max-width: 100%; max-height: 42vh; cursor: crosshair; }
+.tag-pin { position: absolute; transform: translate(-50%, 8px); background: rgba(0,0,0,.78); color: #fff; font-size: 13px; padding: 3px 4px 3px 9px; border-radius: 6px; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+.tag-pin::before { content: ''; position: absolute; left: 50%; top: -6px; transform: translateX(-50%); border: 6px solid transparent; border-top: 0; border-bottom-color: rgba(0,0,0,.78); }
+.tag-pin button { border: 0; background: none; color: #fff; padding: 0 3px; font-size: 12px; }
+.tag-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.3); pointer-events: none; }
+.place-new summary { cursor: pointer; color: var(--accent); font-size: 14px; margin-top: 10px; }
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; font-size: 14px; max-width: calc(100% - 32px); text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -188,6 +196,11 @@ main { overflow: auto; min-height: 0; }
   <h3>發送對象 <button class="link" data-close>關閉</button></h3>
   <div id="targetList"></div>
   <div id="targetForm"></div>
+</div></div>
+
+<div class="modal-bg" id="igOptsModal"><div class="modal" style="width:min(720px,100%)">
+  <h3>IG 貼文設定 <button class="link" id="igOptsClose">完成</button></h3>
+  <div id="igOptsBody"></div>
 </div></div>
 
 <div class="modal-bg" id="storyModal"><div class="modal" style="width:min(760px,100%)">
@@ -473,6 +486,7 @@ function renderEditor() {
       ${p.serverPost ? `<div id="autoStatus">${autoStatusHtml(p)}</div>`
         : autoOptions().length ? `<div class="chips">${autoOptions().map(o => `<button class="chip ${(p.auto || []).includes(o.key) ? 'on' : ''}" data-auto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('')}</div>`
         : `<button class="link" id="autoLink" style="color:var(--accent);padding:0">連結 Instagram／Threads 帳號，就能自動發 →</button>`}
+      ${!p.serverPost && autoSelected(p).some(o => o.platform === 'ig' && o.kind === 'post') ? `<div class="ig-sum"><span class="hint-s">IG 貼文：${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button></div>` : ''}
     </div>
   </div>`;
   renderThumbs();
@@ -526,6 +540,7 @@ function renderEditor() {
     save(); renderEditor();
   });
   bindAutoStatus(p);
+  if ($('#igOptsOpen')) $('#igOptsOpen').onclick = () => openIgOpts(p);
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -1195,7 +1210,8 @@ async function sendAuto(p, opts, storyBlobs) {
       storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType(m, b)) : await uploadMedia(b, 'image/jpeg'));
     }
     btn.textContent = '送出中⋯';
-    const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia } : { account: o.account, kind: o.kind });
+    const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia }
+      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ig: igPayload(p) } : { account: o.account, kind: o.kind });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
@@ -1323,6 +1339,122 @@ function closeStoryModal() {
 }
 $('#autoSend').onclick = () => active() && submitAuto(active());
 $('#storyClose').onclick = closeStoryModal;
+
+// ===== IG 貼文設定：標註人物、協作者（最多 3 位）、常用地點 =====
+// p.ig = { tags: { [檔案 id]: [{username,x,y}] }, collaborators: [], location: 地點編號 }；常用地點存在 S.places
+const igOpts = p => (p.ig ||= { tags: {}, collaborators: [], location: '' });
+const cleanName = v => String(v || '').trim().replace(/^@/, '');
+const validName = v => /^[A-Za-z0-9._]{1,30}$/.test(v);
+function igSummary(p) {
+  const o = igOpts(p), n = Object.values(o.tags).reduce((a, l) => a + l.length, 0);
+  const place = (S.places || []).find(x => x.id === o.location);
+  const parts = [n ? `標註 ${n} 人` : '', o.collaborators.length ? `協作者 ${o.collaborators.length} 位` : '', place ? `📍${place.name}` : ''].filter(Boolean);
+  return parts.length ? parts.join('・') : '沒有額外設定';
+}
+function igPayload(p) {
+  const o = igOpts(p);
+  return { tags: p.media.map(m => o.tags[m.id] || []), collaborators: o.collaborators, location_id: o.location || undefined };
+}
+let igCtx = null;   // { p, cur: 目前選的檔案索引, pending: {x,y} 剛點的位置 }
+function openIgOpts(p) {
+  igCtx = { p, cur: 0, pending: null };
+  $('#igOptsModal').classList.add('open');
+  renderIgOpts();
+}
+function closeIgOpts() {
+  $('#igOptsModal').classList.remove('open');
+  igCtx = null;
+  renderEditor();
+}
+$('#igOptsClose').onclick = closeIgOpts;
+async function renderIgOpts() {
+  const { p } = igCtx, o = igOpts(p), m = p.media[igCtx.cur], places = S.places || [];
+  const tags = m ? (o.tags[m.id] ||= []) : [];
+  $('#igOptsBody').innerHTML = `
+    <div class="pick-label" style="margin-top:0">標註人物 <small style="font-weight:400">點照片上的位置，再輸入帳號</small></div>
+    ${p.media.length ? `
+      ${p.media.length > 1 ? `<div class="chips" style="margin-bottom:8px">${p.media.map((x, i) => `<button class="chip ${i === igCtx.cur ? 'on' : ''}" data-cur="${i}">第 ${i + 1} 張${(o.tags[x.id] || []).length ? `（${o.tags[x.id].length}）` : ''}</button>`).join('')}</div>` : ''}
+      <div class="tag-stage" id="tagStage">
+        ${isVideo(m) ? '<div class="hint-s" style="padding:30px;text-align:center">影片不能指定位置，直接在下面輸入帳號就好</div>' : '<img id="tagImg" alt="">'}
+        ${isVideo(m) ? '' : tags.map((t, i) => `<span class="tag-pin" style="left:${t.x * 100}%;top:${t.y * 100}%">@${esc(t.username)}<button data-untag="${i}" title="移除">✕</button></span>`).join('')}
+        ${igCtx.pending && !isVideo(m) ? `<span class="tag-dot" style="left:${igCtx.pending.x * 100}%;top:${igCtx.pending.y * 100}%"></span>` : ''}
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="tagName" placeholder="${isVideo(m) || igCtx.pending ? '要標註的 IG 帳號，例如 friend_01' : '先點照片上的位置'}" style="flex:1;min-width:160px" ${isVideo(m) || igCtx.pending ? '' : 'disabled'}>
+        <button id="tagAdd" ${isVideo(m) || igCtx.pending ? '' : 'disabled'}>加入標註</button>
+      </div>
+      ${isVideo(m) && tags.length ? `<div class="chips" style="margin-top:8px">${tags.map((t, i) => `<span class="chip on">@${esc(t.username)}<button class="link" data-untag="${i}" style="padding:0 0 0 4px">✕</button></span>`).join('')}</div>` : ''}`
+      : '<p class="empty">先加入圖片或影片才能標註。</p>'}
+
+    <div class="pick-label">協作者 <small style="font-weight:400">最多 3 位（Instagram 的規定），對方接受後兩邊都會出現這則貼文</small></div>
+    <div class="chips">${o.collaborators.map((c, i) => `<span class="chip on">@${esc(c)}<button class="link" data-uncollab="${i}" style="padding:0 0 0 4px">✕</button></span>`).join('')}</div>
+    ${o.collaborators.length < 3 ? `<div class="row" style="margin-top:8px"><input id="collabName" placeholder="協作者的 IG 帳號" style="flex:1;min-width:160px"><button id="collabAdd">加入協作者</button></div>` : ''}
+
+    <div class="pick-label">地點</div>
+    <div class="chips">
+      <button class="chip ${!o.location ? 'on' : ''}" data-place="">不加地點</button>
+      ${places.map(x => `<button class="chip ${o.location === x.id ? 'on' : ''}" data-place="${x.id}">📍${esc(x.name)}</button>`).join('')}
+    </div>
+    <details class="place-new" ${places.length ? '' : 'open'}>
+      <summary>＋ 新增常用地點</summary>
+      <div class="t-form" style="margin-top:8px">
+        <div><label class="field">名稱</label><input id="placeName" placeholder="例：台中門市"></div>
+        <div><label class="field">Facebook 地點編號或網址</label><input id="placeId" placeholder="例：110765362279102"></div>
+        <div class="full hint-s">Instagram 沒有開放搜尋地點，要用這個地點在 Facebook 上的編號：在 Facebook 搜尋那個地點（例如你的門市粉絲專頁）→ 打開它的頁面 →「關於」→「粉絲專頁資訊公開」裡的<b>粉絲專頁編號</b>，複製貼上。網址裡有一長串數字的話，直接貼網址也可以。設定一次之後就能直接點選。</div>
+        <div class="full row" style="justify-content:flex-end"><button class="primary" id="placeSave">儲存地點</button></div>
+      </div>
+    </details>
+    ${places.length ? `<p class="hint-s" style="margin:8px 0 0">${places.map(x => `<button class="link danger" data-unplace="${x.id}" style="padding:0 8px 0 0">刪除「${esc(x.name)}」</button>`).join('')}</p>` : ''}`;
+
+  const box = $('#igOptsBody');
+  // 標註
+  box.querySelectorAll('[data-cur]').forEach(b => b.onclick = () => { igCtx.cur = +b.dataset.cur; igCtx.pending = null; renderIgOpts(); });
+  const img = $('#tagImg');
+  if (img && m) {
+    img.src = await mediaUrl(m);
+    img.onclick = e => {
+      const r = img.getBoundingClientRect();
+      igCtx.pending = { x: Math.round((e.clientX - r.left) / r.width * 1000) / 1000, y: Math.round((e.clientY - r.top) / r.height * 1000) / 1000 };
+      renderIgOpts().then(() => $('#tagName')?.focus());
+    };
+  }
+  const addTag = () => {
+    const name = cleanName($('#tagName').value);
+    if (!validName(name)) return toast('帳號只能有英文、數字、底線和句點');
+    if (tags.some(t => t.username === name)) return toast('這張已經標註過這個人');
+    tags.push(isVideo(m) ? { username: name, x: 0.5, y: 0.5 } : { username: name, ...igCtx.pending });
+    igCtx.pending = null; save(); renderIgOpts();
+  };
+  if ($('#tagAdd')) { $('#tagAdd').onclick = addTag; $('#tagName').onkeydown = e => e.key === 'Enter' && addTag(); }
+  box.querySelectorAll('[data-untag]').forEach(b => b.onclick = e => { e.stopPropagation(); tags.splice(+b.dataset.untag, 1); save(); renderIgOpts(); });
+  // 協作者
+  const addCollab = () => {
+    const name = cleanName($('#collabName').value);
+    if (!validName(name)) return toast('帳號只能有英文、數字、底線和句點');
+    if (o.collaborators.includes(name)) return toast('已經加過了');
+    o.collaborators.push(name); save(); renderIgOpts();
+  };
+  if ($('#collabAdd')) { $('#collabAdd').onclick = addCollab; $('#collabName').onkeydown = e => e.key === 'Enter' && addCollab(); }
+  box.querySelectorAll('[data-uncollab]').forEach(b => b.onclick = () => { o.collaborators.splice(+b.dataset.uncollab, 1); save(); renderIgOpts(); });
+  // 地點
+  box.querySelectorAll('[data-place]').forEach(b => b.onclick = () => { o.location = b.dataset.place; save(); renderIgOpts(); });
+  box.querySelectorAll('[data-unplace]').forEach(b => b.onclick = () => {
+    const x = places.find(pl => pl.id === b.dataset.unplace);
+    if (!confirm(`刪除常用地點「${x.name}」？`)) return;
+    S.places = places.filter(pl => pl !== x);
+    if (o.location === x.id) o.location = '';
+    save(); renderIgOpts();
+  });
+  $('#placeSave').onclick = () => {
+    const name = $('#placeName').value.trim();
+    const id = ($('#placeId').value.match(/\d{5,25}/) || [])[0];
+    if (!name) return toast('請輸入地點名稱');
+    if (!id) return toast('找不到編號：要是一串數字，或含有數字編號的網址');
+    S.places = [...places.filter(x => x.id !== id), { id, name }];
+    o.location = id; save(); renderIgOpts();
+  };
+}
+
 async function refreshServerPosts() {
   if (!session || !S.posts.some(p => p.serverPost)) return;
   try { const { posts } = await apiCall('/api/posts'); for (const sp of posts) serverPosts[sp.id] = sp; } catch { return; }
