@@ -105,6 +105,13 @@ main { overflow: auto; min-height: 0; }
 .t-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg); border-radius: 10px; padding: 12px; margin-top: 12px; }
 .t-form .full { grid-column: 1 / -1; }
 .hint-s { font-size: 13px; color: var(--sub); }
+.text-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.text-head label.field { margin: 0; }
+.ai-btn { border-radius: 99px; padding: 4px 12px; font-size: 13px; border-color: var(--accent); color: var(--accent); }
+.ai-vers { display: grid; gap: 10px; margin-top: 14px; }
+.ai-ver { border: 1px solid var(--line); border-radius: 10px; padding: 12px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
+.ai-ver .row { margin-top: 10px; justify-content: flex-end; white-space: normal; }
+.ai-wait { text-align: center; padding: 24px 0; color: var(--sub); }
 .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 
 .send .progress { height: 6px; background: var(--hint); border-radius: 99px; overflow: hidden; margin-bottom: 16px; }
@@ -239,6 +246,11 @@ main { overflow: auto; min-height: 0; }
 <div class="modal-bg" id="storyModal"><div class="modal" style="width:min(760px,100%)">
   <h3>確認限動畫面 <button class="link" id="storyClose">關閉</button></h3>
   <div id="storyBody"></div>
+</div></div>
+
+<div class="modal-bg" id="aiModal"><div class="modal">
+  <h3>✨ AI 幫我寫文案 <button class="link" data-close>關閉</button></h3>
+  <div id="aiBody"></div>
 </div></div>
 
 <div class="modal-bg" id="autoModal"><div class="modal">
@@ -579,7 +591,7 @@ function renderEditor() {
   ${p.serverPost ? `<div class="card"><h2>⚡ 自動發狀態</h2><div id="autoStatus">${autoStatusHtml(p)}</div></div>` : ''}
   <div class="card">
     <h2>內容</h2>
-    <label class="field" for="text">文字</label>
+    <div class="text-head"><label class="field" for="text">文字</label><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></div>
     <textarea id="text" placeholder="要發的文字⋯">${esc(p.text)}</textarea>
     <label class="field" for="link" style="margin-top:12px">連結（會接在文字最後面）</label>
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
@@ -637,6 +649,7 @@ function renderEditor() {
 
   renderThumbs();
   const refreshSettings = () => { const c = $('#editor .card:last-child'); if (c && !p.serverPost) { renderEditorSettings(p); } };
+  $('#aiOpen').onclick = () => openAi(p);
   $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshSettings(); };
   $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshSettings(); };
   const drop = $('#drop'), file = $('#file');
@@ -1479,6 +1492,84 @@ $('#autoSend').onclick = () => active() && submitAuto(active());
 $('#storyClose').onclick = closeStoryModal;
 
 // ===== IG 貼文設定：標註人物、協作者（最多 3 位）、常用地點 =====
+// ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
+// p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
+const AI_TONES = [['warm', '溫馨居家'], ['pro', '專業質感'], ['promo', '促銷活動']];
+const AI_PLACES = [['ig', 'IG／Threads'], ['fb', 'Facebook'], ['line', 'LINE']];
+function aiDefaultPlace(p) {
+  if (p.mode === 'auto') return 'ig';
+  const t = postTargets(p)[0]?.type || '';
+  return t === 'line' ? 'line' : t.startsWith('fb') ? 'fb' : 'ig';
+}
+let aiCtx = null;
+function openAi(p) {
+  p.ai ||= { topic: '', tone: 'warm', place: aiDefaultPlace(p), photo: true };
+  aiCtx = { p, versions: [], busy: false };
+  renderAi();
+  $('#aiModal').classList.add('open');
+  setTimeout(() => $('#aiTopic')?.focus(), 50);
+}
+const aiPhoto = p => p.media.find(m => !isVideo(m));
+function renderAi() {
+  const { p, versions, busy } = aiCtx, a = p.ai, ph = aiPhoto(p);
+  const chips = (list, cur, key) => list.map(([v, label]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${label}</button>`).join('');
+  $('#aiBody').innerHTML = `
+    <label class="field" for="aiTopic">要推什麼？隨手打幾個重點就好</label>
+    <textarea id="aiTopic" style="min-height:70px" placeholder="例如：北歐風實木餐桌新到貨、雙11 85折、台中門市現貨">${esc(a.topic)}</textarea>
+    <label class="field" style="margin-top:12px">語氣</label>
+    <div class="chips">${chips(AI_TONES, a.tone, 'tone')}</div>
+    <label class="field" style="margin-top:12px">要發在哪裡（長短和寫法會不一樣）</label>
+    <div class="chips">${chips(AI_PLACES, a.place, 'place')}</div>
+    ${ph ? `<label class="row" style="margin-top:12px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="aiPhoto" style="width:auto" ${a.photo ? 'checked' : ''}> 讓 AI 看第一張照片，描述材質和氛圍</label>` : ''}
+    <label class="field" for="aiBrand" style="margin-top:12px">店家資訊（選填，會放在文末；之後每次都會記得）</label>
+    <input id="aiBrand" placeholder="例如：○○家具｜台中市西屯區○○路 1 號｜04-1234-5678" value="${esc(S.brand || '')}">
+    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="aiGo" ${busy ? 'disabled' : ''}>${versions.length ? '🔄 再寫 3 個' : '✨ 寫 3 個版本'}</button></div>
+    ${busy ? `<div class="ai-wait">AI 寫作中，大約 10～20 秒⋯</div>` : ''}
+    ${versions.length && !busy ? `<div class="ai-vers">${versions.map((v, i) => `<div class="ai-ver">${esc(v)}<div class="row"><button class="primary" data-use="${i}">用這個</button></div></div>`).join('')}</div>
+      <p class="hint-s">AI 寫的內容請看過再發，價格、日期這些資訊要再確認一次。</p>` : ''}`;
+  $('#aiTopic').oninput = e => { a.topic = e.target.value; save(); };
+  $('#aiBrand').oninput = e => { S.brand = e.target.value; save(); };
+  if ($('#aiPhoto')) $('#aiPhoto').onchange = e => { a.photo = e.target.checked; save(); };
+  $('#aiBody').querySelectorAll('[data-tone]').forEach(b => b.onclick = () => { a.tone = b.dataset.tone; save(); renderAi(); });
+  $('#aiBody').querySelectorAll('[data-place]').forEach(b => b.onclick = () => { a.place = b.dataset.place; save(); renderAi(); });
+  $('#aiGo').onclick = aiGenerate;
+  $('#aiBody').querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
+    p.text = versions[+b.dataset.use]; save();
+    $('#aiModal').classList.remove('open');
+    renderEditor(); renderList(); renderBar();
+    toast('已放進文字框，可以再自己修改');
+  });
+}
+// 照片縮小成 768px 的 JPEG 給 AI 看（省流量、AI 也看得夠清楚）
+async function aiImage(m) {
+  const blob = await mediaBlob(m);
+  if (!blob) return '';
+  const bmp = await createImageBitmap(blob);
+  const sc = Math.min(1, 768 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8);
+}
+async function aiGenerate() {
+  const ctx = aiCtx, { p } = ctx, a = p.ai, ph = aiPhoto(p);
+  const useImg = ph && a.photo;
+  if (!a.topic.trim() && !useImg) return toast('先打幾個要推的重點');
+  ctx.busy = true; renderAi();
+  try {
+    const image = useImg ? await aiImage(ph).catch(() => '') : '';
+    const r = await fetch(API + '/ai/caption', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: a.topic, tone: a.tone, place: a.place, brand: S.brand || '', draft: p.text, image }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
+    ctx.versions = j.versions;
+  } catch (e) {
+    toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message);
+  }
+  ctx.busy = false;
+  if (aiCtx === ctx) renderAi();
+}
+
 // p.ig = { tags: { [檔案 id]: [{username,x,y}] }, collaborators: [], location: 地點編號 }；常用地點存在 S.places
 const igOpts = p => (p.ig ||= { tags: {}, collaborators: [], location: '' });
 const cleanName = v => String(v || '').trim().replace(/^@/, '');
