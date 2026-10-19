@@ -1494,7 +1494,7 @@ $('#storyClose').onclick = closeStoryModal;
 // ===== IG 貼文設定：標註人物、協作者（最多 3 位）、常用地點 =====
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
-const AI_TONES = [['warm', '溫馨居家'], ['pro', '專業質感'], ['promo', '促銷活動']];
+const AI_TONES = [['warm', '輕鬆生活'], ['pro', '專業質感'], ['promo', '促銷活動']];
 const AI_PLACES = [['ig', 'IG／Threads'], ['fb', 'Facebook'], ['line', 'LINE']];
 function aiDefaultPlace(p) {
   if (p.mode === 'auto') return 'ig';
@@ -1514,15 +1514,15 @@ function renderAi() {
   const { p, versions, busy } = aiCtx, a = p.ai, ph = aiPhoto(p);
   const chips = (list, cur, key) => list.map(([v, label]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${label}</button>`).join('');
   $('#aiBody').innerHTML = `
-    <label class="field" for="aiTopic">要推什麼？隨手打幾個重點就好</label>
-    <textarea id="aiTopic" style="min-height:70px" placeholder="例如：北歐風實木餐桌新到貨、雙11 85折、台中門市現貨">${esc(a.topic)}</textarea>
+    <label class="field" for="aiTopic">想寫什麼？隨手打幾個重點（有照片的話可以不打，AI 看圖寫）</label>
+    <textarea id="aiTopic" style="min-height:70px" placeholder="例如：週末去台南吃美食／新品到貨、雙11 85折">${esc(a.topic)}</textarea>
     <label class="field" style="margin-top:12px">語氣</label>
     <div class="chips">${chips(AI_TONES, a.tone, 'tone')}</div>
     <label class="field" style="margin-top:12px">要發在哪裡（長短和寫法會不一樣）</label>
     <div class="chips">${chips(AI_PLACES, a.place, 'place')}</div>
-    ${ph ? `<label class="row" style="margin-top:12px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="aiPhoto" style="width:auto" ${a.photo ? 'checked' : ''}> 讓 AI 看第一張照片，描述材質和氛圍</label>` : ''}
-    <label class="field" for="aiBrand" style="margin-top:12px">店家資訊（選填，會放在文末；之後每次都會記得）</label>
-    <input id="aiBrand" placeholder="例如：○○家具｜台中市西屯區○○路 1 號｜04-1234-5678" value="${esc(S.brand || '')}">
+    ${ph ? `<label class="row" style="margin-top:12px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="aiPhoto" style="width:auto" ${a.photo ? 'checked' : ''}> 讓 AI 看第一張照片，依照片內容來寫</label>` : ''}
+    <label class="field" for="aiBrand" style="margin-top:12px">固定放在文末的資訊（選填，例如店名、電話；不需要就留空）</label>
+    <input id="aiBrand" placeholder="例如：○○工作室｜04-1234-5678｜LINE ID：abc" value="${esc(S.brand || '')}">
     <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="aiGo" ${busy ? 'disabled' : ''}>${versions.length ? '🔄 再寫 3 個' : '✨ 寫 3 個版本'}</button></div>
     ${busy ? `<div class="ai-wait">AI 寫作中，大約 10～20 秒⋯</div>` : ''}
     ${versions.length && !busy ? `<div class="ai-vers">${versions.map((v, i) => `<div class="ai-ver">${esc(v)}<div class="row"><button class="primary" data-use="${i}">用這個</button></div></div>`).join('')}</div>
@@ -1554,7 +1554,7 @@ async function aiImage(m) {
 async function aiGenerate() {
   const ctx = aiCtx, { p } = ctx, a = p.ai, ph = aiPhoto(p);
   const useImg = ph && a.photo;
-  if (!a.topic.trim() && !useImg) return toast('先打幾個要推的重點');
+  if (!a.topic.trim() && !useImg) return toast('先打幾個重點，或放一張照片');
   ctx.busy = true; renderAi();
   try {
     const image = useImg ? await aiImage(ph).catch(() => '') : '';
