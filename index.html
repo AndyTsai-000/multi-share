@@ -192,6 +192,11 @@ main { overflow: auto; min-height: 0; }
 .se-tools button.on { background: var(--soft); border-color: var(--accent); color: var(--soft-ink); }
 .se-stage canvas.drawing { cursor: crosshair; }
 .se-layouts { margin: -4px 0 10px; align-items: center; }
+.pe-wrap { grid-template-columns: 340px 1fr; }
+.pe-stage canvas, .pe-stage video { width: 100%; border-radius: 10px; display: block; background: #000; }
+.pe-stage canvas { touch-action: none; cursor: grab; }
+.pe-num { width: 34px; text-align: right; flex: none; }
+@media (max-width: 760px) { .pe-wrap { grid-template-columns: 1fr; } .pe-stage { width: min(300px, 86%); margin: 0 auto; } }
 .se-pages { align-items: center; }
 .se-undo { margin-left: auto; display: flex; gap: 6px; }
 .se-undo button { border-radius: 99px; padding: 4px 12px; font-size: 14px; }
@@ -301,6 +306,11 @@ main { overflow: auto; min-height: 0; }
   <h3>發送對象 <button class="link" data-close>關閉</button></h3>
   <div id="targetList"></div>
   <div id="targetForm"></div>
+</div></div>
+
+<div class="modal-bg" id="postEdModal"><div class="modal" style="width:min(940px,100%)">
+  <h3>🎨 編輯貼文 <button class="link" id="postEdClose">關閉</button></h3>
+  <div id="postEdBody"></div>
 </div></div>
 
 <div class="modal-bg" id="igOptsModal"><div class="modal" style="width:min(720px,100%)">
@@ -567,13 +577,13 @@ const MODE_INFO = {
   auto: {
     icon: '⚡', title: '全自動發送', lead: '排好時間就不用管。時間到由伺服器自動發出，電腦、手機都可以關掉。',
     where: 'Instagram 貼文、Instagram 限動、Threads（要先連結帳號）',
-    yes: ['IG 貼文最多 10 張，可標註人物、協作者 3 位、常用地點', 'IG 限動：用編好的限動畫面（文字、貼圖），發布前再確認一次', '一次發到多個帳號'],
+    yes: ['IG 貼文最多 20 張：裁切、濾鏡、替代文字、標註人物、協作者 3 位、地點', 'IG 限動：用編好的限動畫面（文字、貼圖），發布前再確認一次', '一次發到多個帳號'],
     no: ['不能加音樂、限動貼圖（連結、投票…）', '不能發 LINE、Facebook（平台不開放）'],
   },
   manual: {
     icon: '📱', title: '半自動發送', lead: '網站幫你準備好文字和圖片，打開 App 貼上、按發送就好。',
     where: 'LINE、FB 社團／動態／限動、IG 貼文／限動、Threads、X、其他網址',
-    yes: ['所有平台都能發，包括 LINE 群組和 FB 社團', 'IG 完整功能：音樂、20 張、協作者 5 位、搜尋地點、限動貼圖', 'IG 貼文可以用 IG App 的「排定時間」'],
+    yes: ['所有平台都能發，包括 LINE 群組和 FB 社團', 'IG 完整功能：音樂、協作者 5 位、搜尋地點、限動互動貼圖', 'IG 貼文可以用 IG App 的「排定時間」'],
     no: ['時間到要自己按（網頁或行事曆會提醒）', '每個地方各操作一次，大約 30 秒'],
   },
 };
@@ -628,8 +638,8 @@ const MANUAL_TIP = {
 function settingsHtml(p) {
   if (p.mode === 'auto') {
     const opts = autoSelected(p), parts = [];
-    if (postMedia(p).length > 10) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 10 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
-    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button></div>`);
+    if (postMedia(p).length > 20) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 20 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button><button class="link" data-peopen style="color:var(--accent)">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
     if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
@@ -656,11 +666,12 @@ function renderEditor() {
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
   </div>
   <div class="card">
-    <h2>圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 10 個）</small></h2>
+    <h2>圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small></h2>
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
-    <div class="text-head" style="margin:12px 0 0"><span class="hint-s">有活動 DM、型錄、報價單？AI 幫你做成限動圖</span><button class="ai-btn" id="fsOpen">📄 用檔案做限動</button></div>
+    <div class="text-head" style="margin:12px 0 0"><span class="hint-s">IG 貼文的裁切比例、濾鏡、調整、排序、替代文字</span><button class="ai-btn" id="peOpen">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button></div>
+    <div class="text-head" style="margin:8px 0 0"><span class="hint-s">有活動 DM、型錄、報價單？AI 幫你做成限動圖</span><button class="ai-btn" id="fsOpen">📄 用檔案做限動</button></div>
   </div>
   <div class="card" id="storyCard">${storyCardHtml(p)}</div>
   <div class="step-nav bare"><span></span><button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
@@ -745,6 +756,7 @@ function renderEditor() {
     renderThumbs();
     $('#aiOpen').onclick = () => openAi(p);
     $('#fsOpen').onclick = () => openFileStory(p);
+    $('#peOpen').onclick = () => openPostEditor(p);
     $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     const drop = $('#drop'), file = $('#file');
@@ -835,6 +847,7 @@ function renderEditorSettings(p) {
 function bindSettings(p) {
   if ($('#igOptsOpen')) $('#igOptsOpen').onclick = () => openIgOpts(p);
   document.querySelectorAll('#editor [data-seopen]').forEach(x => x.onclick = () => openStoryEditor(p));
+  document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -1141,6 +1154,7 @@ $('#importFile').onchange = async e => {
 // ===== 媒體：複製、下載、手機分享 =====
 async function mediaFiles(p, story) {
   if (story) { const f = await storyFiles(p).catch(() => null); if (f) return f; }
+  if (!story && p.postEdit?.done) return postFiles(p);
   const out = [];
   for (const m of story ? p.media : postMedia(p)) { const b = await mediaBlob(m); if (b) out.push(new File([b], m.name, { type: m.type })); }
   return out;
@@ -1165,7 +1179,7 @@ async function downloadAll(p, story) {
 const shareCache = {};
 function prepareShare(p, story) {
   story = !!(story && p.storyEdit?.done);
-  const key = p.id + ':' + p.media.map(m => m.id).join(',') + (story ? ':story' + p.storyEdit.ver : '');
+  const key = p.id + ':' + p.media.map(m => m.id).join(',') + (story ? ':story' + p.storyEdit.ver : p.postEdit?.done ? ':post' + p.postEdit.ver : '');
   if (!shareCache[key]) { shareCache[key] = { files: null }; mediaFiles(p, story).then(f => shareCache[key].files = f); }
   return shareCache[key];
 }
@@ -1389,7 +1403,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022e";
+const APP_VERSION = "v1022f";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1481,7 +1495,8 @@ async function submitAuto(p) {
   if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) { toast('IG 貼文一定要有圖片或影片'); logRemote('trace', '擋下：IG 貼文沒有圖'); return alert('⚠️ 還沒送出\n\nIG 貼文一定要有圖片或影片（純文字限動、拼貼只給限動用）'); }
   if (opts.some(isStory) && !p.media.length) { toast('IG 限動要有圖片或影片'); return alert('⚠️ 還沒送出\n\nIG 限動要有圖片、影片，或先做一張純文字限動'); }
   if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
-  if (postMedia(p).length > 10 || p.media.length > 10) { toast('自動發最多 10 個圖片影片'); logRemote('trace', '擋下：自動發最多 10 個圖片影片'); return alert('⚠️ 還沒送出\n\n自動發最多 10 個圖片影片'); }
+  if (postMedia(p).length > 20) { toast('自動發最多 20 個圖片影片'); logRemote('trace', '擋下：超過 20 個'); return alert('⚠️ 還沒送出\n\n自動發貼文最多 20 個圖片影片'); }
+  if (opts.some(isStory) && p.media.length > 10) { toast('限動一次最多 10 則'); return alert('⚠️ 還沒送出\n\n限動一次最多 10 則'); }
   // 有 IG 限動：先編輯、確認限動畫面，確認了才送出
   if (opts.some(isStory)) return openStoryEditor(p, opts);
   const when = autoWhen(p);
@@ -1517,7 +1532,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
       tick();
       const blob = await mediaBlob(m);
       if (!blob) throw new Error(`找不到「${m.name}」，請重新加入`);
-      media.push(isVideo(m) ? await uploadMedia(blob, videoType(m, blob)) : await uploadMedia(await toJpeg(blob), 'image/jpeg'));
+      media.push(isVideo(m) ? await uploadMedia(blob, videoType(m, blob)) : await uploadMedia(await peExportImage(p, m), 'image/jpeg'));
     }
     const storyMedia = [];
     if (storyBlobs) for (const [i, b] of storyBlobs.entries()) {
@@ -1528,7 +1543,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
     btn.textContent = '送出中⋯'; onMsg?.('送出中⋯');
     const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
-      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ig: igPayload(p) } : { account: o.account, kind: o.kind });
+      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ig: { ...igPayload(p), ...peIgExtra(p) } } : { account: o.account, kind: o.kind });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
@@ -2425,10 +2440,279 @@ async function seFinish() {
   }
 }
 $('#storyClose').onclick = () => closeStoryEditor('按了右上角關閉');
+$('#postEdClose').onclick = closePostEditor;
 $('#autoSend').onclick = () => {
   logRemote('trace', '按鈕被按 ' + (active() ? 'mode=' + active().mode + ' auto=' + (active().auto || []).join('+') : '沒有選貼文'));
   if (active()) submitAuto(active()).catch(e => { logRemote('error', 'submitAuto: ' + e.message); alert('⚠️ 自動發出錯：' + e.message); });
 };
+
+// ===== 貼文編輯器：跟 IG App 發貼文一樣——比例裁切、旋轉拉直、IG 濾鏡、調整、排序、替代文字、Reels 封面 =====
+// p.postEdit = { ver, ratio, items: { [檔案 id]: { zoom, ox, oy, rot, straight, filter, adj: {b,c,s,w,f,v}, alt } }, reel: { thumb, audio, feed }, done }
+// IG 規定照片比例要在 4:5（直）到 1.91:1（橫）之間；輪播每張用同一個比例（跟 IG App 一樣）
+const PE_RATIOS = [['4:5', '4:5 直式', 0.8], ['1:1', '1:1 正方形', 1], ['1.91', '1.91:1 橫式', 1.91], ['orig', '原比例', 0]];
+const PE_FILTERS = [['none', 'Normal', ''], ['clarendon', 'Clarendon', 'contrast(1.2) saturate(1.35)'], ['gingham', 'Gingham', 'brightness(1.05) hue-rotate(-10deg) sepia(.04)'],
+  ['moon', 'Moon', 'grayscale(1) contrast(1.1) brightness(1.1)'], ['lark', 'Lark', 'contrast(.9) brightness(1.08) saturate(1.1)'], ['reyes', 'Reyes', 'sepia(.22) brightness(1.1) contrast(.85) saturate(.75)'],
+  ['juno', 'Juno', 'saturate(1.4) contrast(1.15) sepia(.1)'], ['slumber', 'Slumber', 'saturate(.66) brightness(1.05) sepia(.15)'], ['crema', 'Crema', 'sepia(.2) contrast(.9) brightness(1.05) saturate(.9)'],
+  ['ludwig', 'Ludwig', 'contrast(1.05) saturate(1.1) brightness(1.03)'], ['aden', 'Aden', 'hue-rotate(-20deg) contrast(.9) saturate(.85) brightness(1.2)'], ['perpetua', 'Perpetua', 'contrast(1.1) brightness(1.05) saturate(1.1) hue-rotate(-5deg)'],
+  ['valencia', 'Valencia', 'contrast(1.08) brightness(1.08) sepia(.08)'], ['xpro', 'X-Pro II', 'contrast(1.3) saturate(1.3) sepia(.3)'], ['willow', 'Willow', 'grayscale(.5) contrast(.95) brightness(.9)'],
+  ['inkwell', 'Inkwell', 'grayscale(1) sepia(.3) contrast(1.1) brightness(1.1)'], ['nashville', 'Nashville', 'sepia(.25) contrast(1.2) brightness(1.05) saturate(1.2) hue-rotate(-15deg)']];
+// 調整（IG「編輯」那排）：-100～100；褪色、暈影 0～100
+const PE_ADJ = [['b', '亮度', -100], ['c', '對比', -100], ['s', '飽和度', -100], ['w', '色溫', -100], ['f', '褪色', 0], ['v', '暈影', 0]];
+const peItemDef = () => ({ zoom: 1, ox: 0, oy: 0, rot: 0, straight: 0, filter: 'none', adj: {}, alt: '' });
+function postEdit(p) {
+  p.postEdit ||= { ver: 1, ratio: 'orig', items: {}, reel: { thumb: 0, audio: '', feed: true } };
+  for (const m of postMedia(p)) p.postEdit.items[m.id] ||= peItemDef();
+  return p.postEdit;
+}
+const peBmps = {};   // 檔案 id → ImageBitmap（畫的時候用）
+async function peBitmap(m) {
+  if (!peBmps[m.id]) { const b = await mediaBlob(m); if (!b) throw new Error(`找不到「${m.name}」，請重新加入`); peBmps[m.id] = await createImageBitmap(b); }
+  return peBmps[m.id];
+}
+// 整則貼文用的比例（寬÷高）：原比例看第一張照片，超出 IG 範圍就夾到 4:5～1.91:1
+async function peRatio(p) {
+  const pe = postEdit(p), r = PE_RATIOS.find(x => x[0] === pe.ratio)?.[2];
+  if (r) return r;
+  const first = postMedia(p).find(m => !isVideo(m));
+  if (!first) return 1;
+  const bmp = await peBitmap(first), it = pe.items[first.id] || peItemDef();
+  const odd = Math.abs(it.rot) % 2 === 1, w = odd ? bmp.height : bmp.width, h = odd ? bmp.width : bmp.height;
+  return Math.min(1.91, Math.max(0.8, w / h));
+}
+const peSize = r => [1080, Math.round(1080 / r)];
+function peFilterCss(it) {
+  const a = it.adj || {}, f = PE_FILTERS.find(x => x[0] === it.filter)?.[2] || '';
+  const w = a.w || 0;
+  return [f, a.b ? `brightness(${1 + a.b / 200})` : '', a.c ? `contrast(${1 + a.c / 200})` : '', a.s ? `saturate(${1 + a.s / 100})` : '',
+    w > 0 ? `sepia(${w / 250}) saturate(${1 + w / 400})` : w < 0 ? `hue-rotate(${w / 6}deg) saturate(${1 + w / 500})` : ''].filter(Boolean).join(' ') || 'none';
+}
+// 把一張照片照設定畫到 W×H：先轉向、拉直（自動放大到蓋滿）、再縮放平移，最後套濾鏡、褪色、暈影
+function peDraw(g, it, bmp, W, H) {
+  g.save();
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+  const ang = ((it.rot || 0) * 90 + (it.straight || 0)) * Math.PI / 180, a = Math.abs((it.straight || 0) * Math.PI / 180);
+  const odd = Math.abs(it.rot || 0) % 2 === 1, iw = odd ? bmp.height : bmp.width, ih = odd ? bmp.width : bmp.height;
+  const bw = W * Math.cos(a) + H * Math.sin(a), bh = W * Math.sin(a) + H * Math.cos(a);
+  const sc = Math.max(bw / iw, bh / ih) * (it.zoom || 1);
+  g.translate(W / 2 + (it.ox || 0) * W, H / 2 + (it.oy || 0) * H);
+  g.rotate(ang);
+  if ('filter' in g) g.filter = peFilterCss(it);
+  g.drawImage(bmp, -bmp.width * sc / 2, -bmp.height * sc / 2, bmp.width * sc, bmp.height * sc);
+  g.restore();
+  const f = it.adj?.f || 0, v = it.adj?.v || 0;
+  if (f) { g.fillStyle = `rgba(255,255,255,${f / 100 * 0.32})`; g.fillRect(0, 0, W, H); }
+  if (v) {
+    const rg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) / 2);
+    rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, `rgba(0,0,0,${v / 100 * 0.75})`);
+    g.fillStyle = rg; g.fillRect(0, 0, W, H);
+  }
+}
+// 輸出：照片 → 1080 寬的 JPEG（照 IG 比例）；影片用原檔（IG 會照原樣發）
+async function peExportImage(p, m) {
+  const r = await peRatio(p), [W, H] = peSize(r), it = postEdit(p).items[m.id] || peItemDef();
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  peDraw(c.getContext('2d'), it, await peBitmap(m), W, H);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+}
+// 半自動分享、下載用：編過才用編好的版本
+const peOut = {};
+async function postFiles(p) {
+  const key = p.id + ':' + p.postEdit.ver + ':' + postMedia(p).map(m => m.id).join(',');
+  if (peOut[key]) return peOut[key];
+  const out = [];
+  for (const m of postMedia(p)) {
+    if (isVideo(m)) { const b = await mediaBlob(m); if (b) out.push(new File([b], m.name, { type: m.type })); continue; }
+    out.push(new File([await peExportImage(p, m)], m.name.replace(/\.[^.]+$/, '') + '-IG.jpg', { type: 'image/jpeg' }));
+  }
+  return (peOut[key] = out);
+}
+// 送給伺服器的 IG 選項：替代文字、Reels 設定
+function peIgExtra(p) {
+  const pe = p.postEdit, pm = postMedia(p), out = {};
+  if (!pe) return out;
+  const alts = pm.map(m => isVideo(m) ? '' : (pe.items[m.id]?.alt || '').trim());
+  if (alts.some(Boolean)) out.alts = alts;
+  if (pm.length === 1 && isVideo(pm[0])) {
+    const r = pe.reel || {};
+    out.reel = { thumb_offset: Math.round((r.thumb || 0) * 1000), audio_name: r.audio || '', share_to_feed: r.feed !== false };
+  }
+  return out;
+}
+
+// ---- 視窗 ----
+let peCtx = null;   // { p, i（第幾張貼文照片）, hist: { stack, redo }, histT }
+function openPostEditor(p) {
+  const pm = postMedia(p);
+  if (!pm.length) return toast('先加入照片或影片');
+  postEdit(p);
+  peCtx = { p, i: 0, hist: { stack: [JSON.stringify(peState(p))], redo: [] } };
+  $('#postEdModal').classList.add('open');
+  renderPostEditor();
+}
+function closePostEditor() {
+  if (peCtx?.video) peCtx.video.pause();
+  peCtx = null;
+  $('#postEdModal').classList.remove('open');
+  if (active()) { renderThumbs(); renderEditorSettings(active()); refreshStepper(active()); }
+}
+// 快照不含版本號和「編過了」，不然復原後每次比對都不一樣
+const peState = p => { const { ver, done, ...pe } = p.postEdit; return { pe, order: postMedia(p).map(m => m.id) }; };
+const peCur = () => postMedia(peCtx.p)[peCtx.i];
+const peItem = () => postEdit(peCtx.p).items[peCur().id];
+// 復原／重做（跟限動編輯器一樣：連續動作停下來才算一步）
+function peBump(soft) {
+  const p = peCtx.p; p.postEdit.ver++; p.postEdit.done = true; save();
+  clearTimeout(peCtx.histT);
+  if (soft) peCtx.histT = setTimeout(peCommit, 400); else peCommit();
+}
+function peCommit() {
+  if (!peCtx) return;
+  clearTimeout(peCtx.histT);
+  const h = peCtx.hist, now = JSON.stringify(peState(peCtx.p));
+  if (h.stack[h.stack.length - 1] !== now) { h.stack.push(now); if (h.stack.length > 101) h.stack.shift(); h.redo = []; }
+  peUndoBtns();
+}
+function peRestore(json) {
+  const p = peCtx.p, st = JSON.parse(json);
+  p.postEdit = { ...st.pe, ver: (p.postEdit.ver || 0) + 1, done: true };
+  const story = p.media.filter(m => m.storyOnly), byId = Object.fromEntries(p.media.map(m => [m.id, m]));
+  p.media = [...st.order.map(id => byId[id]).filter(Boolean), ...p.media.filter(m => !m.storyOnly && !st.order.includes(m.id)), ...story];
+  save(); peCtx.i = Math.min(peCtx.i, postMedia(p).length - 1); renderPostEditor();
+}
+function peUndo() { if (!peCtx) return; peCommit(); const h = peCtx.hist; if (h.stack.length < 2) return; h.redo.push(h.stack.pop()); peRestore(h.stack[h.stack.length - 1]); }
+function peRedo() { if (!peCtx) return; peCommit(); const h = peCtx.hist; if (!h.redo.length) return; const s = h.redo.pop(); h.stack.push(s); peRestore(s); }
+function peUndoBtns() {
+  if ($('#peUndo')) $('#peUndo').disabled = !peCtx || peCtx.hist.stack.length < 2;
+  if ($('#peRedo')) $('#peRedo').disabled = !peCtx || !peCtx.hist.redo.length;
+}
+document.addEventListener('keydown', e => {
+  if (!peCtx || !$('#postEdModal').classList.contains('open') || !(e.ctrlKey || e.metaKey)) return;
+  if (/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); peUndo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); peRedo(); }
+});
+async function renderPostEditor() {
+  const ctx = peCtx, { p } = ctx, pe = postEdit(p), pm = postMedia(p), m = peCur(), it = peItem(), vid = isVideo(m);
+  const single = pm.length === 1;
+  $('#postEdBody').innerHTML = `
+    <div class="se-pages">${pm.map((x, i) => `<button class="chip ${i === ctx.i ? 'on' : ''}" data-pepage="${i}">${isVideo(x) ? '🎬' : '🖼️'} ${i + 1}</button>`).join('')}
+      ${pm.length > 1 ? `<button class="link" id="peLeft" ${ctx.i ? '' : 'disabled'}>◀ 往前</button><button class="link" id="peRight" ${ctx.i < pm.length - 1 ? '' : 'disabled'}>往後 ▶</button>` : ''}
+      <span class="se-undo"><button id="peUndo" title="復原（Ctrl+Z）">↶ 復原</button><button id="peRedo" title="重做（Ctrl+Y）">↷ 重做</button></span></div>
+    <div class="se-wrap pe-wrap">
+      <div class="pe-stage">${vid ? '<video id="peVideo" muted playsinline controls></video>' : '<canvas id="peCanvas"></canvas>'}</div>
+      <div class="se-side">
+        ${vid ? `
+          <div class="se-sec" style="border:0;margin:0;padding:0"><b>影片${single ? '（會發成 Reels）' : ''}</b>
+            ${single ? `
+            <div class="se-row"><span>封面</span><input type="range" id="peThumb" min="0" max="60" step="0.1" value="${pe.reel.thumb || 0}"><span class="hint-s" id="peThumbT">${(pe.reel.thumb || 0).toFixed(1)} 秒</span></div>
+            <p class="hint-s" style="margin:4px 0 0">拉到想當封面的畫面。</p>
+            <label class="field" for="peAudio" style="margin-top:10px">音訊名稱（選填，只能改一次）</label>
+            <input id="peAudio" maxlength="100" placeholder="例如：秋季新品 原創音訊" value="${esc(pe.reel.audio || '')}">
+            <label class="row" style="gap:8px;margin-top:10px;font-size:14px;cursor:pointer"><input type="checkbox" id="peFeed" style="width:auto" ${pe.reel.feed !== false ? 'checked' : ''}> 也顯示在個人檔案的貼文（動態）</label>`
+            : '<p class="hint-s">影片放在輪播裡會照原樣發，不能設封面。</p>'}
+            <p class="hint-s">影片不能裁切或加濾鏡；IG 會照原本的比例發。</p>
+          </div>` : `
+          <div class="se-sec" style="border:0;margin:0;padding:0"><b>比例 <small style="font-weight:400;color:var(--sub)">${pm.length > 1 ? '（輪播每張都用同一個比例，跟 IG 一樣）' : ''}</small></b>
+            <div class="chips" style="margin-top:8px">${PE_RATIOS.map(([v, l]) => `<button class="chip ${pe.ratio === v ? 'on' : ''}" data-peratio="${v}">${l}</button>`).join('')}</div>
+            <div class="se-row"><span>縮放</span><input type="range" id="peZoom" min="100" max="300" value="${Math.round(it.zoom * 100)}"></div>
+            <div class="se-row"><span>拉直</span><input type="range" id="peStraight" min="-45" max="45" step="0.5" value="${it.straight || 0}"><button class="link" id="peRot">↻ 轉 90°</button></div>
+            <p class="hint-s" style="margin:4px 0 0">在照片上拖曳可以移動位置；滾輪或兩指可以縮放。</p>
+          </div>
+          <div class="se-sec"><b>濾鏡</b>
+            <div class="chips" style="margin-top:8px">${PE_FILTERS.map(([v, l]) => `<button class="chip ${it.filter === v ? 'on' : ''}" data-pefilter="${v}">${l}</button>`).join('')}</div>
+          </div>
+          <div class="se-sec"><b>調整</b>
+            ${PE_ADJ.map(([k, l, min]) => `<div class="se-row"><span>${l}</span><input type="range" data-peadj="${k}" min="${min}" max="100" value="${it.adj?.[k] || 0}"><span class="hint-s pe-num">${it.adj?.[k] || 0}</span></div>`).join('')}
+            <div class="row" style="gap:12px;margin-top:6px">${pm.length > 1 ? '<button class="link" id="peAll" style="color:var(--accent);padding:0">濾鏡和調整套用到全部照片</button>' : ''}<button class="link" id="peReset" style="padding:0">這張恢復原狀</button></div>
+          </div>
+          <div class="se-sec"><b>替代文字 <small style="font-weight:400;color:var(--sub)">給視障朋友的說明，全自動發的時候會一起送出</small></b>
+            <textarea id="peAlt" rows="2" maxlength="1000" placeholder="例如：胡桃木色的實木餐桌，搭配四張淺灰布面餐椅">${esc(it.alt || '')}</textarea>
+          </div>`}
+        <details class="se-note"><summary>IG 貼文還有哪些功能？</summary>
+          <p>✅ <b>這裡可以做</b>：比例裁切（4:5、1:1、1.91:1）、旋轉拉直、IG 濾鏡、調整亮度對比等、排序、替代文字、Reels 封面和音訊名稱。標註人物、協作者（最多 3 位）、地點在第 3 步的「IG 貼文」設定裡。</p>
+          <p>❌ <b>IG 沒開放給外部程式</b>：加音樂、貼文投票、商品標籤以外的購物功能、「新增你的」貼圖。要用的話改用<b>半自動</b>在 IG App 裡加。</p>
+          <p>💡 IG 規定照片比例要在 4:5～1.91:1 之間，超出的話全自動會照這裡的比例自動裁切。</p>
+        </details>
+      </div>
+    </div>
+    <div class="send"><div class="nav"><button class="link" id="peClose">關閉</button><button class="primary" id="peOk">✓ 完成</button></div></div>`;
+  const box = $('#postEdBody'), goPage = i => { peCommit(); ctx.i = i; renderPostEditor(); };
+  box.querySelectorAll('[data-pepage]').forEach(b => b.onclick = () => goPage(+b.dataset.pepage));
+  const move = d => {
+    const j = ctx.i + d, ids = pm.map(x => x.id); [ids[ctx.i], ids[j]] = [ids[j], ids[ctx.i]];
+    const byId = Object.fromEntries(p.media.map(x => [x.id, x]));
+    p.media = [...ids.map(id => byId[id]), ...p.media.filter(x => x.storyOnly)];
+    ctx.i = j; peBump(); renderPostEditor();
+  };
+  if ($('#peLeft')) $('#peLeft').onclick = () => move(-1);
+  if ($('#peRight')) $('#peRight').onclick = () => move(1);
+  $('#peUndo').onclick = peUndo; $('#peRedo').onclick = peRedo; peUndoBtns();
+  $('#peClose').onclick = closePostEditor;
+  $('#peOk').onclick = () => { peCommit(); closePostEditor(); toast('貼文照片編好了，發貼文時會用編好的版本'); };
+  if (vid) {
+    const v = $('#peVideo'), b = await mediaBlob(m);
+    if (peCtx !== ctx) return;
+    v.src = URL.createObjectURL(b);
+    v.onloadedmetadata = () => { if ($('#peThumb')) { $('#peThumb').max = Math.min(60, v.duration || 60).toFixed(1); } v.currentTime = pe.reel.thumb || 0; };
+    ctx.video = v;
+    if ($('#peThumb')) $('#peThumb').oninput = e => { pe.reel.thumb = +e.target.value; v.currentTime = pe.reel.thumb; $('#peThumbT').textContent = pe.reel.thumb.toFixed(1) + ' 秒'; peBump(1); };
+    if ($('#peAudio')) $('#peAudio').oninput = e => { pe.reel.audio = e.target.value; peBump(1); };
+    if ($('#peFeed')) $('#peFeed').onchange = e => { pe.reel.feed = e.target.checked; peBump(); };
+    return;
+  }
+  box.querySelectorAll('[data-peratio]').forEach(b => b.onclick = () => { pe.ratio = b.dataset.peratio; peBump(); renderPostEditor(); });
+  $('#peZoom').oninput = e => { it.zoom = e.target.value / 100; peBump(1); peDrawStage(); };
+  $('#peStraight').oninput = e => { it.straight = +e.target.value; peBump(1); peDrawStage(); };
+  $('#peRot').onclick = () => { it.rot = ((it.rot || 0) + 1) % 4; peBump(); renderPostEditor(); };
+  box.querySelectorAll('[data-pefilter]').forEach(b => b.onclick = () => { it.filter = b.dataset.pefilter; peBump(); renderPostEditor(); });
+  box.querySelectorAll('[data-peadj]').forEach(r => r.oninput = () => { it.adj = { ...it.adj, [r.dataset.peadj]: +r.value }; r.nextElementSibling.textContent = r.value; peBump(1); peDrawStage(); });
+  if ($('#peAll')) $('#peAll').onclick = () => { for (const x of pm) if (!isVideo(x)) Object.assign(pe.items[x.id], { filter: it.filter, adj: { ...it.adj } }); peBump(); toast('已套用到全部照片'); };
+  $('#peReset').onclick = () => { pe.items[m.id] = { ...peItemDef(), alt: it.alt }; peBump(); renderPostEditor(); };
+  $('#peAlt').oninput = e => { it.alt = e.target.value; peBump(1); };
+  await peDrawStage(true);
+  peBindStage();
+}
+// 預覽：同一個比例，寬 540（輸出時是 1080）
+async function peDrawStage(resize) {
+  const ctx = peCtx, c = $('#peCanvas'); if (!ctx || !c) return;
+  const r = await peRatio(ctx.p), W = 540, H = Math.round(540 / r);
+  if (resize || c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const bmp = await peBitmap(peCur());
+  if (peCtx !== ctx || !$('#peCanvas')) return;
+  peDraw(c.getContext('2d'), peItem(), bmp, W, H);
+  // 三分線（跟 IG 裁切時一樣），只在預覽顯示
+  const g = c.getContext('2d'); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1;
+  for (const k of [1, 2]) { g.beginPath(); g.moveTo(W * k / 3, 0); g.lineTo(W * k / 3, H); g.moveTo(0, H * k / 3); g.lineTo(W, H * k / 3); g.stroke(); }
+}
+function peBindStage() {
+  const c = $('#peCanvas'); if (!c) return;
+  const pts = new Map(); let drag = null, pinch = null;
+  const pos = e => { const r = c.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+  c.onpointerdown = e => {
+    try { c.setPointerCapture(e.pointerId); } catch {}
+    pts.set(e.pointerId, pos(e));
+    const it = peItem();
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: it.zoom }; drag = null; return; }
+    const q = pos(e); drag = { sx: q.x, sy: q.y, ox: it.ox || 0, oy: it.oy || 0 };
+  };
+  c.onpointermove = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, pos(e));
+    const it = peItem();
+    if (pinch && pts.size === 2) { const [a, b] = [...pts.values()]; it.zoom = Math.max(1, Math.min(3, pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d)); peDrawStage(); return; }
+    if (!drag) return;
+    const q = pos(e);
+    it.ox = Math.max(-1, Math.min(1, drag.ox + q.x - drag.sx)); it.oy = Math.max(-1, Math.min(1, drag.oy + q.y - drag.sy));
+    peDrawStage();
+  };
+  c.onpointerup = c.onpointercancel = e => {
+    pts.delete(e.pointerId);
+    if (drag || pinch) { peBump(); const z = $('#peZoom'); if (z) z.value = Math.round(peItem().zoom * 100); }
+    if (!pts.size) { drag = null; pinch = null; }
+  };
+  c.onwheel = e => { e.preventDefault(); const it = peItem(); it.zoom = Math.max(1, Math.min(3, it.zoom * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); $('#peZoom').value = Math.round(it.zoom * 100); peBump(1); peDrawStage(); };
+}
 
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
@@ -2769,7 +3053,7 @@ async function renderIgOpts() {
   box.querySelectorAll('[data-cur]').forEach(b => b.onclick = () => { igCtx.cur = +b.dataset.cur; igCtx.pending = null; renderIgOpts(); });
   const img = $('#tagImg');
   if (img && m) {
-    img.src = await mediaUrl(m);
+    img.src = p.postEdit?.done ? URL.createObjectURL(await peExportImage(p, m)) : await mediaUrl(m);
     img.onclick = e => {
       const r = img.getBoundingClientRect();
       igCtx.pending = { x: Math.round((e.clientX - r.left) / r.width * 1000) / 1000, y: Math.round((e.clientY - r.top) / r.height * 1000) / 1000 };
@@ -2892,6 +3176,7 @@ function navCloseModal(el) {
     else if (el.id === 'storyModal') closeStoryEditor('按了上一頁');
     else if (el.id === 'igOptsModal') closeIgOpts();
     else if (el.id === 'fsModal') closeFileStory();
+    else if (el.id === 'postEdModal') closePostEditor();
     else { const b = el.querySelector('[data-close]'); b ? b.click() : el.classList.remove('open'); }
   } finally { navApplying = false; }
 }
