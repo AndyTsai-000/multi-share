@@ -192,6 +192,10 @@ main { overflow: auto; min-height: 0; }
 .se-tools button.on { background: var(--soft); border-color: var(--accent); color: var(--soft-ink); }
 .se-stage canvas.drawing { cursor: crosshair; }
 .se-layouts { margin: -4px 0 10px; align-items: center; }
+.se-pages { align-items: center; }
+.se-undo { margin-left: auto; display: flex; gap: 6px; }
+.se-undo button { border-radius: 99px; padding: 4px 12px; font-size: 14px; }
+.se-undo button:disabled { opacity: .4; }
 .se-note { margin-top: 10px; font-size: 13px; color: var(--sub); }
 .se-note summary { cursor: pointer; color: var(--accent); }
 .se-note p { margin: 6px 0 0; }
@@ -708,6 +712,7 @@ function renderEditor() {
   <div class="card" id="setCard">${setCardHtml(p)}</div>`;
   ed.innerHTML = stepperHtml(p) + body;
   renderBar();
+  navSync();
 
   ed.querySelectorAll('[data-step]').forEach(x => x.onclick = () => !p.serverPost && goStep(p, +x.dataset.step));
   ed.querySelectorAll('[data-mode]').forEach(x => x.onclick = () => { p.mode = x.dataset.mode; save(); goStep(p, 3); renderList(); });
@@ -790,6 +795,7 @@ function setCardHtml(p) {
 }
 // 主畫面：沒有選貼文時，列出已排程、未排程
 function renderHome() {
+  setTimeout(navSync);
   const posts = S.posts.filter(p => !listStatus(p).finished);
   const recent = S.posts.filter(p => listStatus(p).finished).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)).slice(0, 5);
   const sched = posts.filter(isScheduled), un = posts.filter(p => !isScheduled(p));
@@ -1383,7 +1389,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022c";
+const APP_VERSION = "v1022e";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1635,7 +1641,61 @@ function storyEdit(p) {
   });
   return se;
 }
-function seBump(p) { p.storyEdit.ver++; save(); }
+// soft：打字、拉滑桿這種連續的動作，停下來 0.4 秒才算一步；其他動作（加、刪、畫完一筆、拖完）馬上算一步
+function seBump(p, soft) {
+  p.storyEdit.ver++; save();
+  if (seCtx?.p !== p) return;
+  clearTimeout(seCtx.histT);
+  if (soft) seCtx.histT = setTimeout(seCommit, 400); else seCommit();
+}
+// ---- 復原／重做：每張限動各自一疊「畫面狀態」----
+const seSnap = () => JSON.stringify(seFrame());
+function seHist() {
+  const id = seCtx.p.media[seCtx.i]?.id;
+  return id ? (seCtx.hist[id] ||= { stack: [seSnap()], redo: [] }) : null;
+}
+function seCommit() {
+  if (!seCtx) return;
+  clearTimeout(seCtx.histT);
+  const h = seHist(); if (!h) return;
+  const now = seSnap();
+  if (h.stack[h.stack.length - 1] !== now) { h.stack.push(now); if (h.stack.length > 101) h.stack.shift(); h.redo = []; }
+  seUndoBtns();
+}
+function seRestore(json) {
+  const p = seCtx.p, id = p.media[seCtx.i].id;
+  p.storyEdit.frames[id] = JSON.parse(json);
+  p.storyEdit.ver++; save();
+  if (!seFrame().layers.some(l => l.id === seCtx.sel)) seCtx.sel = null;
+  renderStoryEditor();
+}
+function seUndo() {
+  if (!seCtx) return;
+  seCommit();
+  const h = seHist(); if (!h || h.stack.length < 2) return;
+  h.redo.push(h.stack.pop());
+  seRestore(h.stack[h.stack.length - 1]);
+}
+function seRedo() {
+  if (!seCtx) return;
+  seCommit();
+  const h = seHist(); if (!h?.redo.length) return;
+  const st = h.redo.pop(); h.stack.push(st);
+  seRestore(st);
+}
+function seUndoBtns() {
+  const h = seCtx && seHist();
+  if ($('#seHistUndo')) $('#seHistUndo').disabled = !h || h.stack.length < 2;
+  if ($('#seHistRedo')) $('#seHistRedo').disabled = !h || !h.redo.length;
+}
+// Ctrl+Z 復原、Ctrl+Y（或 Ctrl+Shift+Z）重做；在輸入框裡打字時留給輸入框自己的復原
+document.addEventListener('keydown', e => {
+  if (!seCtx || !$('#storyModal').classList.contains('open') || !(e.ctrlKey || e.metaKey)) return;
+  if (/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); seUndo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); seRedo(); }
+});
 
 // ---- 畫圖 ----
 function seRoundRect(g, x, y, w, h, r) {
@@ -1830,7 +1890,7 @@ function openStoryEditor(p, opts = null) {
   logRemote('trace', '打開限動編輯 ' + (opts ? '（送出前）' : '（只編輯）'));
   seLinkFonts();
   storyEdit(p);
-  seCtx = { p, opts, i: 0, sel: null, boxes: {}, pen: null };
+  seCtx = { p, opts, i: 0, sel: null, boxes: {}, pen: null, hist: {} };
   $('#storyModal').classList.add('open');
   // 沒有照片影片：直接做一張純文字限動
   if (!p.media.length) { seNewTextFrame(p).then(i => { if (seCtx?.p === p) { seCtx.i = i; renderStoryEditor(); seLoadSource(); } }); return; }
@@ -1885,7 +1945,8 @@ function renderStoryEditor() {
   $('#storyBody').innerHTML = `
     <div class="se-pages">${p.media.map((x, i) => `<button class="chip ${i === ctx.i ? 'on' : ''}" data-sepage="${i}">${x.textOnly ? 'Aa' : isVideo(x) ? '🎬' : '🖼️'} 第 ${i + 1} 張</button>`).join('')}
       <button class="chip cat" id="seNewText">＋ 純文字限動</button><button class="chip cat" id="seNewCollage">＋ 拼貼版面</button>
-      ${m?.storyOnly ? '<button class="link danger" id="seDelPage" style="padding:0 4px">刪掉這張</button>' : ''}</div>
+      ${m?.storyOnly ? '<button class="link danger" id="seDelPage" style="padding:0 4px">刪掉這張</button>' : ''}
+      <span class="se-undo"><button id="seHistUndo" title="復原（Ctrl+Z）">↶ 復原</button><button id="seHistRedo" title="重做（Ctrl+Y）">↷ 重做</button></span></div>
     <div class="chips se-layouts" id="seLayouts" hidden>${SE_LAYOUTS.map(([v, l]) => `<button class="chip" data-selayout="${v}">${l}</button>`).join('')}<span class="hint-s">用第 1 步加的照片依序排進去</span></div>
     <div class="se-wrap">
       <div class="se-stage"><canvas id="seCanvas" width="${SW}" height="${SH}" class="${ctx.pen ? 'drawing' : ''}"></canvas></div>
@@ -1917,7 +1978,11 @@ function renderStoryEditor() {
     <div class="se-busy" id="seBusy" hidden></div>
     <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>`;
   const box = $('#storyBody');
-  const goPage = i => { if (i < 0) return; ctx.i = i; ctx.sel = null; renderStoryEditor(); seLoadSource(); renderThumbs(); };
+  const goPage = i => { if (i < 0) return; seCommit(); ctx.i = i; ctx.sel = null; renderStoryEditor(); seLoadSource(); renderThumbs(); };
+  seHist();   // 第一次看到這張：先記下原本的樣子
+  $('#seHistUndo').onclick = seUndo;
+  $('#seHistRedo').onclick = seRedo;
+  seUndoBtns();
   box.querySelectorAll('[data-sepage]').forEach(b => b.onclick = () => goPage(+b.dataset.sepage));
   $('#seNewText').onclick = async () => goPage(await seNewTextFrame(p));
   $('#seNewCollage').onclick = () => { $('#seLayouts').hidden = !$('#seLayouts').hidden; };
@@ -1931,14 +1996,14 @@ function renderStoryEditor() {
   };
   box.querySelectorAll('[data-seadd]').forEach(b => b.onclick = () => seAdd(b.dataset.seadd));
   box.querySelectorAll('[data-seemoji]').forEach(b => b.onclick = () => { $('#seEmoji').hidden = true; seAddLayer({ kind: 'emoji', text: b.dataset.seemoji, size: 220 }); });
-  if ($('#seZoom')) $('#seZoom').oninput = e => { fr.zoom = e.target.value / 100; seBump(p); seDraw(); };
+  if ($('#seZoom')) $('#seZoom').oninput = e => { fr.zoom = e.target.value / 100; seBump(p, 1); seDraw(); };
   if ($('#seFit')) $('#seFit').onclick = () => { Object.assign(fr, { zoom: 1, ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw(); };
   if ($('#seCover')) $('#seCover').onclick = () => {
     const s = ctx.src; if (!s) return;
     Object.assign(fr, { zoom: Math.max(SW / s.w, SH / s.h) / Math.min(SW / s.w, SH / s.h), ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw();
   };
   box.querySelectorAll('[data-sefill]').forEach(b => b.onclick = () => { fr.fill = b.dataset.sefill; seBump(p); renderStoryEditor(); seDraw(); });
-  if ($('#seFillColor')) $('#seFillColor').oninput = e => { fr.fill = 'color'; fr.fillColor = e.target.value; seBump(p); seDraw(); };
+  if ($('#seFillColor')) $('#seFillColor').oninput = e => { fr.fill = 'color'; fr.fillColor = e.target.value; seBump(p, 1); seDraw(); };
   if ($('#seFillColor')) $('#seFillColor').onchange = () => renderStoryEditor();
   box.querySelectorAll('[data-sefilter]').forEach(b => b.onclick = () => { fr.filter = b.dataset.sefilter; seBump(p); renderStoryEditor(); seDraw(); });
   $('#seCancel').onclick = () => closeStoryEditor('按了先不要');
@@ -1989,12 +2054,11 @@ function renderSeLayer() {
   const pen = seCtx.pen;
   if (pen) {
     const fr = seFrame();
-    box.innerHTML = `<div class="se-sec se-layer"><div class="se-row" style="justify-content:space-between"><b>🖊️ 畫筆</b><span><button class="link" id="seUndo" ${fr.draw?.length ? '' : 'disabled'}>↶ 復原</button><button class="link danger" id="seClearDraw" ${fr.draw?.length ? '' : 'disabled'}>全部清掉</button><button class="link" id="sePenDone" style="color:var(--accent)">完成</button></span></div>
+    box.innerHTML = `<div class="se-sec se-layer"><div class="se-row" style="justify-content:space-between"><b>🖊️ 畫筆</b><span><button class="link danger" id="seClearDraw" ${fr.draw?.length ? '' : 'disabled'}>全部清掉</button><button class="link" id="sePenDone" style="color:var(--accent)">完成</button></span></div>
       <div class="chips" style="margin-top:8px">${SE_PENS.map(([v, lab]) => `<button class="chip ${pen.tool === v ? 'on' : ''}" data-sepen="${v}">${lab}</button>`).join('')}</div>
       <div class="se-row"><span>粗細</span><input type="range" id="sePenSize" min="4" max="60" value="${pen.size}"></div>
       ${pen.tool === 'eraser' ? '' : `<div class="se-row"><span>顏色</span>${seColorsHtml(pen.color)}</div>`}
-      <p class="hint-s" style="margin:6px 0 0">在左邊畫面上直接畫。畫好按「完成」就可以回去移動文字和照片。</p></div>`;
-    $('#seUndo').onclick = () => { fr.draw.pop(); fr.drawVer = (fr.drawVer || 0) + 1; seBump(seCtx.p); renderSeLayer(); seDraw(); };
+      <p class="hint-s" style="margin:6px 0 0">在左邊畫面上直接畫，畫錯按上方「↶ 復原」。畫好按「完成」就可以回去移動文字和照片。</p></div>`;
     $('#seClearDraw').onclick = () => { if (!confirm('把畫的全部清掉？')) return; fr.draw = []; fr.drawVer = (fr.drawVer || 0) + 1; seBump(seCtx.p); renderSeLayer(); seDraw(); };
     $('#sePenDone').onclick = () => seAdd('pen');
     box.querySelectorAll('[data-sepen]').forEach(b => b.onclick = () => { pen.tool = b.dataset.sepen; renderSeLayer(); });
@@ -2018,15 +2082,15 @@ function renderSeLayer() {
       <div class="se-row"><span>底色</span><div class="chips">${SE_BGS.map(([v, lab]) => `<button class="chip ${l.bg === v ? 'on' : ''}" data-sebg="${v}">${lab}</button>`).join('')}</div></div>` : ''}
   </div>`;
   const p = seCtx.p;
-  if ($('#seText')) $('#seText').oninput = async e => { l.text = l.icon === '＠' ? e.target.value.replace(/^[@＠]/, '').trim() : l.icon === '#' ? e.target.value.replace(/^[#＃]/, '').trim() : e.target.value; seBump(p); seDraw(); await seLoadFonts([l]); seDraw(); };
+  if ($('#seText')) $('#seText').oninput = async e => { l.text = l.icon === '＠' ? e.target.value.replace(/^[@＠]/, '').trim() : l.icon === '#' ? e.target.value.replace(/^[#＃]/, '').trim() : e.target.value; seBump(p, 1); seDraw(); await seLoadFonts([l]); seDraw(); };
   if ($('#seText') && l.icon === '＠') $('#seText').onchange = () => renderSeLayer();
-  $('#seSize').oninput = e => { l.size = +e.target.value; seBump(p); seDraw(); };
+  $('#seSize').oninput = e => { l.size = +e.target.value; seBump(p, 1); seDraw(); };
   $('#seDel').onclick = () => { const fr = seFrame(); fr.layers = fr.layers.filter(x => x !== l); seCtx.sel = null; seBump(p); renderSeLayer(); seDraw(); };
   $('#seUp').onclick = () => { const fr = seFrame(); fr.layers = [...fr.layers.filter(x => x !== l), l]; seBump(p); seDraw(); };
   box.querySelectorAll('[data-sefont]').forEach(b => b.onclick = async () => { l.font = b.dataset.sefont; seBump(p); renderSeLayer(); seDraw(); await seLoadFonts([l]); seDraw(); });
   seBindColors(box, c => { l.color = c; seBump(p); renderSeLayer(); seDraw(); });
   box.querySelectorAll('[data-sealign]').forEach(b => b.onclick = () => { l.align = b.dataset.sealign; seBump(p); renderSeLayer(); seDraw(); });
-  $('#seRot').oninput = e => { l.rot = +e.target.value; seBump(p); seDraw(); };
+  $('#seRot').oninput = e => { l.rot = +e.target.value; seBump(p, 1); seDraw(); };
   $('#seRot0').onclick = () => { l.rot = 0; seBump(p); renderSeLayer(); seDraw(); };
   box.querySelectorAll('[data-sebg]').forEach(b => b.onclick = () => { l.bg = b.dataset.sebg; seBump(p); renderSeLayer(); seDraw(); });
 }
@@ -2104,7 +2168,7 @@ function seBindStage() {
     const l = seLayer(), fr = seFrame(), k = e.deltaY < 0 ? 1.06 : 1 / 1.06;
     if (l) { l.size = Math.max(24, Math.min(600, Math.round(l.size * k))); const s = $('#seSize'); if (s) s.value = l.size; }
     else { fr.zoom = Math.max(.3, Math.min(3, fr.zoom * k)); const z = $('#seZoom'); if (z) z.value = Math.round(fr.zoom * 100); }
-    seBump(seCtx.p); seDraw();
+    seBump(seCtx.p, 1); seDraw();
   };
   c.ondblclick = () => $('#seText')?.focus();
 }
@@ -2810,6 +2874,51 @@ function checkDue() {
 }
 
 function renderAll() { renderList(); renderEditor(); }
+
+// ===== 上一頁：每換一個畫面（主畫面、哪一則貼文、第幾步、彈出視窗）就記一筆瀏覽紀錄 =====
+// 按上一頁時：有彈出視窗就先關掉，不然回到上一個畫面；不會直接離開網站
+let navApplying = false, navSkip = false;
+const navNow = () => ({ id: S.activeId || null, step: active()?.step || 0 });
+function navSync() {
+  if (navApplying || history.state?.modal) return;
+  const st = navNow(), cur = history.state;
+  if (!cur) return history.replaceState(st, '');
+  if (cur.id !== st.id || cur.step !== st.step) history.pushState(st, '');
+}
+function navCloseModal(el) {
+  navApplying = true;
+  try {
+    if (el.id === 'sendModal') closeSend();
+    else if (el.id === 'storyModal') closeStoryEditor('按了上一頁');
+    else if (el.id === 'igOptsModal') closeIgOpts();
+    else if (el.id === 'fsModal') closeFileStory();
+    else { const b = el.querySelector('[data-close]'); b ? b.click() : el.classList.remove('open'); }
+  } finally { navApplying = false; }
+}
+// 彈出視窗打開：記一筆；用按鈕關掉：把那一筆退掉
+new MutationObserver(list => {
+  for (const m of list) {
+    const el = m.target, open = el.classList.contains('open'), was = (m.oldValue || '').split(' ').includes('open');
+    if (open === was) continue;
+    if (open && !navApplying) history.pushState({ ...navNow(), modal: el.id }, '');
+    else if (!open && !navApplying && history.state?.modal === el.id) { navSkip = true; history.back(); }
+  }
+}).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+window.addEventListener('popstate', e => {
+  if (navSkip) { navSkip = false; navSync(); return; }   // 用按鈕關掉視窗時退掉的那一筆；畫面若已經換了（例如送出後回主畫面）就補記
+  const open = [...document.querySelectorAll('.modal-bg.open')];
+  if (open.length) { open.forEach(navCloseModal); return; }
+  const st = e.state || { id: null, step: 0 };
+  if (st.modal) return;
+  navApplying = true;
+  try {
+    S.activeId = st.id && S.posts.some(p => p.id === st.id) ? st.id : null;
+    const p = active();
+    if (p && st.step && !p.serverPost) p.step = st.step;
+    save(); renderAll();
+    $('main').scrollTop = 0;
+  } finally { navApplying = false; }
+});
 
 (async () => {
   try {
