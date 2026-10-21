@@ -182,7 +182,16 @@ main { overflow: auto; min-height: 0; }
 .se-layer textarea { min-height: 0; margin-top: 8px; }
 .se-colors { display: flex; gap: 6px; flex-wrap: wrap; }
 .se-colors button { width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 2px solid var(--line); }
-.se-colors button.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.se-colors button.on, .se-custom.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.se-custom { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 14px; position: relative; overflow: hidden; cursor: pointer;
+  background: conic-gradient(#f44, #fd0, #4d4, #0cf, #44f, #c4c, #f44); }
+.se-custom input, .se-colorpick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.se-colorpick { position: relative; overflow: hidden; }
+.grad { width: 26px; height: 26px; border-radius: 50%; padding: 0; border: 2px solid var(--line); }
+.grad.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.se-tools button.on { background: var(--soft); border-color: var(--accent); color: var(--soft-ink); }
+.se-stage canvas.drawing { cursor: crosshair; }
+.se-layouts { margin: -4px 0 10px; align-items: center; }
 .se-note { margin-top: 10px; font-size: 13px; color: var(--sub); }
 .se-note summary { cursor: pointer; color: var(--accent); }
 .se-note p { margin: 6px 0 0; }
@@ -513,6 +522,8 @@ function postStatus(p) {
 }
 function fullText(p) { return [p.text.trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
 const hasContent = p => !!(fullText(p) || p.media.length);
+// 純文字限動、拼貼做出來的圖只給限動用；貼文、LINE、FB 用 postMedia
+const postMedia = p => p.media.filter(m => !m.storyOnly);
 // 已排程：全自動已送到伺服器，或半自動設了時間（時間到會提醒）
 const isScheduled = p => !!p.serverPost || (p.mode !== 'auto' && !!p.time);
 
@@ -613,11 +624,12 @@ const MANUAL_TIP = {
 function settingsHtml(p) {
   if (p.mode === 'auto') {
     const opts = autoSelected(p), parts = [];
-    if (p.media.length > 10) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 10 個圖片影片，現在有 ${p.media.length} 個。要發更多張請改用半自動。</p>`);
+    if (postMedia(p).length > 10) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 10 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
     if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
-    if (opts.some(o => o.platform === 'ig') && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">Instagram 一定要有圖片或影片</p>');
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
+    if (opts.some(isStory) && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">IG 限動要有圖片、影片，或在第 1 步做一張純文字限動</p>');
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
@@ -770,7 +782,7 @@ function refreshStepper(p) {
 function storyCardHtml(p) {
   return `<h2>限時動態畫面 <small>要發 IG／FB 限動才需要</small></h2>
     ${p.media.length ? `<div class="set-row" style="margin:0"><span class="hint-s" style="color:var(--ink)">${p.storyEdit?.done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、地點時間標籤，調整照片影片的位置'}</span><button class="ai-btn" data-seopen>🎨 編輯限動畫面</button></div>`
-      : '<p class="hint-s" style="margin:0">先加入圖片或影片，就可以編輯限動畫面。</p>'}`;
+      : '<div class="set-row" style="margin:0"><span class="hint-s" style="color:var(--ink)">沒有照片也可以：做一張 IG「建立」模式那種純文字限動</span><button class="ai-btn" data-seopen>Aa 做純文字限動</button></div>'}`;
 }
 function setCardHtml(p) {
   return `<h2>發文設定 <small>${p.mode === 'auto' ? '⚡ 全自動' : '📱 半自動'}・${stepSelCount(p)} 個對象</small></h2>
@@ -821,7 +833,7 @@ function bindSettings(p) {
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
   box.innerHTML = p.media.map((m, i) => `<div class="thumb" data-i="${i}">
-    <span class="tag">${isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
+    <span class="tag">${m.storyOnly ? (m.textOnly ? '純文字限動' : '限動拼貼') : isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
     <button class="x" data-i="${i}" title="移除">✕</button></div>`).join('');
   box.querySelectorAll('.tag').forEach(t => { if (!t.textContent) t.remove(); });
   box.querySelectorAll('.x').forEach(b => b.onclick = () => {
@@ -837,10 +849,10 @@ async function renderThumbs() {
     cell.prepend(el);
   }
 }
-async function addFiles(p, files) {
+async function addFiles(p, files, extra) {
   for (const f of files) {
     if (!/^(image|video)\//.test(f.type)) { toast(`「${f.name}」不是圖片或影片`); continue; }
-    const m = { id: uid(), name: f.name, type: f.type };
+    const m = { id: uid(), name: f.name, type: f.type, ...(extra || {}) };
     blobs[m.id] = f;
     if (dbOk) {
       try { await DB.put('media', m.id, f); }
@@ -1124,7 +1136,7 @@ $('#importFile').onchange = async e => {
 async function mediaFiles(p, story) {
   if (story) { const f = await storyFiles(p).catch(() => null); if (f) return f; }
   const out = [];
-  for (const m of p.media) { const b = await mediaBlob(m); if (b) out.push(new File([b], m.name, { type: m.type })); }
+  for (const m of story ? p.media : postMedia(p)) { const b = await mediaBlob(m); if (b) out.push(new File([b], m.name, { type: m.type })); }
   return out;
 }
 // 剪貼簿只收 PNG；把轉檔的 Promise 直接交給 ClipboardItem，Mac 的 Safari 才不會擋
@@ -1185,20 +1197,21 @@ function renderSend() {
     return;
   }
   const t = list[i], ty = TYPES[t.type];
-  const text = fullText(p), hasMedia = p.media.length > 0;
+  const tMedia = /story$/.test(t.type) ? p.media : postMedia(p);
+  const text = fullText(p), hasMedia = tMedia.length > 0;
   const url = ty.open(text, p.link.trim(), t);
   const shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
   const isStoryT = /story$/.test(t.type);
   if (shareOk) prepareShare(p, isStoryT);
-  const images = p.media.filter(m => !isVideo(m));
+  const images = tMedia.filter(m => !isVideo(m));
   const warn = [ty.phoneOnly && !IS_MOBILE ? PHONE_NOTE : '', ty.needMedia && !hasMedia ? `${ty.label}一定要有圖片或影片，這則沒有，建議跳過。` : ''].filter(Boolean).join('<br>');
   const steps = [];
   if (url) steps.push(`<button data-act="open">開啟 ${ty.label}${text ? '＋複製文字' : ''}</button>`);
   else if (text) steps.push(`<button data-act="text">複製文字</button>`);
-  if (shareOk) steps.push(`<button data-act="share">分享圖片影片（${p.media.length} 個）</button>`);
+  if (shareOk) steps.push(`<button data-act="share">分享圖片影片（${tMedia.length} 個）</button>`);
   else if (hasMedia && !IS_MOBILE) {
     if (images.length === 1 && !(ty.needMedia || ty.phoneOnly)) steps.push(`<button data-act="copyimg">複製圖片</button>`);
-    steps.push(`<button data-act="download">下載圖片影片（${p.media.length} 個）</button>`);
+    steps.push(`<button data-act="download">下載圖片影片（${tMedia.length} 個）</button>`);
   }
   if (url && text && hasMedia) steps.push(`<button data-act="text">再複製一次文字</button>`);
   box.innerHTML = `
@@ -1240,7 +1253,7 @@ async function doAct(act, t, btn) {
       await shareMedia(p, t.type !== 'ig' && t.type !== 'igstory', /story$/.test(t.type));
       if (text) toast('文字也複製好了，需要時長按貼上');
     } else if (act === 'copyimg') {
-      await copyImage(p.media.find(m => !isVideo(m)));
+      await copyImage(postMedia(p).find(m => !isVideo(m)));
       toast('圖片已複製，到發文框貼上');
     } else if (act === 'download') {
       await downloadAll(p, /story$/.test(t.type));
@@ -1313,7 +1326,7 @@ function renderBatch() {
     }, 500);
     return;
   }
-  const hasMedia = p.media.length > 0, shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
+  const hasMedia = postMedia(p).length > 0, shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
   if (shareOk) prepareShare(p);
   box.innerHTML = `${progress}<h3>LINE 第 ${no} / ${total} 批 <span class="count">這批 ${group.length} 個 · 每批
       <select id="bSize" style="width:auto;padding:1px 4px">${[5, 10, 15, 20].map(n => `<option ${n === size ? 'selected' : ''}>${n}</option>`).join('')}</select></span></h3>
@@ -1370,7 +1383,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022b";
+const APP_VERSION = "v1022c";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1459,9 +1472,10 @@ async function submitAuto(p) {
   logRemote('trace', `按自動發 對象=${opts.map(o => o.label).join('+')} 檔案=${mediaInfo(p)} 時間=${p.time || '現在'}`);
   if (!opts.length) return;
   const text = fullText(p);
-  if (opts.some(o => o.platform === 'ig') && !p.media.length) { toast('Instagram 一定要有圖片或影片'); logRemote('trace', '擋下：Instagram 一定要有圖片或影片'); return alert('⚠️ 還沒送出\n\nInstagram 一定要有圖片或影片'); }
+  if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) { toast('IG 貼文一定要有圖片或影片'); logRemote('trace', '擋下：IG 貼文沒有圖'); return alert('⚠️ 還沒送出\n\nIG 貼文一定要有圖片或影片（純文字限動、拼貼只給限動用）'); }
+  if (opts.some(isStory) && !p.media.length) { toast('IG 限動要有圖片或影片'); return alert('⚠️ 還沒送出\n\nIG 限動要有圖片、影片，或先做一張純文字限動'); }
   if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
-  if (p.media.length > 10) { toast('自動發最多 10 個圖片影片'); logRemote('trace', '擋下：自動發最多 10 個圖片影片'); return alert('⚠️ 還沒送出\n\n自動發最多 10 個圖片影片'); }
+  if (postMedia(p).length > 10 || p.media.length > 10) { toast('自動發最多 10 個圖片影片'); logRemote('trace', '擋下：自動發最多 10 個圖片影片'); return alert('⚠️ 還沒送出\n\n自動發最多 10 個圖片影片'); }
   // 有 IG 限動：先編輯、確認限動畫面，確認了才送出
   if (opts.some(isStory)) return openStoryEditor(p, opts);
   const when = autoWhen(p);
@@ -1489,11 +1503,11 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
   btn.disabled = true;
   try {
     const needMain = opts.some(o => !isStory(o));
-    const total = (needMain ? p.media.length : 0) + (storyBlobs ? storyBlobs.length : 0);
+    const total = (needMain ? postMedia(p).length : 0) + (storyBlobs ? storyBlobs.length : 0);
     let done = 0;
     const tick = () => { const t = `上傳中 ${++done}/${total}⋯`; btn.textContent = t; onMsg?.(t); };
     const media = [];
-    if (needMain) for (const m of p.media) {
+    if (needMain) for (const m of postMedia(p)) {
       tick();
       const blob = await mediaBlob(m);
       if (!blob) throw new Error(`找不到「${m.name}」，請重新加入`);
@@ -1553,11 +1567,27 @@ const SE_FONTS = [
 const seFontCss = (f, size) => `${f.italic ? 'italic ' : ''}${f.w} ${size}px ${f.fam}`;
 const seText = (f, t) => f.upper ? t.toUpperCase() : t;
 const SE_FALLBACK = '"Microsoft JhengHei", "PingFang TC", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-const SE_COLORS = ['#ffffff', '#111111', '#f5c46b', '#ff6b6b', '#ff8fb1', '#7bd389', '#5ab0ff', '#b48cff'];
-const SE_BGS = [['none', '無'], ['dark', '黑底'], ['light', '白底'], ['solid', '同色底']];
-const SE_FILTERS = [['none', '原圖', ''], ['vivid', '鮮豔', 'saturate(1.35) contrast(1.06)'], ['warm', '暖色', 'sepia(.22) saturate(1.15) brightness(1.03)'],
-  ['cool', '冷色', 'saturate(.9) hue-rotate(-12deg) brightness(1.04)'], ['bright', '明亮', 'brightness(1.13) contrast(1.04)'], ['bw', '黑白', 'grayscale(1) contrast(1.1)']];
-const SE_FILLS = [['blur', '模糊'], ['black', '黑'], ['white', '白']];
+// IG 限動的調色盤（再加自訂顏色）
+const SE_COLORS = ['#ffffff', '#000000', '#3897f0', '#70c050', '#fdcb5c', '#fd8d32', '#ed4956', '#d10869', '#a307ba', '#ff8fb1', '#8ad9d2', '#c8a27a'];
+const SE_BGS = [['none', '無'], ['dark', '黑底'], ['light', '白底'], ['solid', '同色底'], ['line', '逐行底色']];
+const SE_ALIGNS = [['left', '靠左'], ['center', '置中'], ['right', '靠右']];
+// 濾鏡：IG 限動左右滑的那些（城市名），用相近的效果；舊的名稱留著給以前編過的限動用
+const SE_FILTERS = [['none', '原圖', ''],
+  ['paris', 'Paris', 'brightness(1.08) contrast(.94) saturate(1.05)'], ['oslo', 'Oslo', 'brightness(1.05) saturate(.85) hue-rotate(-8deg)'],
+  ['lagos', 'Lagos', 'saturate(1.25) sepia(.15) contrast(1.05)'], ['melbourne', 'Melbourne', 'sepia(.25) saturate(1.1) brightness(1.05)'],
+  ['jakarta', 'Jakarta', 'contrast(1.15) saturate(1.2) brightness(.98)'], ['abudhabi', 'Abu Dhabi', 'brightness(1.1) sepia(.12) saturate(1.1)'],
+  ['buenosaires', 'Buenos Aires', 'contrast(1.1) saturate(1.3) hue-rotate(-5deg)'], ['newyork', 'New York', 'grayscale(.15) contrast(1.15) brightness(1.02)'],
+  ['jaipur', 'Jaipur', 'saturate(1.4) sepia(.1) hue-rotate(-8deg)'], ['cairo', 'Cairo', 'sepia(.35) contrast(1.05) brightness(1.02)'],
+  ['tokyo', 'Tokyo', 'grayscale(1) contrast(1.2) brightness(1.05)'], ['rio', 'Rio de Janeiro', 'saturate(1.35) contrast(1.08) brightness(1.04)'],
+  ['vivid', '鮮豔', 'saturate(1.35) contrast(1.06)', 1], ['warm', '暖色', 'sepia(.22) saturate(1.15) brightness(1.03)', 1],
+  ['cool', '冷色', 'saturate(.9) hue-rotate(-12deg) brightness(1.04)', 1], ['bright', '明亮', 'brightness(1.13) contrast(1.04)', 1], ['bw', '黑白', 'grayscale(1) contrast(1.1)', 1]];
+// 背景（照片沒蓋到的地方、純文字限動的底）：模糊、黑、白、自訂色、IG「建立」模式的漸層
+const SE_GRADS = { g1: ['#f58529', '#dd2a7b'], g2: ['#515bd4', '#8134af'], g3: ['#00c6ff', '#0072ff'], g4: ['#f7971e', '#ffd200'], g5: ['#11998e', '#38ef7d'], g6: ['#232526', '#414345'], g7: ['#ee9ca7', '#ffdde1'] };
+const SE_FILLS = [['blur', '模糊'], ['black', '黑'], ['white', '白'], ['color', '自訂色']];
+// 畫筆：筆、麥克筆（半透明）、霓虹（發光）、橡皮擦
+const SE_PENS = [['pen', '🖊️ 筆'], ['marker', '🖍️ 麥克筆'], ['neon', '✨ 霓虹'], ['eraser', '🧽 橡皮擦']];
+// 貼圖標籤的種類
+const SE_TAGS = { '📍': '地點', '🕒': '時間', '＠': '提及', '#': '主題標籤', '⏳': '倒數' };
 const SE_EMOJI = '😀😍🥰😎🤩😂👍👏🙌💪🙏✨🔥💖❤️🧡💛💚💙💜⭐🌟🎉🎁🛍️🏷️📣💯✅⚡🌸🌿🍂☀️🌙☕🍰🏠🛋️🪑🎄'.match(/\p{Extended_Pictographic}️?/gu);
 const seFont = id => SE_FONTS.find(f => f.id === id) || SE_FONTS.find(f => f.id === 'sans');
 const seUid = () => Math.random().toString(36).slice(2, 9);
@@ -1622,20 +1652,25 @@ function seLayout(g, l) {
     return { lines: [l.text], lh: l.size * 1.15, font: g.font, w, h: l.size * 1.15, pad: 0 };
   }
   const f = l.kind === 'tag' ? seFont('sans') : seFont(l.font);
-  const label = l.kind === 'tag' ? `${l.icon} ${l.text}` : seText(f, l.text);
+  const label = l.kind === 'tag' ? seTagLabel(l) : seText(f, l.text);
   g.font = `${seFontCss(f, l.size)}, ${SE_FALLBACK}`;
   if ('letterSpacing' in g) g.letterSpacing = f.spacing ? `${Math.round(l.size * f.spacing)}px` : '0px';
   const lines = wrapLines(g, label, SW - 140).slice(0, 14);
   const lh = l.size * 1.32;
-  const w = Math.max(1, ...lines.map(s => g.measureText(s).width));
-  const pad = l.kind === 'tag' ? l.size * 0.55 : (l.bg === 'none' ? 0 : l.size * 0.5);
-  return { f, lines, lh, font: g.font, w: w + pad * 2, h: lines.length * lh + pad * 2 - (lh - l.size) + (l.kind === 'tag' ? 0 : 0), pad };
+  const widths = lines.map(s => g.measureText(s).width);
+  const w = Math.max(1, ...widths);
+  const pad = l.kind === 'tag' ? l.size * 0.55 : l.bg === 'none' ? 0 : l.bg === 'line' ? l.size * 0.32 : l.size * 0.5;
+  return { f, lines, widths, lh, font: g.font, w: w + pad * 2, h: lines.length * lh + pad * 2 - (lh - l.size), pad };
 }
+const seTagLabel = l => l.icon === '＠' ? `@${seMentionName(l)}` : l.icon === '#' ? `#${String(l.text || '').replace(/^#/, '')}` : `${l.icon} ${l.text}`;
 function seDrawLayer(g, l) {
   const L = seLayout(g, l), x0 = l.x - L.w / 2, y0 = l.y - L.h / 2;
   g.save();
-  g.textAlign = 'center'; g.textBaseline = 'top'; g.font = L.font;
+  if (l.rot) { g.translate(l.x, l.y); g.rotate(l.rot * Math.PI / 180); g.translate(-l.x, -l.y); }
+  const align = l.kind === 'text' ? l.align || 'center' : 'center';
+  g.textAlign = align; g.textBaseline = 'top'; g.font = L.font;
   if ('letterSpacing' in g) g.letterSpacing = L.f?.spacing ? `${Math.round(l.size * L.f.spacing)}px` : '0px';
+  const tx = align === 'left' ? x0 + L.pad : align === 'right' ? x0 + L.w - L.pad : l.x;
   let fg = l.color || '#ffffff';
   if (l.kind === 'tag') {
     g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowBlur = 18; g.shadowOffsetY = 4;
@@ -1644,6 +1679,16 @@ function seDrawLayer(g, l) {
     const gr = g.createLinearGradient(x0, 0, x0 + L.w, 0);
     gr.addColorStop(0, '#8a3ab9'); gr.addColorStop(.5, '#e1306c'); gr.addColorStop(1, '#f77737');
     fg = gr;
+  } else if (l.kind === 'text' && l.bg === 'line') {
+    // IG 的逐行底色：每一行各自一塊同色圓角底，字用看得清楚的顏色
+    const padX = l.size * 0.32, padY = l.size * 0.16;
+    g.fillStyle = l.color;
+    L.lines.forEach((t, i) => {
+      if (!t.trim()) return;
+      const w = L.widths[i] + padX * 2, x = align === 'left' ? tx - padX : align === 'right' ? tx - L.widths[i] - padX : l.x - w / 2;
+      seRoundRect(g, x, y0 + L.pad + i * L.lh - padY, w, l.size + padY * 2, Math.min(18, l.size * 0.3)); g.fill();
+    });
+    fg = seContrast(l.color);
   } else if (l.kind === 'text' && l.bg !== 'none') {
     const bg = l.bg === 'dark' ? 'rgba(0,0,0,.62)' : l.bg === 'light' ? 'rgba(255,255,255,.94)' : l.color;
     if (l.bg === 'light') fg = l.color === '#ffffff' ? '#111111' : l.color;
@@ -1656,17 +1701,54 @@ function seDrawLayer(g, l) {
   if (l.kind === 'text' && L.f?.glow) {
     // 霓虹：同色光暈疊兩次，字本身亮一點
     g.shadowColor = l.color; g.shadowBlur = l.size * 0.6;
-    L.lines.forEach((s, i) => g.fillText(s, l.x, y0 + L.pad + i * L.lh));
+    L.lines.forEach((t, i) => g.fillText(t, tx, y0 + L.pad + i * L.lh));
     g.shadowBlur = l.size * 0.25; g.fillStyle = '#ffffff'; g.globalAlpha = .85;
   }
-  L.lines.forEach((s, i) => g.fillText(s, l.x, y0 + L.pad + i * L.lh));
+  L.lines.forEach((t, i) => g.fillText(t, tx, y0 + L.pad + i * L.lh));
   g.restore();
   return { x0, y0, x1: x0 + L.w, y1: y0 + L.h };
+}
+// 畫筆：每個筆畫 { tool, color, size, pts:[[x,y],...] }；畫到一張透明圖上（橡皮擦只擦筆畫），用快取避免每格重畫
+const seDrawCache = new WeakMap();
+function seStrokePath(g, pts) {
+  g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+  if (pts.length === 1) { g.lineTo(pts[0][0] + 0.1, pts[0][1]); return; }
+  for (let i = 1; i < pts.length - 1; i++) { const [x, y] = pts[i], [nx, ny] = pts[i + 1]; g.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2); }
+  const last = pts[pts.length - 1]; g.lineTo(last[0], last[1]);
+}
+function seDrawStrokes(g, fr) {
+  if (!fr.draw?.length) return;
+  let c = seDrawCache.get(fr);
+  if (!c || c.ver !== fr.drawVer) {
+    const cv = c?.cv || document.createElement('canvas'); cv.width = SW; cv.height = SH;
+    const d = cv.getContext('2d');
+    d.lineCap = 'round'; d.lineJoin = 'round';
+    for (const st of fr.draw) {
+      if (!st.pts?.length) continue;
+      d.save();
+      if (st.tool === 'eraser') { d.globalCompositeOperation = 'destination-out'; d.strokeStyle = '#000'; d.lineWidth = st.size * 2.2; seStrokePath(d, st.pts); d.stroke(); }
+      else if (st.tool === 'marker') { d.globalAlpha = .55; d.lineCap = 'square'; d.strokeStyle = st.color; d.lineWidth = st.size * 2; seStrokePath(d, st.pts); d.stroke(); }
+      else if (st.tool === 'neon') {
+        d.shadowColor = st.color; d.shadowBlur = st.size * 2.2; d.strokeStyle = st.color; d.lineWidth = st.size * 1.4; seStrokePath(d, st.pts); d.stroke();
+        d.shadowBlur = st.size; d.strokeStyle = '#ffffff'; d.lineWidth = st.size * 0.55; seStrokePath(d, st.pts); d.stroke();
+      } else { d.strokeStyle = st.color; d.lineWidth = st.size; seStrokePath(d, st.pts); d.stroke(); }
+      d.restore();
+    }
+    c = { cv, ver: fr.drawVer };
+    seDrawCache.set(fr, c);
+  }
+  g.drawImage(c.cv, 0, 0);
+}
+function seFillBg(g, fr) {
+  const gr = SE_GRADS[fr.fill];
+  if (gr) { const lg = g.createLinearGradient(0, 0, SW * .45, SH); lg.addColorStop(0, gr[0]); lg.addColorStop(1, gr[1]); g.fillStyle = lg; }
+  else g.fillStyle = fr.fill === 'white' ? '#ffffff' : fr.fill === 'color' ? fr.fillColor || '#000000' : '#000000';
+  g.fillRect(0, 0, SW, SH);
 }
 // src：ImageBitmap 或 <video>；w/h 是原始大小
 function seDrawFrame(g, fr, src, w, h, sel) {
   g.save();
-  g.fillStyle = fr.fill === 'white' ? '#ffffff' : '#000000'; g.fillRect(0, 0, SW, SH);
+  seFillBg(g, fr);
   const filt = SE_FILTERS.find(f => f[0] === fr.filter)?.[2] || '';
   const canFilter = 'filter' in g;
   if (src && w && h) {
@@ -1681,11 +1763,15 @@ function seDrawFrame(g, fr, src, w, h, sel) {
     if (canFilter) g.filter = 'none';
   }
   g.restore();
+  seDrawStrokes(g, fr);
   const boxes = {};
   for (const l of fr.layers) boxes[l.id] = seDrawLayer(g, l);
-  if (sel && boxes[sel]) {
+  const sl = sel && fr.layers.find(l => l.id === sel);
+  if (sl && boxes[sel]) {
     const b = boxes[sel];
-    g.save(); g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.setLineDash([16, 12]);
+    g.save();
+    if (sl.rot) { g.translate(sl.x, sl.y); g.rotate(sl.rot * Math.PI / 180); g.translate(-sl.x, -sl.y); }
+    g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.setLineDash([16, 12]);
     g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 6;
     g.strokeRect(b.x0 - 14, b.y0 - 14, b.x1 - b.x0 + 28, b.y1 - b.y0 + 28);
     g.restore();
@@ -1693,15 +1779,61 @@ function seDrawFrame(g, fr, src, w, h, sel) {
   return boxes;
 }
 
+// ---- 純文字限動、拼貼：做出一張只給限動用的圖 ----
+async function seBlankPng() {
+  const c = document.createElement('canvas'); c.width = SW; c.height = SH;   // 透明的，底色由背景設定決定
+  return new Promise(r => c.toBlob(r, 'image/png'));
+}
+async function seNewTextFrame(p) {
+  const n = p.media.filter(m => m.textOnly).length + 1;
+  await addFiles(p, [new File([await seBlankPng()], `純文字限動${n}.png`, { type: 'image/png' })], { storyOnly: true, textOnly: true });
+  const m = p.media[p.media.length - 1];
+  storyEdit(p);
+  p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'g1', filter: 'none', layers: [
+    { id: seUid(), kind: 'text', text: p.text.trim().split('\n')[0] || '輸入文字', x: SW / 2, y: SH / 2, size: 96, font: 'classic', color: '#ffffff', bg: 'none', align: 'center' }] };
+  seBump(p);
+  return p.media.length - 1;
+}
+const SE_LAYOUTS = [['2v', '上下 2 格', 2], ['2h', '左右 2 格', 2], ['3', '1 大 2 小', 3], ['4', '4 格', 4], ['6', '6 格', 6]];
+function seLayoutCells(id) {
+  const G = 10, W = SW, H = SH;
+  if (id === '2v') return [[0, 0, W, H / 2 - G / 2], [0, H / 2 + G / 2, W, H / 2 - G / 2]];
+  if (id === '2h') return [[0, 0, W / 2 - G / 2, H], [W / 2 + G / 2, 0, W / 2 - G / 2, H]];
+  if (id === '3') return [[0, 0, W, H / 2 - G / 2], [0, H / 2 + G / 2, W / 2 - G / 2, H / 2 - G / 2], [W / 2 + G / 2, H / 2 + G / 2, W / 2 - G / 2, H / 2 - G / 2]];
+  const cols = 2, rows = id === '6' ? 3 : 2, cw = (W - G) / cols, ch = (H - G * (rows - 1)) / rows;
+  return [...Array(cols * rows)].map((_, i) => [(i % cols) * (cw + G), Math.floor(i / cols) * (ch + G), cw, ch]);
+}
+async function seNewCollage(p, id) {
+  const lay = SE_LAYOUTS.find(x => x[0] === id), imgs = postMedia(p).filter(m => !isVideo(m));
+  if (imgs.length < lay[2]) { toast(`「${lay[1]}」要 ${lay[2]} 張照片，現在只有 ${imgs.length} 張`); return -1; }
+  const c = document.createElement('canvas'); c.width = SW; c.height = SH;
+  const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, SW, SH);
+  const cells = seLayoutCells(id);
+  for (const [i, [x, y, w, h]] of cells.entries()) {
+    const bmp = await createImageBitmap(await mediaBlob(imgs[i]));
+    const sc = Math.max(w / bmp.width, h / bmp.height), dw = bmp.width * sc, dh = bmp.height * sc;
+    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+    g.drawImage(bmp, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); g.restore();
+  }
+  const n = p.media.filter(m => m.storyOnly && !m.textOnly).length + 1;
+  await addFiles(p, [new File([await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92))], `限動拼貼${n}.jpg`, { type: 'image/jpeg' })], { storyOnly: true });
+  const m = p.media[p.media.length - 1];
+  storyEdit(p);
+  p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'white', filter: 'none', layers: [] };
+  seBump(p);
+  return p.media.length - 1;
+}
+
 // ---- 編輯器視窗 ----
 let seCtx = null;   // { p, opts（全自動要發的目標，沒有就是只編輯）, i（第幾個檔案）, sel, src, video, boxes, raf }
 function openStoryEditor(p, opts = null) {
   logRemote('trace', '打開限動編輯 ' + (opts ? '（送出前）' : '（只編輯）'));
-  if (!p.media.length) return toast('限動要先加入圖片或影片');
   seLinkFonts();
   storyEdit(p);
-  seCtx = { p, opts, i: 0, sel: null, boxes: {} };
+  seCtx = { p, opts, i: 0, sel: null, boxes: {}, pen: null };
   $('#storyModal').classList.add('open');
+  // 沒有照片影片：直接做一張純文字限動
+  if (!p.media.length) { seNewTextFrame(p).then(i => { if (seCtx?.p === p) { seCtx.i = i; renderStoryEditor(); seLoadSource(); } }); return; }
   renderStoryEditor();
   seLoadSource();
 }
@@ -1748,28 +1880,36 @@ function closeStoryEditor(why) {
   if (active()) renderEditorSettings(active());
 }
 function renderStoryEditor() {
-  const ctx = seCtx, { p, opts } = ctx, n = p.media.length;
+  const ctx = seCtx, { p, opts } = ctx, fr = seFrame(), m = p.media[ctx.i];
   const stories = (opts || []).filter(isStory), others = (opts || []).filter(o => !isStory(o));
   $('#storyBody').innerHTML = `
-    ${n > 1 ? `<div class="se-pages">${p.media.map((m, i) => `<button class="chip ${i === ctx.i ? 'on' : ''}" data-sepage="${i}">${isVideo(m) ? '🎬' : '🖼️'} 第 ${i + 1} 張</button>`).join('')}</div>` : ''}
+    <div class="se-pages">${p.media.map((x, i) => `<button class="chip ${i === ctx.i ? 'on' : ''}" data-sepage="${i}">${x.textOnly ? 'Aa' : isVideo(x) ? '🎬' : '🖼️'} 第 ${i + 1} 張</button>`).join('')}
+      <button class="chip cat" id="seNewText">＋ 純文字限動</button><button class="chip cat" id="seNewCollage">＋ 拼貼版面</button>
+      ${m?.storyOnly ? '<button class="link danger" id="seDelPage" style="padding:0 4px">刪掉這張</button>' : ''}</div>
+    <div class="chips se-layouts" id="seLayouts" hidden>${SE_LAYOUTS.map(([v, l]) => `<button class="chip" data-selayout="${v}">${l}</button>`).join('')}<span class="hint-s">用第 1 步加的照片依序排進去</span></div>
     <div class="se-wrap">
-      <div class="se-stage"><canvas id="seCanvas" width="${SW}" height="${SH}"></canvas></div>
+      <div class="se-stage"><canvas id="seCanvas" width="${SW}" height="${SH}" class="${ctx.pen ? 'drawing' : ''}"></canvas></div>
       <div class="se-side">
         <div class="se-tools">
-          <button data-seadd="text">＋ 文字</button><button data-seadd="emoji">😊 貼圖</button>
-          <button data-seadd="loc">📍 地點</button><button data-seadd="time">🕒 時間</button><button data-seadd="mention">＠ 提及</button>
+          <button data-seadd="text">Aa 文字</button><button data-seadd="pen" class="${ctx.pen ? 'on' : ''}">🖊️ 畫筆</button><button data-seadd="emoji">😊 貼圖</button>
+          <button data-seadd="mention">＠ 提及</button><button data-seadd="loc">📍 地點</button><button data-seadd="hashtag"># 主題標籤</button>
+          <button data-seadd="time">🕒 時間</button><button data-seadd="countdown">⏳ 倒數</button>
         </div>
         <div class="se-emoji" id="seEmoji" hidden>${SE_EMOJI.map(e => `<button data-seemoji="${e}">${e}</button>`).join('')}</div>
         <div id="seLayerBox"></div>
-        <div class="se-sec"><b>${isVideo(p.media[ctx.i]) ? '影片' : '照片'}</b>
-          <div class="se-row"><span>大小</span><input type="range" id="seZoom" min="30" max="300" step="1" value="${Math.round(seFrame().zoom * 100)}"><button class="link" id="seFit">完整顯示</button><button class="link" id="seCover">填滿畫面</button></div>
-          <div class="se-row"><span>空白處</span><div class="chips">${SE_FILLS.map(([v, l]) => `<button class="chip ${seFrame().fill === v ? 'on' : ''}" data-sefill="${v}">${l}</button>`).join('')}</div></div>
-          <div class="se-row"><span>濾鏡</span><div class="chips">${SE_FILTERS.map(([v, l]) => `<button class="chip ${seFrame().filter === v ? 'on' : ''}" data-sefilter="${v}">${l}</button>`).join('')}</div></div>
-          <p class="hint-s" style="margin:6px 0 0">在畫面上拖曳可以移動；點文字或貼圖可以選取、拖動；滾輪或兩指可以縮放。</p>
+        <div class="se-sec"><b>${m?.textOnly ? '背景' : isVideo(m) ? '影片' : '照片'}</b>
+          ${m?.textOnly ? '' : `<div class="se-row"><span>大小</span><input type="range" id="seZoom" min="30" max="300" step="1" value="${Math.round(fr.zoom * 100)}"><button class="link" id="seFit">完整顯示</button><button class="link" id="seCover">填滿畫面</button></div>`}
+          <div class="se-row"><span>${m?.textOnly ? '底色' : '空白處'}</span><div class="chips">${SE_FILLS.filter(([v]) => !(m?.textOnly && v === 'blur')).map(([v, l]) => v === 'color'
+            ? `<label class="chip ${fr.fill === v ? 'on' : ''} se-colorpick">${l}<input type="color" id="seFillColor" value="${fr.fillColor || '#222222'}"></label>`
+            : `<button class="chip ${fr.fill === v ? 'on' : ''}" data-sefill="${v}">${l}</button>`).join('')}
+            ${Object.entries(SE_GRADS).map(([k, [a, b]]) => `<button class="grad ${fr.fill === k ? 'on' : ''}" data-sefill="${k}" style="background:linear-gradient(160deg,${a},${b})" title="漸層"></button>`).join('')}</div></div>
+          ${m?.textOnly ? '' : `<div class="se-row"><span>濾鏡</span><div class="chips">${SE_FILTERS.filter(f => !f[3] || f[0] === fr.filter).map(([v, l]) => `<button class="chip ${fr.filter === v ? 'on' : ''}" data-sefilter="${v}">${l}</button>`).join('')}</div></div>`}
+          <p class="hint-s" style="margin:6px 0 0">在畫面上拖曳可以移動；點文字或貼圖可以選取、拖動；滾輪或兩指可以縮放、兩指可以旋轉。</p>
         </div>
-        <details class="se-note"><summary>IG／FB 自己的貼圖和特效可以用嗎？</summary>
-          <p>這裡加的文字、貼圖、📍地點、🕒時間、＠提及都是<b>畫在圖上</b>的，看起來一樣，但別人點了不會跳轉。</p>
-          <p>可以點的地點、連結、音樂、投票、問答、特效濾鏡，IG／FB 沒有開放給外部程式加，<b>全自動做不到</b>。要用的話改用<b>半自動</b>：這裡編好的圖分享到 IG／FB App 後，在 App 裡照常加。</p>
+        <details class="se-note"><summary>IG 限動還有哪些功能？</summary>
+          <p>✅ <b>這裡都能做</b>：文字（IG 字體、顏色、底色、對齊、旋轉）、畫筆、表情貼圖、提及、地點、主題標籤、時間、倒數、濾鏡、背景漸層、純文字限動、拼貼版面。</p>
+          <p>＠ 提及在<b>全自動</b>時是真的提及（對方會收到通知）；地點、主題標籤、倒數只是畫在圖上，別人點了不會跳轉。</p>
+          <p>❌ <b>IG 沒開放給外部程式</b>：音樂、投票、問答、測驗、表情滑桿、連結、GIF、可點的地點和主題標籤、摯友名單、特效。要用的話改用<b>半自動</b>：編好的圖分享到 IG App 後，在 App 裡照常加。</p>
         </details>
       </div>
     </div>
@@ -1777,17 +1917,29 @@ function renderStoryEditor() {
     <div class="se-busy" id="seBusy" hidden></div>
     <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>`;
   const box = $('#storyBody');
-  box.querySelectorAll('[data-sepage]').forEach(b => b.onclick = () => { ctx.i = +b.dataset.sepage; ctx.sel = null; renderStoryEditor(); seLoadSource(); });
+  const goPage = i => { if (i < 0) return; ctx.i = i; ctx.sel = null; renderStoryEditor(); seLoadSource(); renderThumbs(); };
+  box.querySelectorAll('[data-sepage]').forEach(b => b.onclick = () => goPage(+b.dataset.sepage));
+  $('#seNewText').onclick = async () => goPage(await seNewTextFrame(p));
+  $('#seNewCollage').onclick = () => { $('#seLayouts').hidden = !$('#seLayouts').hidden; };
+  box.querySelectorAll('[data-selayout]').forEach(b => b.onclick = async () => goPage(await seNewCollage(p, b.dataset.selayout)));
+  if ($('#seDelPage')) $('#seDelPage').onclick = () => {
+    if (!confirm('刪掉這張限動？')) return;
+    p.media = p.media.filter(x => x !== m); dropMedia(m); delete p.storyEdit.frames[m.id]; seBump(p);
+    renderThumbs(); renderBar(); refreshStepper(p);
+    if (!p.media.length) return closeStoryEditor('刪光了');
+    goPage(Math.min(ctx.i, p.media.length - 1));
+  };
   box.querySelectorAll('[data-seadd]').forEach(b => b.onclick = () => seAdd(b.dataset.seadd));
   box.querySelectorAll('[data-seemoji]').forEach(b => b.onclick = () => { $('#seEmoji').hidden = true; seAddLayer({ kind: 'emoji', text: b.dataset.seemoji, size: 220 }); });
-  const fr = seFrame();
-  $('#seZoom').oninput = e => { fr.zoom = e.target.value / 100; seBump(p); seDraw(); };
-  $('#seFit').onclick = () => { Object.assign(fr, { zoom: 1, ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw(); };
-  $('#seCover').onclick = () => {
+  if ($('#seZoom')) $('#seZoom').oninput = e => { fr.zoom = e.target.value / 100; seBump(p); seDraw(); };
+  if ($('#seFit')) $('#seFit').onclick = () => { Object.assign(fr, { zoom: 1, ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw(); };
+  if ($('#seCover')) $('#seCover').onclick = () => {
     const s = ctx.src; if (!s) return;
     Object.assign(fr, { zoom: Math.max(SW / s.w, SH / s.h) / Math.min(SW / s.w, SH / s.h), ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw();
   };
   box.querySelectorAll('[data-sefill]').forEach(b => b.onclick = () => { fr.fill = b.dataset.sefill; seBump(p); renderStoryEditor(); seDraw(); });
+  if ($('#seFillColor')) $('#seFillColor').oninput = e => { fr.fill = 'color'; fr.fillColor = e.target.value; seBump(p); seDraw(); };
+  if ($('#seFillColor')) $('#seFillColor').onchange = () => renderStoryEditor();
   box.querySelectorAll('[data-sefilter]').forEach(b => b.onclick = () => { fr.filter = b.dataset.sefilter; seBump(p); renderStoryEditor(); seDraw(); });
   $('#seCancel').onclick = () => closeStoryEditor('按了先不要');
   $('#seOk').onclick = seFinish;
@@ -1798,7 +1950,20 @@ function renderStoryEditor() {
 function seAdd(kind) {
   if (kind === 'emoji') { $('#seEmoji').hidden = !$('#seEmoji').hidden; return; }
   const p = seCtx.p;
-  if (kind === 'text') return seAddLayer({ kind: 'text', text: '輸入文字', size: 72, font: 'classic', color: '#ffffff', bg: 'none' }, true);
+  if (kind === 'pen') {
+    seCtx.pen = seCtx.pen ? null : { tool: 'pen', size: 14, color: '#ffffff' };
+    seCtx.sel = null;
+    document.querySelector('[data-seadd="pen"]')?.classList.toggle('on', !!seCtx.pen);
+    $('#seCanvas')?.classList.toggle('drawing', !!seCtx.pen);
+    renderSeLayer(); seDraw(); return;
+  }
+  seCtx.pen = null; document.querySelector('[data-seadd="pen"]')?.classList.remove('on'); $('#seCanvas')?.classList.remove('drawing');
+  if (kind === 'text') return seAddLayer({ kind: 'text', text: '輸入文字', size: 72, font: 'classic', color: '#ffffff', bg: 'none', align: 'center' }, true);
+  if (kind === 'hashtag') return seAddLayer({ kind: 'tag', icon: '#', text: '', size: 54 }, true);
+  if (kind === 'countdown') {
+    const d = p.time ? new Date(p.time) : new Date(Date.now() + 864e5);
+    return seAddLayer({ kind: 'tag', icon: '⏳', text: `活動倒數\n${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, size: 54 }, true);
+  }
   if (kind === 'loc') {
     const place = (S.places || [])[0]?.name || '';
     return seAddLayer({ kind: 'tag', icon: '📍', text: place || '地點名稱', size: 54 }, !place);
@@ -1821,45 +1986,89 @@ async function seAddLayer(l, focus) {
 function renderSeLayer() {
   const l = seLayer(), box = $('#seLayerBox');
   if (!box) return;
+  const pen = seCtx.pen;
+  if (pen) {
+    const fr = seFrame();
+    box.innerHTML = `<div class="se-sec se-layer"><div class="se-row" style="justify-content:space-between"><b>🖊️ 畫筆</b><span><button class="link" id="seUndo" ${fr.draw?.length ? '' : 'disabled'}>↶ 復原</button><button class="link danger" id="seClearDraw" ${fr.draw?.length ? '' : 'disabled'}>全部清掉</button><button class="link" id="sePenDone" style="color:var(--accent)">完成</button></span></div>
+      <div class="chips" style="margin-top:8px">${SE_PENS.map(([v, lab]) => `<button class="chip ${pen.tool === v ? 'on' : ''}" data-sepen="${v}">${lab}</button>`).join('')}</div>
+      <div class="se-row"><span>粗細</span><input type="range" id="sePenSize" min="4" max="60" value="${pen.size}"></div>
+      ${pen.tool === 'eraser' ? '' : `<div class="se-row"><span>顏色</span>${seColorsHtml(pen.color)}</div>`}
+      <p class="hint-s" style="margin:6px 0 0">在左邊畫面上直接畫。畫好按「完成」就可以回去移動文字和照片。</p></div>`;
+    $('#seUndo').onclick = () => { fr.draw.pop(); fr.drawVer = (fr.drawVer || 0) + 1; seBump(seCtx.p); renderSeLayer(); seDraw(); };
+    $('#seClearDraw').onclick = () => { if (!confirm('把畫的全部清掉？')) return; fr.draw = []; fr.drawVer = (fr.drawVer || 0) + 1; seBump(seCtx.p); renderSeLayer(); seDraw(); };
+    $('#sePenDone').onclick = () => seAdd('pen');
+    box.querySelectorAll('[data-sepen]').forEach(b => b.onclick = () => { pen.tool = b.dataset.sepen; renderSeLayer(); });
+    $('#sePenSize').oninput = e => { pen.size = +e.target.value; };
+    seBindColors(box, c => { pen.color = c; renderSeLayer(); });
+    return;
+  }
   if (!l) { box.innerHTML = `<p class="hint-s se-sec" style="margin:10px 0 0">點畫面上的文字或貼圖來修改。</p>`; return; }
-  const name = l.kind === 'emoji' ? '貼圖' : l.kind === 'tag' ? { '📍': '地點', '🕒': '時間', '＠': '提及' }[l.icon] || '標籤' : '文字';
+  const name = l.kind === 'emoji' ? '貼圖' : l.kind === 'tag' ? SE_TAGS[l.icon] || '標籤' : '文字';
   box.innerHTML = `<div class="se-sec se-layer"><div class="se-row" style="justify-content:space-between"><b>${name}</b><span><button class="link" id="seUp">移到最上層</button><button class="link danger" id="seDel">刪除</button></span></div>
-    ${l.kind !== 'emoji' ? `<textarea id="seText" rows="${l.kind === 'text' ? 3 : 1}" ${l.icon === '＠' ? 'placeholder="IG 帳號，例如 chihongtsai_850109（不用打 @）"' : ''}>${esc(l.text)}</textarea>` : ''}
+    ${l.kind !== 'emoji' ? `<textarea id="seText" rows="${l.kind === 'text' || l.icon === '⏳' ? 3 : 1}" ${l.icon === '＠' ? 'placeholder="IG 帳號，例如 chihongtsai_850109（不用打 @）"' : l.icon === '#' ? 'placeholder="主題標籤，例如 週年慶（不用打 #）"' : l.icon === '⏳' ? 'placeholder="第一行寫活動名稱，第二行寫日期時間"' : ''}>${esc(l.text)}</textarea>` : ''}
     ${l.icon === '＠' ? `<p class="hint-s" style="margin:6px 0 0">${seCtx.opts ? '全自動發的時候會<b>真的提及</b>這個帳號，對方會收到通知，點標籤會跳到他的 IG。' : '這裡只會畫在圖上；用半自動發的話，請在 IG App 裡再用「提及」貼圖加一次，才會通知對方。'}${l.text && !IG_USER.test(seMentionName(l)) ? '<br><span style="color:var(--danger)">帳號只能有英文、數字、底線和點，最多 30 字</span>' : ''}</p>` : ''}
     <div class="se-row"><span>大小</span><input type="range" id="seSize" min="${l.kind === 'emoji' ? 60 : 24}" max="${l.kind === 'emoji' ? 600 : 200}" value="${l.size}"></div>
+    <div class="se-row"><span>旋轉</span><input type="range" id="seRot" min="-180" max="180" value="${Math.round(l.rot || 0)}"><button class="link" id="seRot0">轉正</button></div>
     ${l.kind === 'text' ? `
       <div class="se-row"><span>IG 風格</span><div class="chips">${SE_FONTS.filter(f => f.group === 'ig').map(f => `<button class="chip ${l.font === f.id ? 'on' : ''}" data-sefont="${f.id}" style="font-family:${esc(f.fam)}, sans-serif;${f.italic ? 'font-style:italic;' : ''}">${f.label}</button>`).join('')}</div></div>
       <div class="se-row"><span>中文字體</span><div class="chips">${SE_FONTS.filter(f => f.group === 'zh').map(f => `<button class="chip ${l.font === f.id ? 'on' : ''}" data-sefont="${f.id}" style="font-family:${esc(f.fam)}, sans-serif">${f.label}</button>`).join('')}</div></div>
       <p class="hint-s" style="margin:4px 0 0">IG 風格會改變英文和數字的樣子（跟 IG 一樣，中文看起來差不多）。</p>
-      <div class="se-row"><span>顏色</span><div class="se-colors">${SE_COLORS.map(c => `<button class="${l.color === c ? 'on' : ''}" data-secolor="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div></div>
+      <div class="se-row"><span>對齊</span><div class="chips">${SE_ALIGNS.map(([v, lab]) => `<button class="chip ${(l.align || 'center') === v ? 'on' : ''}" data-sealign="${v}">${lab}</button>`).join('')}</div></div>
+      <div class="se-row"><span>顏色</span>${seColorsHtml(l.color)}</div>
       <div class="se-row"><span>底色</span><div class="chips">${SE_BGS.map(([v, lab]) => `<button class="chip ${l.bg === v ? 'on' : ''}" data-sebg="${v}">${lab}</button>`).join('')}</div></div>` : ''}
   </div>`;
   const p = seCtx.p;
-  if ($('#seText')) $('#seText').oninput = async e => { l.text = l.icon === '＠' ? e.target.value.replace(/^[@＠]/, '').trim() : e.target.value; seBump(p); seDraw(); await seLoadFonts([l]); seDraw(); };
+  if ($('#seText')) $('#seText').oninput = async e => { l.text = l.icon === '＠' ? e.target.value.replace(/^[@＠]/, '').trim() : l.icon === '#' ? e.target.value.replace(/^[#＃]/, '').trim() : e.target.value; seBump(p); seDraw(); await seLoadFonts([l]); seDraw(); };
   if ($('#seText') && l.icon === '＠') $('#seText').onchange = () => renderSeLayer();
   $('#seSize').oninput = e => { l.size = +e.target.value; seBump(p); seDraw(); };
   $('#seDel').onclick = () => { const fr = seFrame(); fr.layers = fr.layers.filter(x => x !== l); seCtx.sel = null; seBump(p); renderSeLayer(); seDraw(); };
   $('#seUp').onclick = () => { const fr = seFrame(); fr.layers = [...fr.layers.filter(x => x !== l), l]; seBump(p); seDraw(); };
   box.querySelectorAll('[data-sefont]').forEach(b => b.onclick = async () => { l.font = b.dataset.sefont; seBump(p); renderSeLayer(); seDraw(); await seLoadFonts([l]); seDraw(); });
-  box.querySelectorAll('[data-secolor]').forEach(b => b.onclick = () => { l.color = b.dataset.secolor; seBump(p); renderSeLayer(); seDraw(); });
+  seBindColors(box, c => { l.color = c; seBump(p); renderSeLayer(); seDraw(); });
+  box.querySelectorAll('[data-sealign]').forEach(b => b.onclick = () => { l.align = b.dataset.sealign; seBump(p); renderSeLayer(); seDraw(); });
+  $('#seRot').oninput = e => { l.rot = +e.target.value; seBump(p); seDraw(); };
+  $('#seRot0').onclick = () => { l.rot = 0; seBump(p); renderSeLayer(); seDraw(); };
   box.querySelectorAll('[data-sebg]').forEach(b => b.onclick = () => { l.bg = b.dataset.sebg; seBump(p); renderSeLayer(); seDraw(); });
 }
-// 拖曳：點到圖層就移動圖層，點到空白就移動照片；兩指縮放、滾輪縮放
+// 顏色：IG 調色盤＋自訂
+function seColorsHtml(cur) {
+  const custom = cur && !SE_COLORS.includes(cur);
+  return `<div class="se-colors">${SE_COLORS.map(c => `<button class="${cur === c ? 'on' : ''}" data-secolor="${c}" style="background:${c}" title="${c}"></button>`).join('')}
+    <label class="se-custom ${custom ? 'on' : ''}" title="自訂顏色" style="${custom ? `background:${cur}` : ''}">🎨<input type="color" data-secustom value="${custom ? cur : '#ff5a5f'}"></label></div>`;
+}
+function seBindColors(box, set) {
+  box.querySelectorAll('[data-secolor]').forEach(b => b.onclick = () => set(b.dataset.secolor));
+  box.querySelectorAll('[data-secustom]').forEach(i => { i.onchange = () => set(i.value); });
+}
+// 拖曳：點到圖層就移動圖層，點到空白就移動照片；兩指縮放、旋轉；畫筆模式就畫線
 function seBindStage() {
   const c = $('#seCanvas'), pts = new Map();
   let drag = null, pinch = null;
   const pos = e => { const r = c.getBoundingClientRect(); return { x: (e.clientX - r.left) * SW / r.width, y: (e.clientY - r.top) * SH / r.height }; };
+  // 旋轉過的圖層：把點轉回圖層自己的方向再判斷
   const hit = q => {
     const ls = seFrame().layers;
-    for (let k = ls.length - 1; k >= 0; k--) { const b = seCtx.boxes[ls[k].id]; if (b && q.x >= b.x0 - 20 && q.x <= b.x1 + 20 && q.y >= b.y0 - 20 && q.y <= b.y1 + 20) return ls[k]; }
+    for (let k = ls.length - 1; k >= 0; k--) {
+      const l = ls[k], b = seCtx.boxes[l.id]; if (!b) continue;
+      const r = -(l.rot || 0) * Math.PI / 180, dx = q.x - l.x, dy = q.y - l.y;
+      const x = l.x + dx * Math.cos(r) - dy * Math.sin(r), y = l.y + dx * Math.sin(r) + dy * Math.cos(r);
+      if (x >= b.x0 - 20 && x <= b.x1 + 20 && y >= b.y0 - 20 && y <= b.y1 + 20) return l;
+    }
     return null;
   };
+  let stroke = null;
   c.onpointerdown = e => {
-    c.setPointerCapture(e.pointerId);
+    try { c.setPointerCapture(e.pointerId); } catch {}
     pts.set(e.pointerId, pos(e));
+    if (seCtx.pen) {
+      const fr = seFrame(), q = pos(e), pen = seCtx.pen;
+      fr.draw ||= [];
+      stroke = { tool: pen.tool, color: pen.color, size: pen.size, pts: [[Math.round(q.x), Math.round(q.y)]] };
+      fr.draw.push(stroke); fr.drawVer = (fr.drawVer || 0) + 1; seDraw(); return;
+    }
     if (pts.size === 2) {
       const [a, b] = [...pts.values()], l = seLayer(), fr = seFrame();
-      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), base: l ? l.size : fr.zoom, l };
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), a: Math.atan2(b.y - a.y, b.x - a.x), base: l ? l.size : fr.zoom, rot: l?.rot || 0, l };
       drag = null; return;
     }
     const q = pos(e), l = hit(q), fr = seFrame();
@@ -1870,9 +2079,10 @@ function seBindStage() {
   c.onpointermove = e => {
     if (!pts.has(e.pointerId)) return;
     pts.set(e.pointerId, pos(e));
+    if (stroke) { const q = pos(e); stroke.pts.push([Math.round(q.x), Math.round(q.y)]); seFrame().drawVer++; seDraw(); return; }
     if (pinch && pts.size === 2) {
       const [a, b] = [...pts.values()], k = Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
-      if (pinch.l) pinch.l.size = Math.max(24, Math.min(600, Math.round(pinch.base * k)));
+      if (pinch.l) { pinch.l.size = Math.max(24, Math.min(600, Math.round(pinch.base * k))); pinch.l.rot = Math.round(pinch.rot + (Math.atan2(b.y - a.y, b.x - a.x) - pinch.a) * 180 / Math.PI); }
       else seFrame().zoom = Math.max(.3, Math.min(3, pinch.base * k));
       seDraw(); return;
     }
@@ -1884,11 +2094,13 @@ function seBindStage() {
   };
   c.onpointerup = c.onpointercancel = e => {
     pts.delete(e.pointerId);
+    if (stroke) { stroke = null; seBump(seCtx.p); renderSeLayer(); return; }
     if (drag || pinch) { seBump(seCtx.p); if (pinch) { renderSeLayer(); const z = $('#seZoom'); if (z) z.value = Math.round(seFrame().zoom * 100); } }
     if (!pts.size) { drag = null; pinch = null; }
   };
   c.onwheel = e => {
     e.preventDefault();
+    if (seCtx.pen) return;
     const l = seLayer(), fr = seFrame(), k = e.deltaY < 0 ? 1.06 : 1 / 1.06;
     if (l) { l.size = Math.max(24, Math.min(600, Math.round(l.size * k))); const s = $('#seSize'); if (s) s.value = l.size; }
     else { fr.zoom = Math.max(.3, Math.min(3, fr.zoom * k)); const z = $('#seZoom'); if (z) z.value = Math.round(fr.zoom * 100); }
@@ -2435,7 +2647,7 @@ function igSummary(p) {
 }
 function igPayload(p) {
   const o = igOpts(p);
-  return { tags: p.media.map(m => o.tags[m.id] || []), collaborators: o.collaborators, location_id: o.location || undefined };
+  return { tags: postMedia(p).map(m => o.tags[m.id] || []), collaborators: o.collaborators, location_id: o.location || undefined };
 }
 let igCtx = null;   // { p, cur: 目前選的檔案索引, pending: {x,y} 剛點的位置 }
 function openIgOpts(p) {
@@ -2450,12 +2662,12 @@ function closeIgOpts() {
 }
 $('#igOptsClose').onclick = closeIgOpts;
 async function renderIgOpts() {
-  const { p } = igCtx, o = igOpts(p), m = p.media[igCtx.cur], places = S.places || [];
+  const { p } = igCtx, o = igOpts(p), pm = postMedia(p), m = pm[igCtx.cur], places = S.places || [];
   const tags = m ? (o.tags[m.id] ||= []) : [];
   $('#igOptsBody').innerHTML = `
     <div class="pick-label" style="margin-top:0">標註人物 <small style="font-weight:400">點照片上的位置，再輸入帳號</small></div>
-    ${p.media.length ? `
-      ${p.media.length > 1 ? `<div class="chips" style="margin-bottom:8px">${p.media.map((x, i) => `<button class="chip ${i === igCtx.cur ? 'on' : ''}" data-cur="${i}">第 ${i + 1} 張${(o.tags[x.id] || []).length ? `（${o.tags[x.id].length}）` : ''}</button>`).join('')}</div>` : ''}
+    ${pm.length ? `
+      ${pm.length > 1 ? `<div class="chips" style="margin-bottom:8px">${pm.map((x, i) => `<button class="chip ${i === igCtx.cur ? 'on' : ''}" data-cur="${i}">第 ${i + 1} 張${(o.tags[x.id] || []).length ? `（${o.tags[x.id].length}）` : ''}</button>`).join('')}</div>` : ''}
       <div class="tag-stage" id="tagStage">
         ${isVideo(m) ? '<div class="hint-s" style="padding:30px;text-align:center">影片不能指定位置，直接在下面輸入帳號就好</div>' : '<img id="tagImg" alt="">'}
         ${isVideo(m) ? '' : tags.map((t, i) => `<span class="tag-pin" style="left:${t.x * 100}%;top:${t.y * 100}%">@${esc(t.username)}<button data-untag="${i}" title="移除">✕</button></span>`).join('')}
