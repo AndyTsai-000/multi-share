@@ -88,6 +88,9 @@ main { overflow: auto; min-height: 0; }
 .pick-input input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; padding: 0; border: 0; pointer-events: none; }
 .when-line, .warn-line { margin: 12px 0 0; font-size: 14px; }
 .warn-line { color: var(--danger); }
+.phone-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.6;
+  background: rgba(245, 166, 35, .12); border: 1px solid rgba(245, 166, 35, .55); color: var(--ink); }
+.phone-note b { color: #e0901a; }
 
 .bar { position: fixed; left: 270px; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); }
 .bar .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
@@ -351,7 +354,7 @@ const TYPES = {
   igstory: {
     label: 'IG 限動', color: '#e1306c', kind: '限動', needMedia: true, phoneOnly: true,
     open: () => null,
-    hint: () => IS_MOBILE ? '用「分享圖片影片」選 Instagram →「限時動態」。要加文字就在限動上長按貼上。' : 'IG 限動只能用手機發。在手機打開這個網頁，或把檔案傳到手機再發。',
+    hint: () => IS_MOBILE ? '用「分享圖片影片」選 Instagram →「限時動態」。' : '可以先「下載圖片影片」，把檔案傳到手機，再用手機 IG 發限動；或按「跳過」，之後用手機打開這個網頁再發。',
   },
   threads: {
     label: 'Threads', color: '#111827', kind: '貼文',
@@ -561,6 +564,9 @@ function modeCardHtml(p, key) {
     <span class="mode-pick">${p.mode === key ? '✓ 已選擇' : '選這個'}</span>
   </button>`;
 }
+// IG 限動半自動只能用手機發（電腦版 IG 網頁沒有發限動的功能）
+const PHONE_NOTE = '📱 <b>IG 限動只能用手機發</b>：電腦版 IG 網頁不能發限動。請在<b>手機</b>打開這個網頁來發（電腦建好的對象和貼文，要先用「備份／搬資料」匯到手機），或改用「⚡ 全自動」，在電腦排好時間就會自動發。';
+const phoneNote = list => !IS_MOBILE && list.some(t => TYPES[t.type]?.phoneOnly) ? `<div class="phone-note">${PHONE_NOTE}</div>` : '';
 // 半自動選到的對象，各給一行提示
 const MANUAL_TIP = {
   line: 'LINE：會打開分享畫面，可以一次勾很多聊天室；聊天室多的話用下方的「LINE 分批」。',
@@ -584,7 +590,7 @@ function settingsHtml(p) {
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
-  return types.map(t => `<div class="set-row"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
+  return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
 }
 function renderEditor() {
   const p = active(), ed = $('#editor');
@@ -621,6 +627,7 @@ function renderEditor() {
         const ty = TYPES[t.type];
         return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
       }).join('')}</div>
+      ${phoneNote(postTargets(p))}
       <p class="hint-s" style="margin:12px 0 0"><button class="link" id="manageTargets" style="color:var(--accent);padding:0">＋ 新增或修改發送對象</button></p>`
       : `<p class="empty" style="margin-top:0">還沒有發送對象。</p><button class="primary" id="addFirst">＋ 新增 LINE、FB 社團、IG⋯</button>`}
     <div class="step-nav"><button class="link" data-step="1">← 上一步</button><button class="primary" data-step="3" ${stepSelCount(p) ? '' : 'disabled'}>下一步：內容與設定 →</button></div>
@@ -848,7 +855,7 @@ function renderTargets() {
       <div class="full"><label class="field">分類（選填，方便一次選一整組）</label><input id="tCat" list="catList" value="${esc(e.cat)}" placeholder="例：客戶、朋友">
         <datalist id="catList">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
       ${e.type === 'line' ? '<div class="full hint-s">名稱請跟 LINE 裡的聊天室名稱一樣，分享時比較好找。</div>' : ''}
-      ${TYPES[e.type].phoneOnly ? '<div class="full hint-s">這個只能用手機發。</div>' : ''}
+      ${TYPES[e.type].phoneOnly ? `<div class="full phone-note" style="margin:0">${PHONE_NOTE}</div>` : ''}
       <div class="full row" style="justify-content:flex-end"><button class="link" id="tCancel">取消</button><button class="primary" id="tSave">${e.id ? '儲存' : '新增'}</button></div>
     </div>` : bulkOpen ? bulkForm()
     : `<div class="row" style="margin-top:14px"><button class="primary" id="tAdd">＋ 新增對象</button><button id="tBulk">整批新增／匯入 FB 社團</button></div>`;
@@ -1103,8 +1110,7 @@ function renderSend() {
   const isStoryT = /story$/.test(t.type);
   if (shareOk) prepareShare(p, isStoryT);
   const images = p.media.filter(m => !isVideo(m));
-  const warn = ty.needMedia && !hasMedia ? `${ty.label}一定要有圖片或影片，這則沒有，建議跳過。`
-    : ty.phoneOnly && !IS_MOBILE ? '這個只能用手機發。' : '';
+  const warn = [ty.phoneOnly && !IS_MOBILE ? PHONE_NOTE : '', ty.needMedia && !hasMedia ? `${ty.label}一定要有圖片或影片，這則沒有，建議跳過。` : ''].filter(Boolean).join('<br>');
   const steps = [];
   if (url) steps.push(`<button data-act="open">開啟 ${ty.label}${text ? '＋複製文字' : ''}</button>`);
   else if (text) steps.push(`<button data-act="text">複製文字</button>`);
