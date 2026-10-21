@@ -1364,10 +1364,11 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
+const APP_VERSION = "v1021d";
 function logRemote(where, msg) {
   try {
     fetch(API + '/log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ where, msg: String(msg).slice(0, 500), ua: navigator.userAgent.slice(0, 200) }) }).catch(() => {});
+      body: JSON.stringify({ where, msg: String(msg).slice(0, 500), ua: APP_VERSION + ' ' + navigator.userAgent.slice(0, 180) }) }).catch(() => {});
   } catch {}
 }
 async function apiCall(path, opts = {}) {
@@ -1442,17 +1443,20 @@ async function toJpeg(blob) {
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
 }
 const isStory = o => o.platform === 'ig' && o.kind === 'story';
+const mediaInfo = p => p.media.map(m => `${m.type || '?'}`).join(',');
 async function submitAuto(p) {
   const opts = autoSelected(p);
+  logRemote('trace', `按自動發 對象=${opts.map(o => o.label).join('+')} 檔案=${mediaInfo(p)} 時間=${p.time || '現在'}`);
   if (!opts.length) return;
   const text = fullText(p);
-  if (opts.some(o => o.platform === 'ig') && !p.media.length) { toast('Instagram 一定要有圖片或影片'); return alert('⚠️ 還沒送出\n\nInstagram 一定要有圖片或影片'); }
-  if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
-  if (p.media.length > 10) { toast('自動發最多 10 個圖片影片'); return alert('⚠️ 還沒送出\n\n自動發最多 10 個圖片影片'); }
+  if (opts.some(o => o.platform === 'ig') && !p.media.length) { toast('Instagram 一定要有圖片或影片'); logRemote('trace', '擋下：Instagram 一定要有圖片或影片'); return alert('⚠️ 還沒送出\n\nInstagram 一定要有圖片或影片'); }
+  if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
+  if (p.media.length > 10) { toast('自動發最多 10 個圖片影片'); logRemote('trace', '擋下：自動發最多 10 個圖片影片'); return alert('⚠️ 還沒送出\n\n自動發最多 10 個圖片影片'); }
   // 有 IG 限動：先編輯、確認限動畫面，確認了才送出
   if (opts.some(isStory)) return openStoryEditor(p, opts);
   const when = autoWhen(p);
-  if (!confirm(`確定要在「${when}」自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n送出後時間到就會自動發出。`)) return;
+  logRemote('trace', '跳出確認視窗');
+  if (!confirm(`確定要在「${when}」自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n送出後時間到就會自動發出。`)) { logRemote('trace', '確認視窗按了取消'); return; }
   await sendAuto(p, opts, null);
 }
 const autoWhen = p => !p.time || new Date(p.time) < Date.now() ? '現在' : fmtTime(p.time);
@@ -1497,6 +1501,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
+    logRemote('trace', '送出成功 ' + r.id);
     serverPosts[r.id] = { status: 'scheduled', run_at: r.run_at, targets: opts.map(o => ({ account: o.account, kind: o.kind })), jobs: [] };
     setTimeout(refreshServerPosts, 8000);
     const where = opts.map(o => `${o.label} @${o.username}`).join('、');
@@ -1651,6 +1656,7 @@ function seDrawFrame(g, fr, src, w, h, sel) {
 // ---- 編輯器視窗 ----
 let seCtx = null;   // { p, opts（全自動要發的目標，沒有就是只編輯）, i（第幾個檔案）, sel, src, video, boxes, raf }
 function openStoryEditor(p, opts = null) {
+  logRemote('trace', '打開限動編輯 ' + (opts ? '（送出前）' : '（只編輯）'));
   if (!p.media.length) return toast('限動要先加入圖片或影片');
   seLinkFonts();
   storyEdit(p);
@@ -1694,7 +1700,8 @@ function seDraw() {
   const g = c.getContext('2d'), s = ctx.src;
   ctx.boxes = seDrawFrame(g, seFrame(), s?.el, s?.w, s?.h, ctx.sel);
 }
-function closeStoryEditor() {
+function closeStoryEditor(why) {
+  if (typeof why === 'string') logRemote('trace', '關掉限動編輯：' + why);
   if (seCtx) seStopVideo(seCtx);
   seCtx = null;
   $('#storyModal').classList.remove('open');
@@ -1742,7 +1749,7 @@ function renderStoryEditor() {
   };
   box.querySelectorAll('[data-sefill]').forEach(b => b.onclick = () => { fr.fill = b.dataset.sefill; seBump(p); renderStoryEditor(); seDraw(); });
   box.querySelectorAll('[data-sefilter]').forEach(b => b.onclick = () => { fr.filter = b.dataset.sefilter; seBump(p); renderStoryEditor(); seDraw(); });
-  $('#seCancel').onclick = closeStoryEditor;
+  $('#seCancel').onclick = () => closeStoryEditor('按了先不要');
   $('#seOk').onclick = seFinish;
   seBindStage();
   renderSeLayer();
@@ -2023,9 +2030,11 @@ async function seVideoOk(b) {
   return ok;
 }
 async function seExportVideo(fr, blob, onTick, ac) {
-  try { const b = await seEncodeVideo(fr, blob, onTick); if (b) return b; }
-  catch (e) { console.warn('WebCodecs 失敗，改用錄影', e); }
-  return seRecordVideo(fr, blob, onTick, ac).catch(e => { console.warn('錄影失敗', e); return null; });
+  try { const b = await seEncodeVideo(fr, blob, onTick); if (b) return b; logRemote('trace', '影片：WebCodecs 不支援'); }
+  catch (e) { console.warn('WebCodecs 失敗，改用錄影', e); logRemote('trace', '影片：WebCodecs 失敗 ' + (e?.message || e)); }
+  const r = await seRecordVideo(fr, blob, onTick, ac).catch(e => { console.warn('錄影失敗', e); logRemote('trace', '影片：錄影失敗 ' + (e?.message || e)); return null; });
+  if (!r) logRemote('trace', '影片：兩種方法都不行，用原檔');
+  return r;
 }
 // 輸出全部檔案；存進瀏覽器，半自動發送時直接拿來分享／下載
 async function seExportAll(p, onMsg, ac) {
@@ -2070,10 +2079,13 @@ async function seFinish() {
   const busy = $('#seBusy'), ok = $('#seOk');
   const ac = p.media.some(isVideo) && window.AudioContext ? new AudioContext() : null;
   ok.disabled = true; busy.hidden = false; busy.textContent = '處理中⋯';
+  const t0 = Date.now();
+  logRemote('trace', '按了確認，開始處理 ' + mediaInfo(p) + ' ' + p.media.map(m => blobs[m.id] ? (blobs[m.id].size / 1048576).toFixed(1) + 'MB' : '?').join(','));
   busy.scrollIntoView({ block: 'nearest' });
   seStopVideo(ctx);
   try {
     const blobs = await seExportAll(p, msg => { if (seCtx === ctx) busy.textContent = msg; }, ac).finally(() => ac?.close().catch(() => {}));
+    logRemote('trace', `處理完成 ${Math.round((Date.now() - t0) / 1000)} 秒，輸出 ${blobs.map(b => (b.type || '?') + ' ' + (b.size / 1048576).toFixed(1) + 'MB').join(',')}`);
     if (seCtx !== ctx) return;
     const key = p.id + ':' + p.storyEdit.ver + ':' + p.media.map(m => m.id).join(',');
     if (dbOk) await DB.put('kv', 'storyOut:' + p.id, { key, blobs }).catch(() => {});
@@ -2090,7 +2102,7 @@ async function seFinish() {
     alert('⚠️ 限動畫面產生失敗\n\n原因：' + e.message);
   }
 }
-$('#storyClose').onclick = closeStoryEditor;
+$('#storyClose').onclick = () => closeStoryEditor('按了右上角關閉');
 
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
