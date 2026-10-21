@@ -197,6 +197,10 @@ main { overflow: auto; min-height: 0; }
 .pe-stage canvas { touch-action: none; cursor: grab; }
 .pe-num { width: 34px; text-align: right; flex: none; }
 .pe-canvas-box { position: relative; }
+.media-card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.media-card-row .hint-s { flex: 1; min-width: 200px; color: var(--ink); }
+.media-card-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.ai-btn:disabled { opacity: .45; cursor: default; }
 @media (min-width: 761px) { .pe-stage, .se-stage { position: sticky; top: 0; z-index: 1; } }
 .pe-canvas-box.tagging canvas { cursor: crosshair; outline: 3px solid var(--accent); }
 .pe-pins { position: absolute; inset: 0; pointer-events: none; }
@@ -703,9 +707,8 @@ function renderEditor() {
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
-    <div class="text-head" style="margin:12px 0 0"><span class="hint-s">IG 貼文的裁切比例、濾鏡、調整、排序、替代文字</span><span class="row" style="gap:6px;flex-wrap:nowrap"><button class="ai-btn" id="ppOpen">👁 預覽貼文</button><button class="ai-btn" id="peOpen">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button></span></div>
-    <div class="text-head" style="margin:8px 0 0"><span class="hint-s">有活動 DM、型錄、報價單？AI 幫你做成限動圖</span><button class="ai-btn" id="fsOpen">📄 用檔案做限動</button></div>
   </div>
+  <div class="card" id="postCard">${postCardHtml(p)}</div>
   <div class="card" id="storyCard">${storyCardHtml(p)}</div>
   <div class="step-nav bare"><span></span><button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
   else if (p.step === 2) body = `
@@ -788,9 +791,6 @@ function renderEditor() {
   if (p.step === 1) {
     renderThumbs();
     $('#aiOpen').onclick = () => openAi(p);
-    $('#fsOpen').onclick = () => openFileStory(p);
-    $('#peOpen').onclick = () => openPostEditor(p);
-    $('#ppOpen').onclick = () => openPostPreview(p);
     $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     const drop = $('#drop'), file = $('#file');
@@ -827,13 +827,28 @@ function refreshStepper(p) {
   if (!st) return;
   st.outerHTML = stepperHtml(p);
   $('#editor .stepper').querySelectorAll('[data-step]').forEach(x => x.onclick = () => !p.serverPost && goStep(p, +x.dataset.step));
-  const sc = $('#storyCard'); if (sc) { sc.innerHTML = storyCardHtml(p); bindSettings(p); }
+  const sc = $('#storyCard'), pc = $('#postCard');
+  if (pc) pc.innerHTML = postCardHtml(p);
+  if (sc) { sc.innerHTML = storyCardHtml(p); bindSettings(p); }
 }
 // 第 1 步的限動卡片：有圖片影片才能編輯限動畫面
+function mediaCardHtml(title, sub, desc, buttons) {
+  return `<h2>${title} <small>${sub}</small></h2>
+    <div class="media-card-row"><span class="hint-s">${desc}</span><span class="media-card-btns">${buttons}</span></div>`;
+}
+function postCardHtml(p) {
+  const has = postMedia(p).length, done = p.postEdit?.done;
+  return mediaCardHtml('貼文畫面', '要發 IG 貼文才需要',
+    !has ? '先在上面加入照片或影片，就可以預覽和編輯貼文。'
+      : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '裁切比例、濾鏡、調整、排序、替代文字，還有標註人物、協作者、地點',
+    `<button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`);
+}
 function storyCardHtml(p) {
-  return `<h2>限時動態畫面 <small>要發 IG／FB 限動才需要</small></h2>
-    ${p.media.length ? `<div class="set-row" style="margin:0"><span class="hint-s" style="color:var(--ink)">${p.storyEdit?.done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、地點時間標籤，調整照片影片的位置'}</span><button class="ai-btn" data-seopen>🎨 編輯限動畫面</button></div>`
-      : '<div class="set-row" style="margin:0"><span class="hint-s" style="color:var(--ink)">沒有照片也可以：做一張 IG「建立」模式那種純文字限動</span><button class="ai-btn" data-seopen>Aa 做純文字限動</button></div>'}`;
+  const has = p.media.length, done = p.storyEdit?.done;
+  return mediaCardHtml('限時動態畫面', '要發 IG／FB 限動才需要',
+    !has ? '沒有照片也可以：做一張 IG「建立」模式那種純文字限動，或用活動 DM、型錄做成限動圖。'
+      : done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、畫筆、地點時間標籤，調整照片影片的位置；也可以用檔案做限動圖',
+    `<button class="ai-btn" data-fsopen>📄 用檔案做限動</button><button class="ai-btn" data-seopen>${has ? '🎨 編輯限動畫面' : 'Aa 做純文字限動'}${done ? ' ✓' : ''}</button>`);
 }
 function setCardHtml(p) {
   return `<h2>發文設定 <small>${p.mode === 'auto' ? '⚡ 全自動' : '📱 半自動'}・${stepSelCount(p)} 個對象</small></h2>
@@ -873,9 +888,10 @@ function renderEditorSettings(p) {
   if (active() !== p) return;
   const card = $('#setCard');
   if (card) card.innerHTML = setCardHtml(p);
-  const sc = $('#storyCard');
+  const sc = $('#storyCard'), pc = $('#postCard');
   if (sc) sc.innerHTML = storyCardHtml(p);
-  if (!card && !sc) return;
+  if (pc) pc.innerHTML = postCardHtml(p);
+  if (!card && !sc && !pc) return;
   bindSettings(p);
 }
 function bindSettings(p) {
@@ -883,6 +899,7 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-seopen]').forEach(x => x.onclick = () => openStoryEditor(p));
   document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
   document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
+  document.querySelectorAll('#editor [data-fsopen]').forEach(x => x.onclick = () => openFileStory(p));
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -1438,7 +1455,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022h";
+const APP_VERSION = "v1022i";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
