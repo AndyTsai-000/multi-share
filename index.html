@@ -795,10 +795,10 @@ function renderEditor() {
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     const drop = $('#drop'), file = $('#file');
     drop.onclick = () => file.click();
-    file.onchange = () => { addFiles(p, file.files); file.value = ''; };
+    file.onchange = () => { const list = [...file.files]; file.value = ''; addFiles(p, list); };
     drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
     drop.ondragleave = () => drop.classList.remove('over');
-    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(p, e.dataTransfer.files); };
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(p, [...e.dataTransfer.files]); };
     return;
   }
   if (p.step !== 3 || p.serverPost) return;
@@ -921,6 +921,7 @@ async function renderThumbs() {
   }
 }
 async function addFiles(p, files, extra) {
+  files = [...files];   // 選檔清單是「活的」，清空選檔欄位後就沒了，先複製一份
   for (const f of files) {
     if (!/^(image|video)\//.test(f.type)) { toast(`「${f.name}」不是圖片或影片`); continue; }
     const m = { id: uid(), name: f.name, type: f.type, ...(extra || {}) };
@@ -1455,7 +1456,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022i";
+const APP_VERSION = "v1022j";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
