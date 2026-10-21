@@ -50,6 +50,7 @@ aside .new { width: 100%; }
 .group-title.warn { color: #e0901a; }
 .group-hint { font-size: 11px; color: var(--sub); margin: -4px 6px 6px; }
 .pill.unsched { background: rgba(245, 166, 35, .18); color: #e0901a; }
+.ver { font-size: 11px; color: var(--sub); text-align: center; opacity: .7; }
 .home-link { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .home { max-width: 760px; }
 .home-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -268,6 +269,7 @@ main { overflow: auto; min-height: 0; }
       <button id="openTargets">管理發送對象</button>
       <button id="openBackup">備份／搬資料</button>
       <button id="openAuto">⚡ 自動發帳號</button>
+      <div class="ver" id="appVer"></div>
     </footer>
   </aside>
   <main>
@@ -1364,7 +1366,9 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1021d";
+const APP_VERSION = "v1021e";
+window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
+window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
   try {
     fetch(API + '/log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2103,6 +2107,10 @@ async function seFinish() {
   }
 }
 $('#storyClose').onclick = () => closeStoryEditor('按了右上角關閉');
+$('#autoSend').onclick = () => {
+  logRemote('trace', '按鈕被按 ' + (active() ? 'mode=' + active().mode + ' auto=' + (active().auto || []).join('+') : '沒有選貼文'));
+  if (active()) submitAuto(active()).catch(e => { logRemote('error', 'submitAuto: ' + e.message); alert('⚠️ 自動發出錯：' + e.message); });
+};
 
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
@@ -2500,6 +2508,8 @@ async function openAuto() {
   $('#autoModal').classList.add('open');
   $('#autoBody').innerHTML = '<p class="empty">讀取中⋯</p>';
   await loadAccounts();
+  $('#appVer').textContent = '版本 ' + APP_VERSION;
+  logRemote('trace', `開啟網頁 帳號=${autoAccounts.map(a => a.platform + ':' + a.username).join(',') || '沒有'} 貼文=${S.posts.length}`);
   renderAuto();
 }
 $('#openAuto').onclick = openAuto;
@@ -2518,7 +2528,9 @@ function renderAuto() {
   $('#autoBody').querySelectorAll('[data-unlink]').forEach(b => b.onclick = async () => {
     if (!confirm('取消連結這個帳號？已排程的自動發會失敗。')) return;
     try { await apiCall('/api/accounts/' + b.dataset.unlink, { method: 'DELETE' }); } catch (e) { toast('失敗：' + e.message); }
-    await loadAccounts(); renderAuto(); renderAll();
+    await loadAccounts();
+  $('#appVer').textContent = '版本 ' + APP_VERSION;
+  logRemote('trace', `開啟網頁 帳號=${autoAccounts.map(a => a.platform + ':' + a.username).join(',') || '沒有'} 貼文=${S.posts.length}`); renderAuto(); renderAll();
   });
   if ($('#autoLogout')) $('#autoLogout').onclick = async () => {
     if (!confirm('在這台裝置登出？帳號連結不會被取消，下次按「連結」就能回來。')) return;
@@ -2563,6 +2575,8 @@ function renderAll() { renderList(); renderEditor(); }
   if (dbOk) session = (await DB.get('kv', 'session').catch(() => '')) || '';
   if (h.get('ms_session')) { session = h.get('ms_session'); if (dbOk) DB.put('kv', 'session', session).catch(() => {}); }
   await loadAccounts();
+  $('#appVer').textContent = '版本 ' + APP_VERSION;
+  logRemote('trace', `開啟網頁 帳號=${autoAccounts.map(a => a.platform + ':' + a.username).join(',') || '沒有'} 貼文=${S.posts.length}`);
   if (!S.posts.length) newPost(); else renderAll();
   setInterval(() => { checkDue(); if (!send && !batch) renderList(); }, 15e3);
   checkDue();
