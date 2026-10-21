@@ -196,6 +196,12 @@ main { overflow: auto; min-height: 0; }
 .pe-stage canvas, .pe-stage video { width: 100%; border-radius: 10px; display: block; background: #000; }
 .pe-stage canvas { touch-action: none; cursor: grab; }
 .pe-num { width: 34px; text-align: right; flex: none; }
+.pe-canvas-box { position: relative; }
+@media (min-width: 761px) { .pe-stage, .se-stage { position: sticky; top: 0; z-index: 1; } }
+.pe-canvas-box.tagging canvas { cursor: crosshair; outline: 3px solid var(--accent); }
+.pe-pins { position: absolute; inset: 0; pointer-events: none; }
+.pe-pins .tag-pin, .pe-pins .tag-pin button { pointer-events: auto; }
+.ai-btn.on { background: var(--soft); color: var(--soft-ink); }
 .pp-wrap { display: grid; grid-template-columns: minmax(0, 375px) 1fr; gap: 20px; align-items: start; }
 .pp-phone { background: #fff; color: #111; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); font-size: 14px; }
 .pp-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
@@ -344,10 +350,6 @@ main { overflow: auto; min-height: 0; }
   <div id="postEdBody"></div>
 </div></div>
 
-<div class="modal-bg" id="igOptsModal"><div class="modal" style="width:min(720px,100%)">
-  <h3>IG 貼文設定 <button class="link" id="igOptsClose">完成</button></h3>
-  <div id="igOptsBody"></div>
-</div></div>
 
 <div class="modal-bg" id="storyModal"><div class="modal" style="width:min(920px,100%)">
   <h3>🎨 編輯限動畫面 <button class="link" id="storyClose">關閉</button></h3>
@@ -670,7 +672,7 @@ function settingsHtml(p) {
   if (p.mode === 'auto') {
     const opts = autoSelected(p), parts = [];
     if (postMedia(p).length > 20) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 20 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
-    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button><button class="link" data-peopen style="color:var(--accent)">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">🎨 編輯貼文（照片、標註、協作者、地點）${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
     if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
@@ -1436,7 +1438,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022g";
+const APP_VERSION = "v1022h";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2576,22 +2578,22 @@ function peIgExtra(p) {
 
 // ---- 視窗 ----
 let peCtx = null;   // { p, i（第幾張貼文照片）, hist: { stack, redo }, histT }
-function openPostEditor(p) {
+function openPostEditor(p, focus) {
   const pm = postMedia(p);
   if (!pm.length) return toast('先加入照片或影片');
-  postEdit(p);
-  peCtx = { p, i: 0, hist: { stack: [JSON.stringify(peState(p))], redo: [] } };
+  postEdit(p); igOpts(p);
+  peCtx = { p, i: 0, hist: { stack: [JSON.stringify(peState(p))], redo: [] }, tagMode: false, pending: null };
   $('#postEdModal').classList.add('open');
-  renderPostEditor();
+  renderPostEditor().then(() => { if (focus === 'ig') $('#peIgSec')?.scrollIntoView({ block: 'start' }); });
 }
 function closePostEditor() {
   if (peCtx?.video) peCtx.video.pause();
   peCtx = null;
   $('#postEdModal').classList.remove('open');
-  if (active()) { renderThumbs(); renderEditorSettings(active()); refreshStepper(active()); }
+  if (active()) renderEditor();   // 第 1 步的按鈕（✓）、第 3 步的摘要都要更新
 }
 // 快照不含版本號和「編過了」，不然復原後每次比對都不一樣
-const peState = p => { const { ver, done, ...pe } = p.postEdit; return { pe, order: postMedia(p).map(m => m.id) }; };
+const peState = p => { const { ver, done, ...pe } = p.postEdit; return { pe, order: postMedia(p).map(m => m.id), ig: igOpts(p) }; };
 const peCur = () => postMedia(peCtx.p)[peCtx.i];
 const peItem = () => postEdit(peCtx.p).items[peCur().id];
 // 復原／重做（跟限動編輯器一樣：連續動作停下來才算一步）
@@ -2610,6 +2612,7 @@ function peCommit() {
 function peRestore(json) {
   const p = peCtx.p, st = JSON.parse(json);
   p.postEdit = { ...st.pe, ver: (p.postEdit.ver || 0) + 1, done: true };
+  p.ig = st.ig || { tags: {}, collaborators: [], location: '' };
   const story = p.media.filter(m => m.storyOnly), byId = Object.fromEntries(p.media.map(m => [m.id, m]));
   p.media = [...st.order.map(id => byId[id]).filter(Boolean), ...p.media.filter(m => !m.storyOnly && !st.order.includes(m.id)), ...story];
   save(); peCtx.i = Math.min(peCtx.i, postMedia(p).length - 1); renderPostEditor();
@@ -2635,7 +2638,8 @@ async function renderPostEditor() {
       ${pm.length > 1 ? `<button class="link" id="peLeft" ${ctx.i ? '' : 'disabled'}>◀ 往前</button><button class="link" id="peRight" ${ctx.i < pm.length - 1 ? '' : 'disabled'}>往後 ▶</button>` : ''}
       <span class="se-undo"><button id="peUndo" title="復原（Ctrl+Z）">↶ 復原</button><button id="peRedo" title="重做（Ctrl+Y）">↷ 重做</button></span></div>
     <div class="se-wrap pe-wrap">
-      <div class="pe-stage">${vid ? '<video id="peVideo" muted playsinline controls></video>' : '<canvas id="peCanvas"></canvas>'}</div>
+      <div class="pe-stage">${vid ? '<video id="peVideo" muted playsinline controls></video>' : `<div class="pe-canvas-box ${ctx.tagMode ? 'tagging' : ''}"><canvas id="peCanvas"></canvas><div class="pe-pins" id="pePins"></div></div>
+        ${ctx.tagMode ? '<p class="hint-s" style="margin:6px 0 0;text-align:center">👆 點照片上要標註的人</p>' : ''}`}</div>
       <div class="se-side">
         ${vid ? `
           <div class="se-sec" style="border:0;margin:0;padding:0"><b>影片${single ? '（會發成 Reels）' : ''}</b>
@@ -2664,8 +2668,9 @@ async function renderPostEditor() {
           <div class="se-sec"><b>替代文字 <small style="font-weight:400;color:var(--sub)">給視障朋友的說明，全自動發的時候會一起送出</small></b>
             <textarea id="peAlt" rows="2" maxlength="1000" placeholder="例如：胡桃木色的實木餐桌，搭配四張淺灰布面餐椅">${esc(it.alt || '')}</textarea>
           </div>`}
+        ${peIgSecHtml(p, m, vid)}
         <details class="se-note"><summary>IG 貼文還有哪些功能？</summary>
-          <p>✅ <b>這裡可以做</b>：比例裁切（4:5、1:1、1.91:1）、旋轉拉直、IG 濾鏡、調整亮度對比等、排序、替代文字、Reels 封面和音訊名稱。標註人物、協作者（最多 3 位）、地點在第 3 步的「IG 貼文」設定裡。</p>
+          <p>✅ <b>這裡可以做</b>：比例裁切（4:5、1:1、1.91:1）、旋轉拉直、IG 濾鏡、調整亮度對比等、排序、替代文字、Reels 封面和音訊名稱。標註人物、協作者（最多 3 位）、地點在上面「IG 設定」。</p>
           <p>❌ <b>IG 沒開放給外部程式</b>：加音樂、貼文投票、商品標籤以外的購物功能、「新增你的」貼圖。要用的話改用<b>半自動</b>在 IG App 裡加。</p>
           <p>💡 IG 規定照片比例要在 4:5～1.91:1 之間，超出的話全自動會照這裡的比例自動裁切。</p>
         </details>
@@ -2694,8 +2699,10 @@ async function renderPostEditor() {
     if ($('#peThumb')) $('#peThumb').oninput = e => { pe.reel.thumb = +e.target.value; v.currentTime = pe.reel.thumb; $('#peThumbT').textContent = pe.reel.thumb.toFixed(1) + ' 秒'; peBump(1); };
     if ($('#peAudio')) $('#peAudio').oninput = e => { pe.reel.audio = e.target.value; peBump(1); };
     if ($('#peFeed')) $('#peFeed').onchange = e => { pe.reel.feed = e.target.checked; peBump(); };
+    peBindIg(p, m);
     return;
   }
+  peBindIg(p, m);
   box.querySelectorAll('[data-peratio]').forEach(b => b.onclick = () => { pe.ratio = b.dataset.peratio; peBump(); renderPostEditor(); });
   $('#peZoom').oninput = e => { it.zoom = e.target.value / 100; peBump(1); peDrawStage(); };
   $('#peStraight').oninput = e => { it.straight = +e.target.value; peBump(1); peDrawStage(); };
@@ -2707,6 +2714,78 @@ async function renderPostEditor() {
   $('#peAlt').oninput = e => { it.alt = e.target.value; peBump(1); };
   await peDrawStage(true);
   peBindStage();
+  peRenderPins();
+}
+// IG 設定區：標註人物、協作者、地點（全自動發 IG 貼文時才會用到）
+function peIgSecHtml(p, m, vid) {
+  const o = igOpts(p), tags = o.tags[m.id] || [], places = S.places || [], ctx = peCtx;   // 只讀，不要在畫畫面時改資料（不然復原會亂掉）
+  return `<div class="se-sec" id="peIgSec"><b>IG 設定 <small style="font-weight:400;color:var(--sub)">全自動發 IG 貼文時會一起送出；半自動請在 IG App 裡設定</small></b>
+    <div class="pick-label">👤 標註人物 ${vid ? '<small style="font-weight:400">影片不用指定位置</small>' : ''}</div>
+    ${vid ? '' : `<button class="ai-btn ${ctx.tagMode ? 'on' : ''}" id="peTagMode">${ctx.tagMode ? '✓ 標註中（點照片上的人）' : '👤 點照片標註'}</button>`}
+    ${vid || ctx.pending ? `<div class="row" style="margin-top:8px"><input id="tagName" placeholder="要標註的 IG 帳號，例如 friend_01" style="flex:1;min-width:140px"><button id="tagAdd">加入標註</button>${ctx.pending ? '<button class="link" id="tagCancel">取消</button>' : ''}</div>` : ''}
+    ${tags.length ? `<div class="chips" style="margin-top:8px">${tags.map((t, i) => `<span class="chip on">@${esc(t.username)}<button class="link" data-untag="${i}" style="padding:0 0 0 4px">✕</button></span>`).join('')}</div>` : ''}
+    <div class="pick-label">🤝 協作者 <small style="font-weight:400">最多 3 位，對方接受後兩邊都會出現這則貼文</small></div>
+    ${o.collaborators.length ? `<div class="chips">${o.collaborators.map((c, i) => `<span class="chip on">@${esc(c)}<button class="link" data-uncollab="${i}" style="padding:0 0 0 4px">✕</button></span>`).join('')}</div>` : ''}
+    ${o.collaborators.length < 3 ? `<div class="row" style="margin-top:8px"><input id="collabName" placeholder="協作者的 IG 帳號" style="flex:1;min-width:140px"><button id="collabAdd">加入協作者</button></div>` : ''}
+    <div class="pick-label">📍 地點</div>
+    <div class="chips"><button class="chip ${!o.location ? 'on' : ''}" data-place="">不加地點</button>
+      ${places.map(x => `<button class="chip ${o.location === x.id ? 'on' : ''}" data-place="${x.id}">📍${esc(x.name)}</button>`).join('')}</div>
+    <details class="place-new" ${places.length ? '' : 'open'} style="margin-top:8px">
+      <summary>＋ 新增常用地點</summary>
+      <div class="t-form" style="margin-top:8px">
+        <div><label class="field">名稱</label><input id="placeName" placeholder="例：台中門市"></div>
+        <div><label class="field">Facebook 地點編號或網址</label><input id="placeId" placeholder="例：110765362279102"></div>
+        <div class="full hint-s">Instagram 沒有開放搜尋地點，要用這個地點在 Facebook 上的編號：在 Facebook 搜尋那個地點（例如你的門市粉絲專頁）→ 打開它的頁面 →「關於」→「粉絲專頁資訊公開」裡的<b>粉絲專頁編號</b>，複製貼上。網址裡有一長串數字的話，直接貼網址也可以。</div>
+        <div class="full row" style="justify-content:flex-end"><button class="primary" id="placeSave">儲存地點</button></div>
+      </div>
+    </details>
+    ${places.length ? `<p class="hint-s" style="margin:8px 0 0">${places.map(x => `<button class="link danger" data-unplace="${x.id}" style="padding:0 8px 0 0">刪除「${esc(x.name)}」</button>`).join('')}</p>` : ''}
+  </div>`;
+}
+function peBindIg(p, m) {
+  const o = igOpts(p), tags = () => o.tags[m.id] || [], box = $('#postEdBody'), ctx = peCtx, re = () => { peBump(); renderPostEditor(); };
+  if ($('#peTagMode')) $('#peTagMode').onclick = () => { ctx.tagMode = !ctx.tagMode; ctx.pending = null; renderPostEditor(); };
+  const addTag = () => {
+    const name = cleanName($('#tagName').value);
+    if (!validName(name)) return toast('帳號只能有英文、數字、底線和句點');
+    if (tags().some(t => t.username === name)) return toast('這張已經標註過這個人');
+    o.tags[m.id] = [...tags(), isVideo(m) ? { username: name, x: 0.5, y: 0.5 } : { username: name, ...ctx.pending }];
+    ctx.pending = null; re();
+  };
+  if ($('#tagAdd')) { $('#tagAdd').onclick = addTag; $('#tagName').onkeydown = e => e.key === 'Enter' && addTag(); if (ctx.pending) $('#tagName').focus(); }
+  if ($('#tagCancel')) $('#tagCancel').onclick = () => { ctx.pending = null; renderPostEditor(); };
+  box.querySelectorAll('[data-untag]').forEach(b => b.onclick = e => { e.stopPropagation(); o.tags[m.id] = tags().filter((_, i) => i !== +b.dataset.untag); re(); });
+  const addCollab = () => {
+    const name = cleanName($('#collabName').value);
+    if (!validName(name)) return toast('帳號只能有英文、數字、底線和句點');
+    if (o.collaborators.includes(name)) return toast('已經加過了');
+    o.collaborators.push(name); re();
+  };
+  if ($('#collabAdd')) { $('#collabAdd').onclick = addCollab; $('#collabName').onkeydown = e => e.key === 'Enter' && addCollab(); }
+  box.querySelectorAll('[data-uncollab]').forEach(b => b.onclick = () => { o.collaborators.splice(+b.dataset.uncollab, 1); re(); });
+  box.querySelectorAll('[data-place]').forEach(b => b.onclick = () => { o.location = b.dataset.place; re(); });
+  box.querySelectorAll('[data-unplace]').forEach(b => b.onclick = () => {
+    const places = S.places || [], x = places.find(pl => pl.id === b.dataset.unplace);
+    if (!confirm(`刪除常用地點「${x.name}」？`)) return;
+    S.places = places.filter(pl => pl !== x);
+    if (o.location === x.id) o.location = '';
+    re();
+  });
+  $('#placeSave').onclick = () => {
+    const name = $('#placeName').value.trim(), id = ($('#placeId').value.match(/\d{5,25}/) || [])[0];
+    if (!name) return toast('請輸入地點名稱');
+    if (!id) return toast('找不到編號：要是一串數字，或含有數字編號的網址');
+    S.places = [...(S.places || []).filter(x => x.id !== id), { id, name }];
+    o.location = id; re();
+  };
+}
+// 照片上的標註（位置是輸出照片的比例，所以跟 IG 上一樣）
+function peRenderPins() {
+  const box = $('#pePins'); if (!box || !peCtx) return;
+  const p = peCtx.p, m = peCur(), tags = igOpts(p).tags[m.id] || [], pd = peCtx.pending;
+  box.innerHTML = tags.map((t, i) => `<span class="tag-pin" style="left:${t.x * 100}%;top:${t.y * 100}%">@${esc(t.username)}<button data-untag="${i}" title="移除">✕</button></span>`).join('')
+    + (pd ? `<span class="tag-dot" style="left:${pd.x * 100}%;top:${pd.y * 100}%"></span>` : '');
+  box.querySelectorAll('[data-untag]').forEach(b => b.onclick = e => { e.stopPropagation(); igOpts(p).tags[m.id] = tags.filter((_, i) => i !== +b.dataset.untag); peBump(); renderPostEditor(); });
 }
 // 預覽：同一個比例，寬 540（輸出時是 1080）
 async function peDrawStage(resize) {
@@ -2725,6 +2804,11 @@ function peBindStage() {
   const pts = new Map(); let drag = null, pinch = null;
   const pos = e => { const r = c.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
   c.onpointerdown = e => {
+    if (peCtx.tagMode) {
+      const q = pos(e);
+      peCtx.pending = { x: Math.round(Math.min(1, Math.max(0, q.x)) * 1000) / 1000, y: Math.round(Math.min(1, Math.max(0, q.y)) * 1000) / 1000 };
+      renderPostEditor(); return;
+    }
     try { c.setPointerCapture(e.pointerId); } catch {}
     pts.set(e.pointerId, pos(e));
     const it = peItem();
@@ -2746,7 +2830,7 @@ function peBindStage() {
     if (drag || pinch) { peBump(); const z = $('#peZoom'); if (z) z.value = Math.round(peItem().zoom * 100); }
     if (!pts.size) { drag = null; pinch = null; }
   };
-  c.onwheel = e => { e.preventDefault(); const it = peItem(); it.zoom = Math.max(1, Math.min(3, it.zoom * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); $('#peZoom').value = Math.round(it.zoom * 100); peBump(1); peDrawStage(); };
+  c.onwheel = e => { e.preventDefault(); if (peCtx.tagMode) return; const it = peItem(); it.zoom = Math.max(1, Math.min(3, it.zoom * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); $('#peZoom').value = Math.round(it.zoom * 100); peBump(1); peDrawStage(); };
 }
 
 // ===== 貼文預覽：跟 IG 動態上看到的一樣（帳號、地點、照片輪播、說明文字），旁邊可以直接改 =====
@@ -3148,105 +3232,9 @@ function igPayload(p) {
   const o = igOpts(p);
   return { tags: postMedia(p).map(m => o.tags[m.id] || []), collaborators: o.collaborators, location_id: o.location || undefined };
 }
-let igCtx = null;   // { p, cur: 目前選的檔案索引, pending: {x,y} 剛點的位置 }
-function openIgOpts(p) {
-  igCtx = { p, cur: 0, pending: null };
-  $('#igOptsModal').classList.add('open');
-  renderIgOpts();
-}
-function closeIgOpts() {
-  $('#igOptsModal').classList.remove('open');
-  igCtx = null;
-  renderEditor();
-}
-$('#igOptsClose').onclick = closeIgOpts;
-async function renderIgOpts() {
-  const { p } = igCtx, o = igOpts(p), pm = postMedia(p), m = pm[igCtx.cur], places = S.places || [];
-  const tags = m ? (o.tags[m.id] ||= []) : [];
-  $('#igOptsBody').innerHTML = `
-    <div class="pick-label" style="margin-top:0">標註人物 <small style="font-weight:400">點照片上的位置，再輸入帳號</small></div>
-    ${pm.length ? `
-      ${pm.length > 1 ? `<div class="chips" style="margin-bottom:8px">${pm.map((x, i) => `<button class="chip ${i === igCtx.cur ? 'on' : ''}" data-cur="${i}">第 ${i + 1} 張${(o.tags[x.id] || []).length ? `（${o.tags[x.id].length}）` : ''}</button>`).join('')}</div>` : ''}
-      <div class="tag-stage" id="tagStage">
-        ${isVideo(m) ? '<div class="hint-s" style="padding:30px;text-align:center">影片不能指定位置，直接在下面輸入帳號就好</div>' : '<img id="tagImg" alt="">'}
-        ${isVideo(m) ? '' : tags.map((t, i) => `<span class="tag-pin" style="left:${t.x * 100}%;top:${t.y * 100}%">@${esc(t.username)}<button data-untag="${i}" title="移除">✕</button></span>`).join('')}
-        ${igCtx.pending && !isVideo(m) ? `<span class="tag-dot" style="left:${igCtx.pending.x * 100}%;top:${igCtx.pending.y * 100}%"></span>` : ''}
-      </div>
-      <div class="row" style="margin-top:8px">
-        <input id="tagName" placeholder="${isVideo(m) || igCtx.pending ? '要標註的 IG 帳號，例如 friend_01' : '先點照片上的位置'}" style="flex:1;min-width:160px" ${isVideo(m) || igCtx.pending ? '' : 'disabled'}>
-        <button id="tagAdd" ${isVideo(m) || igCtx.pending ? '' : 'disabled'}>加入標註</button>
-      </div>
-      ${isVideo(m) && tags.length ? `<div class="chips" style="margin-top:8px">${tags.map((t, i) => `<span class="chip on">@${esc(t.username)}<button class="link" data-untag="${i}" style="padding:0 0 0 4px">✕</button></span>`).join('')}</div>` : ''}`
-      : '<p class="empty">先加入圖片或影片才能標註。</p>'}
-
-    <div class="pick-label">協作者 <small style="font-weight:400">最多 3 位（Instagram 的規定），對方接受後兩邊都會出現這則貼文</small></div>
-    <div class="chips">${o.collaborators.map((c, i) => `<span class="chip on">@${esc(c)}<button class="link" data-uncollab="${i}" style="padding:0 0 0 4px">✕</button></span>`).join('')}</div>
-    ${o.collaborators.length < 3 ? `<div class="row" style="margin-top:8px"><input id="collabName" placeholder="協作者的 IG 帳號" style="flex:1;min-width:160px"><button id="collabAdd">加入協作者</button></div>` : ''}
-
-    <div class="pick-label">地點</div>
-    <div class="chips">
-      <button class="chip ${!o.location ? 'on' : ''}" data-place="">不加地點</button>
-      ${places.map(x => `<button class="chip ${o.location === x.id ? 'on' : ''}" data-place="${x.id}">📍${esc(x.name)}</button>`).join('')}
-    </div>
-    <details class="place-new" ${places.length ? '' : 'open'}>
-      <summary>＋ 新增常用地點</summary>
-      <div class="t-form" style="margin-top:8px">
-        <div><label class="field">名稱</label><input id="placeName" placeholder="例：台中門市"></div>
-        <div><label class="field">Facebook 地點編號或網址</label><input id="placeId" placeholder="例：110765362279102"></div>
-        <div class="full hint-s">Instagram 沒有開放搜尋地點，要用這個地點在 Facebook 上的編號：在 Facebook 搜尋那個地點（例如你的門市粉絲專頁）→ 打開它的頁面 →「關於」→「粉絲專頁資訊公開」裡的<b>粉絲專頁編號</b>，複製貼上。網址裡有一長串數字的話，直接貼網址也可以。設定一次之後就能直接點選。</div>
-        <div class="full row" style="justify-content:flex-end"><button class="primary" id="placeSave">儲存地點</button></div>
-      </div>
-    </details>
-    ${places.length ? `<p class="hint-s" style="margin:8px 0 0">${places.map(x => `<button class="link danger" data-unplace="${x.id}" style="padding:0 8px 0 0">刪除「${esc(x.name)}」</button>`).join('')}</p>` : ''}`;
-
-  const box = $('#igOptsBody');
-  // 標註
-  box.querySelectorAll('[data-cur]').forEach(b => b.onclick = () => { igCtx.cur = +b.dataset.cur; igCtx.pending = null; renderIgOpts(); });
-  const img = $('#tagImg');
-  if (img && m) {
-    img.src = p.postEdit?.done ? URL.createObjectURL(await peExportImage(p, m)) : await mediaUrl(m);
-    img.onclick = e => {
-      const r = img.getBoundingClientRect();
-      igCtx.pending = { x: Math.round((e.clientX - r.left) / r.width * 1000) / 1000, y: Math.round((e.clientY - r.top) / r.height * 1000) / 1000 };
-      renderIgOpts().then(() => $('#tagName')?.focus());
-    };
-  }
-  const addTag = () => {
-    const name = cleanName($('#tagName').value);
-    if (!validName(name)) return toast('帳號只能有英文、數字、底線和句點');
-    if (tags.some(t => t.username === name)) return toast('這張已經標註過這個人');
-    tags.push(isVideo(m) ? { username: name, x: 0.5, y: 0.5 } : { username: name, ...igCtx.pending });
-    igCtx.pending = null; save(); renderIgOpts();
-  };
-  if ($('#tagAdd')) { $('#tagAdd').onclick = addTag; $('#tagName').onkeydown = e => e.key === 'Enter' && addTag(); }
-  box.querySelectorAll('[data-untag]').forEach(b => b.onclick = e => { e.stopPropagation(); tags.splice(+b.dataset.untag, 1); save(); renderIgOpts(); });
-  // 協作者
-  const addCollab = () => {
-    const name = cleanName($('#collabName').value);
-    if (!validName(name)) return toast('帳號只能有英文、數字、底線和句點');
-    if (o.collaborators.includes(name)) return toast('已經加過了');
-    o.collaborators.push(name); save(); renderIgOpts();
-  };
-  if ($('#collabAdd')) { $('#collabAdd').onclick = addCollab; $('#collabName').onkeydown = e => e.key === 'Enter' && addCollab(); }
-  box.querySelectorAll('[data-uncollab]').forEach(b => b.onclick = () => { o.collaborators.splice(+b.dataset.uncollab, 1); save(); renderIgOpts(); });
-  // 地點
-  box.querySelectorAll('[data-place]').forEach(b => b.onclick = () => { o.location = b.dataset.place; save(); renderIgOpts(); });
-  box.querySelectorAll('[data-unplace]').forEach(b => b.onclick = () => {
-    const x = places.find(pl => pl.id === b.dataset.unplace);
-    if (!confirm(`刪除常用地點「${x.name}」？`)) return;
-    S.places = places.filter(pl => pl !== x);
-    if (o.location === x.id) o.location = '';
-    save(); renderIgOpts();
-  });
-  $('#placeSave').onclick = () => {
-    const name = $('#placeName').value.trim();
-    const id = ($('#placeId').value.match(/\d{5,25}/) || [])[0];
-    if (!name) return toast('請輸入地點名稱');
-    if (!id) return toast('找不到編號：要是一串數字，或含有數字編號的網址');
-    S.places = [...places.filter(x => x.id !== id), { id, name }];
-    o.location = id; save(); renderIgOpts();
-  };
-}
+// 標註人物、協作者、地點都在「編輯貼文」畫面裡
+const openIgOpts = p => openPostEditor(p, 'ig');
+const closeIgOpts = () => closePostEditor();
 
 async function refreshServerPosts() {
   if (!session || !S.posts.some(p => p.serverPost)) return;
@@ -3325,7 +3313,6 @@ function navCloseModal(el) {
   try {
     if (el.id === 'sendModal') closeSend();
     else if (el.id === 'storyModal') closeStoryEditor('按了上一頁');
-    else if (el.id === 'igOptsModal') closeIgOpts();
     else if (el.id === 'fsModal') closeFileStory();
     else if (el.id === 'postEdModal') closePostEditor();
     else if (el.id === 'postPrevModal') closePostPreview();
