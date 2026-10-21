@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>一鍵分享</title>
+<title>社群管家</title>
 <meta name="theme-color" content="#2563eb">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -258,7 +258,7 @@ main { overflow: auto; min-height: 0; }
 <div class="app">
   <aside>
     <header>
-      <h1><button class="home-link" id="goHome" title="回主畫面">一鍵分享</button></h1>
+      <h1><button class="home-link" id="goHome" title="回主畫面">社群管家</button></h1>
       <button class="primary new" id="newPost">＋ 新增貼文</button>
     </header>
     <div class="posts" id="postList"></div>
@@ -877,7 +877,7 @@ function downloadIcs(p) {
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//multi-share//TW', 'BEGIN:VEVENT',
     `UID:${p.id}@multi-share`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(d)}`, `DTEND:${stamp(new Date(+d + 15 * 60e3))}`,
     `SUMMARY:${icsText('發文提醒：' + title)}`,
-    `DESCRIPTION:${icsText(`要發到：${names}\n打開一鍵分享：${location.href.split('#')[0]}`)}`,
+    `DESCRIPTION:${icsText(`要發到：${names}\n打開社群管家：${location.href.split('#')[0]}`)}`,
     `URL:${location.href.split('#')[0]}`,
     'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText('發文提醒：' + title)}`, 'TRIGGER:PT0M', 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
@@ -1065,7 +1065,7 @@ function fbImporter() {
     btn.style.cssText = 'background:#1877f2;color:#fff;border:0;border-radius:6px;padding:8px 18px;font-weight:600;cursor:pointer;margin-right:8px';
     btn.onclick = async () => {
       try { await navigator.clipboard.writeText(text); } catch { ta.select(); document.execCommand('copy'); }
-      btn.textContent = '已複製 ✓，回一鍵分享貼上';
+      btn.textContent = '已複製 ✓，回社群管家貼上';
     };
     const close = document.createElement('button'); close.textContent = '關閉';
     close.style.cssText = 'background:#eee;border:0;border-radius:6px;padding:8px 14px;cursor:pointer';
@@ -1080,7 +1080,7 @@ $('#openBackup').onclick = () => $('#backupModal').classList.add('open');
 $('#exportBtn').onclick = () => {
   const data = { app: 'multi-share', version: 1, targets: S.targets, posts: S.posts.map(p => ({ ...p, media: [] })) };
   const d = new Date(), pad = n => String(n).padStart(2, '0');
-  saveFile(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `一鍵分享備份-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`);
+  saveFile(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `社群管家備份-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`);
 };
 $('#importBtn').onclick = () => $('#importFile').click();
 $('#importFile').onchange = async e => {
@@ -1103,7 +1103,7 @@ $('#importFile').onchange = async e => {
     save(); renderAll();
     $('#backupModal').classList.remove('open');
     toast(`匯入 ${nt} 個發送對象、${np} 則貼文`);
-  } catch { toast('這不是一鍵分享的備份檔'); }
+  } catch { toast('這不是社群管家的備份檔'); }
 };
 
 // ===== 媒體：複製、下載、手機分享 =====
@@ -1294,7 +1294,7 @@ function renderBatch() {
       const w = (p.cooldownUntil || 0) - Date.now();
       if (w > 0) { $('#bClock').textContent = fmt(w); return; }
       beep();
-      try { if (document.hidden && Notification.permission === 'granted') new Notification('一鍵分享：可以傳下一批了'); } catch {}
+      try { if (document.hidden && Notification.permission === 'granted') new Notification('社群管家：可以傳下一批了'); } catch {}
       renderBatch();
     }, 500);
     return;
@@ -2478,7 +2478,7 @@ function checkDue() {
   const due = S.posts.find(p => p.time && !p.reminded && new Date(p.time) <= new Date() && postTargets(p).length && !postStatus(p).finished);
   if (!due) return;
   beep();
-  try { if (Notification.permission === 'granted') new Notification('一鍵分享：發文時間到了', { body: (due.text || due.link || '').slice(0, 80) }); } catch {}
+  try { if (Notification.permission === 'granted') new Notification('社群管家：發文時間到了', { body: (due.text || due.link || '').slice(0, 80) }); } catch {}
   startSend(due);
 }
 
