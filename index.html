@@ -779,17 +779,21 @@ function setCardHtml(p) {
 // 主畫面：沒有選貼文時，列出已排程、未排程
 function renderHome() {
   const posts = S.posts.filter(p => !listStatus(p).finished);
+  const recent = S.posts.filter(p => listStatus(p).finished).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)).slice(0, 5);
   const sched = posts.filter(isScheduled), un = posts.filter(p => !isScheduled(p));
   const item = p => `<button class="home-item" data-home="${p.id}"><span class="pill ${listStatus(p).cls}">${listStatus(p).text}</span>
     <span class="snip">${esc(p.text.trim().split('\n')[0] || p.link || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'))}</span>
-    <span class="hint-s">${isScheduled(p) ? esc(fmtTime(p.time || (serverPosts[p.serverPost]?.run_at ? new Date(serverPosts[p.serverPost].run_at).toISOString() : null))) : ''}</span></button>`;
+    <span class="hint-s">${isScheduled(p) || p.serverPost ? esc(fmtTime(p.time || (serverPosts[p.serverPost]?.run_at ? new Date(serverPosts[p.serverPost].run_at).toISOString() : null))) : ''}</span></button>`;
   const lr = S.lastResult && Date.now() - S.lastResult.at < 30 * 60e3 ? S.lastResult : null;
+  const lrPost = lr && S.posts.find(x => x.id === lr.postId), lrDone = lrPost && listStatus(lrPost).finished;
+  if (lrDone) { lr.title = '✅ 已發布'; lr.text = lr.text.replace(/^.*?(會自動發到|會發到)：/, '已經發到：'); }
   $('#editor').innerHTML = `<div class="home">
     <div class="home-head"><h2>貼文總覽</h2><button class="primary" id="homeNew">＋ 新增貼文</button></div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
       <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
     ${un.length ? `<div class="card home-warn"><h2>⚠️ 未排程 <small>${un.length} 則還沒排好、也還沒發出去</small></h2>${un.map(item).join('')}</div>` : ''}
     <div class="card"><h2>⏰ 已排程 <small>${sched.length} 則</small></h2>${sched.length ? sched.map(item).join('') : '<p class="hint-s" style="margin:0">目前沒有排程的貼文。</p>'}</div>
+    ${recent.length ? `<div class="card"><h2>✅ 最近發布 <small>最近 ${recent.length} 則</small></h2>${recent.map(item).join('')}</div>` : ''}
   </div>`;
   $('#homeNew').onclick = () => newPost();
   if ($('#homeOkClose')) $('#homeOkClose').onclick = () => { S.lastResult = null; save(); renderHome(); };
@@ -1366,7 +1370,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1021e";
+const APP_VERSION = "v1021g";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1392,11 +1396,12 @@ function autoOptions() {
 }
 const autoSelected = p => p.mode === 'manual' ? [] : autoOptions().filter(o => (p.auto || []).includes(o.key));
 const AUTO_STATUS = {
-  scheduled: ['', '⚡ 已排程'], running: ['due', '⚡ 發送中'], done: ['done', '⚡ 已發布'],
+  scheduled: ['', '⚡ 已排程'], preparing: ['', '⚡ 已排程'], running: ['due', '⚡ 發送中'], done: ['done', '⚡ 已發布'],
   partial: ['due', '⚡ 部分失敗'], error: ['due', '⚡ 失敗'], canceled: ['', '⚡ 已取消'],
 };
 function listStatus(p) {
-  const sp = p.serverPost && serverPosts[p.serverPost];
+  const sp = p.serverPost && (serverPosts[p.serverPost] || (p.serverStatus && { status: p.serverStatus }));
+  if (p.serverPost && !sp) return p.time && new Date(p.time) <= new Date() ? { cls: 'due', text: '⚡ 發布中' } : { cls: '', text: '⚡ 已排程' };
   if (!sp) return postStatus(p);
   const [cls, text] = AUTO_STATUS[sp.status] || ['', '⚡'];
   const manualDone = !postTargets(p).length || postStatus(p).finished;
@@ -1412,6 +1417,7 @@ function autoStatusHtml(p) {
   if (!sp) return '<p class="hint-s" style="margin:0">讀取狀態中⋯</p>';
   const head = {
     scheduled: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出`,
+    preparing: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出（檔案已先交給 Instagram 處理，時間到就發）`,
     running: '🔄 發送中（Instagram 處理影片可能要幾分鐘）', done: '✅ 全部發布完成',
     partial: '⚠️ 有些發布失敗', error: '❌ 發布失敗', canceled: '已取消',
   }[sp.status] || sp.status;
@@ -1423,10 +1429,10 @@ function autoStatusHtml(p) {
   const again = sp.status === 'canceled' || sp.status === 'error' || sp.status === 'partial';
   return `<p style="margin:0 0 6px;font-weight:600">${head}</p>${rows}
     <div class="row" style="margin-top:8px">
-      ${sp.status === 'scheduled' ? '<button class="link danger" id="autoCancel" style="padding:0">取消自動發</button>' : ''}
+      ${sp.status === 'scheduled' || (sp.status === 'preparing' && sp.run_at > Date.now()) ? '<button class="link danger" id="autoCancel" style="padding:0">取消自動發</button>' : ''}
       ${again ? '<button class="link" id="autoAgain" style="color:var(--accent);padding:0">重新設定自動發</button>' : ''}
     </div>
-    ${sp.status === 'scheduled' ? '<p class="hint-s" style="margin:6px 0 0">已經送出的內容不會跟著修改；要改內容請先取消，再重新排程。</p>' : ''}`;
+    ${sp.status === 'scheduled' || sp.status === 'preparing' ? '<p class="hint-s" style="margin:6px 0 0">已經送出的內容不會跟著修改；要改內容請先取消，再重新排程。</p>' : ''}`;
 }
 function bindAutoStatus(p) {
   if ($('#autoCancel')) $('#autoCancel').onclick = async () => {
@@ -2498,7 +2504,14 @@ async function renderIgOpts() {
 async function refreshServerPosts() {
   if (!session || !S.posts.some(p => p.serverPost)) return;
   try { const { posts } = await apiCall('/api/posts'); for (const sp of posts) serverPosts[sp.id] = sp; } catch { return; }
+  let changed = false;
+  for (const p of S.posts) {
+    const sp = p.serverPost && serverPosts[p.serverPost];
+    if (sp && p.serverStatus !== sp.status) { p.serverStatus = sp.status; changed = true; if (sp.status === 'done') p.publishedAt ||= Date.now(); }
+  }
+  if (changed) save();
   renderList();
+  if (!active() && !send && !batch) renderHome();
   const p = active(), box = $('#autoStatus');
   if (p?.serverPost && box) { box.innerHTML = autoStatusHtml(p); bindAutoStatus(p); }
 }
@@ -2508,8 +2521,6 @@ async function openAuto() {
   $('#autoModal').classList.add('open');
   $('#autoBody').innerHTML = '<p class="empty">讀取中⋯</p>';
   await loadAccounts();
-  $('#appVer').textContent = '版本 ' + APP_VERSION;
-  logRemote('trace', `開啟網頁 帳號=${autoAccounts.map(a => a.platform + ':' + a.username).join(',') || '沒有'} 貼文=${S.posts.length}`);
   renderAuto();
 }
 $('#openAuto').onclick = openAuto;
@@ -2581,6 +2592,7 @@ function renderAll() { renderList(); renderEditor(); }
   setInterval(() => { checkDue(); if (!send && !batch) renderList(); }, 15e3);
   checkDue();
   refreshServerPosts(); setInterval(refreshServerPosts, 30e3);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshServerPosts(); });
   if (h.get('ms_linked')) { toast('已連結 ' + h.get('ms_linked')); openAuto(); }
   if (h.get('ms_error')) alert(h.get('ms_error'));
 })();
