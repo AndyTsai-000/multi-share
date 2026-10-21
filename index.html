@@ -146,6 +146,29 @@ main { overflow: auto; min-height: 0; }
 .auto-head small { font-weight: 400; color: var(--sub); margin-left: 6px; font-size: 13px; }
 .job-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 14px; flex-wrap: wrap; }
 .job-row .err { color: var(--danger); font-size: 13px; flex-basis: 100%; padding-left: 22px; }
+.se-pages { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.se-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+.se-stage canvas { width: 100%; aspect-ratio: 9 / 16; border-radius: 14px; display: block; touch-action: none; cursor: grab; background: #000; }
+.se-side { min-width: 0; display: grid; gap: 4px; }
+.se-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.se-tools button { border-radius: 99px; padding: 5px 12px; font-size: 14px; }
+.se-emoji { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; margin-top: 8px; max-height: 150px; overflow: auto; }
+.se-emoji button { font-size: 22px; padding: 4px; border: 0; background: transparent; }
+.se-sec { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.se-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.se-row > span:first-child { font-size: 13px; color: var(--sub); width: 44px; flex: none; }
+.se-row input[type=range] { flex: 1; min-width: 120px; width: auto; padding: 0; }
+.se-row .chips { flex: 1; gap: 6px; }
+.se-row .chip { padding: 3px 10px; font-size: 13px; }
+.se-layer textarea { min-height: 0; margin-top: 8px; }
+.se-colors { display: flex; gap: 6px; flex-wrap: wrap; }
+.se-colors button { width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 2px solid var(--line); }
+.se-colors button.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.se-note { margin-top: 10px; font-size: 13px; color: var(--sub); }
+.se-note summary { cursor: pointer; color: var(--accent); }
+.se-note p { margin: 6px 0 0; }
+.link.danger { color: #e5484d; }
+@media (max-width: 760px) { .se-wrap { grid-template-columns: 1fr; } .se-stage { width: min(220px, 62%); margin: 0 auto; } }
 .story-frames { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
 .story-frame { flex: none; width: 200px; aspect-ratio: 9 / 16; border-radius: 14px; overflow: hidden; background: #16181d; border: 1px solid var(--line); display: grid; place-items: center; }
 .story-frame img, .story-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -252,8 +275,8 @@ main { overflow: auto; min-height: 0; }
   <div id="igOptsBody"></div>
 </div></div>
 
-<div class="modal-bg" id="storyModal"><div class="modal" style="width:min(760px,100%)">
-  <h3>確認限動畫面 <button class="link" id="storyClose">關閉</button></h3>
+<div class="modal-bg" id="storyModal"><div class="modal" style="width:min(920px,100%)">
+  <h3>🎨 編輯限動畫面 <button class="link" id="storyClose">關閉</button></h3>
   <div id="storyBody"></div>
 </div></div>
 
@@ -543,9 +566,9 @@ const MANUAL_TIP = {
   line: 'LINE：會打開分享畫面，可以一次勾很多聊天室；聊天室多的話用下方的「LINE 分批」。',
   fbgroup: 'FB 社團：打開社團後貼上文字；圖片可以用手機分享，或下載後拖進去。',
   fb: 'FB 動態：文字已複製好，貼上就好；有連結會自動帶出預覽。',
-  fbstory: 'FB 限動：用手機分享選 Facebook 限時動態；電腦要下載檔案後上傳。',
+  fbstory: 'FB 限動：可以先在這裡編好畫面；用手機分享選 Facebook 限時動態（App 裡還能加貼圖、音樂），電腦要下載後上傳。',
   ig: 'IG 貼文：用手機分享到 Instagram，在 App 裡可以加音樂、最多 20 張、協作者 5 位、搜尋地點；不想到時間再發，可以在「進階設定」用「排定時間」。',
-  igstory: 'IG 限動：只能用手機發，在 App 裡可以加連結、投票、提及等貼圖。',
+  igstory: 'IG 限動：可以先在這裡編好文字、貼圖和位置；用手機分享到 IG 後，還能在 App 裡加連結、音樂、投票等貼圖。',
   threads: 'Threads：文字會自動帶進發文框；有圖片用手機分享。',
   x: 'X：文字和連結會自動帶進發文框。',
   other: '其他網址：會打開網址，文字已複製好。',
@@ -555,13 +578,13 @@ function settingsHtml(p) {
     const opts = autoSelected(p), parts = [];
     if (p.media.length > 10) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 10 個圖片影片，現在有 ${p.media.length} 個。要發更多張請改用半自動。</p>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button></div>`);
-    if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先讓你確認限動畫面，文字會畫進圖片裡${p.media.some(isVideo) ? '（影片不能加字）' : ''}</span></div>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
     if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
     if (opts.some(o => o.platform === 'ig') && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">Instagram 一定要有圖片或影片</p>');
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
-  return types.map(t => `<div class="set-row"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span></div>`).join('');
+  return types.map(t => `<div class="set-row"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
 }
 function renderEditor() {
   const p = active(), ed = $('#editor');
@@ -706,6 +729,7 @@ function renderEditorSettings(p) {
 }
 function bindSettings(p) {
   if ($('#igOptsOpen')) $('#igOptsOpen').onclick = () => openIgOpts(p);
+  document.querySelectorAll('#editor [data-seopen]').forEach(x => x.onclick = () => openStoryEditor(p));
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -1010,7 +1034,8 @@ $('#importFile').onchange = async e => {
 };
 
 // ===== 媒體：複製、下載、手機分享 =====
-async function mediaFiles(p) {
+async function mediaFiles(p, story) {
+  if (story) { const f = await storyFiles(p).catch(() => null); if (f) return f; }
   const out = [];
   for (const m of p.media) { const b = await mediaBlob(m); if (b) out.push(new File([b], m.name, { type: m.type })); }
   return out;
@@ -1025,22 +1050,22 @@ async function copyImage(m) {
   })();
   await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
 }
-async function downloadAll(p) {
-  for (const m of p.media) {
-    const b = await mediaBlob(m); if (!b) continue;
-    saveFile(b, m.name);
+async function downloadAll(p, story) {
+  for (const f of await mediaFiles(p, story)) {
+    saveFile(f, f.name);
     await new Promise(r => setTimeout(r, 400));
   }
 }
 // iPhone 的 Safari 規定「分享」要在按下的當下呼叫，中間不能先等讀檔，所以檔案要事先準備好
 const shareCache = {};
-function prepareShare(p) {
-  const key = p.id + ':' + p.media.map(m => m.id).join(',');
-  if (!shareCache[key]) { shareCache[key] = { files: null }; mediaFiles(p).then(f => shareCache[key].files = f); }
+function prepareShare(p, story) {
+  story = !!(story && p.storyEdit?.done);
+  const key = p.id + ':' + p.media.map(m => m.id).join(',') + (story ? ':story' + p.storyEdit.ver : '');
+  if (!shareCache[key]) { shareCache[key] = { files: null }; mediaFiles(p, story).then(f => shareCache[key].files = f); }
   return shareCache[key];
 }
-async function shareMedia(p, withText = true) {
-  const files = prepareShare(p).files, text = fullText(p);
+async function shareMedia(p, withText = true, story = false) {
+  const files = prepareShare(p, story).files, text = fullText(p);
   if (!files) { toast('檔案準備中，請再按一次'); return; }
   const data = files.length ? { files } : {};
   if (withText && text) data.text = text;
@@ -1075,7 +1100,8 @@ function renderSend() {
   const text = fullText(p), hasMedia = p.media.length > 0;
   const url = ty.open(text, p.link.trim(), t);
   const shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
-  if (shareOk) prepareShare(p);
+  const isStoryT = /story$/.test(t.type);
+  if (shareOk) prepareShare(p, isStoryT);
   const images = p.media.filter(m => !isVideo(m));
   const warn = ty.needMedia && !hasMedia ? `${ty.label}一定要有圖片或影片，這則沒有，建議跳過。`
     : ty.phoneOnly && !IS_MOBILE ? '這個只能用手機發。' : '';
@@ -1124,13 +1150,13 @@ async function doAct(act, t, btn) {
       await navigator.clipboard.writeText(text);
       toast('文字已複製');
     } else if (act === 'share') {
-      await shareMedia(p, t.type !== 'ig' && t.type !== 'igstory');
+      await shareMedia(p, t.type !== 'ig' && t.type !== 'igstory', /story$/.test(t.type));
       if (text) toast('文字也複製好了，需要時長按貼上');
     } else if (act === 'copyimg') {
       await copyImage(p.media.find(m => !isVideo(m)));
       toast('圖片已複製，到發文框貼上');
     } else if (act === 'download') {
-      await downloadAll(p);
+      await downloadAll(p, /story$/.test(t.type));
       toast('檔案已下載，拖進發文框就好');
     }
     send.did[act] = true; btn.classList.add('did');
@@ -1335,8 +1361,8 @@ async function submitAuto(p) {
   if (opts.some(o => o.platform === 'ig') && !p.media.length) return toast('Instagram 一定要有圖片或影片');
   if (opts.some(o => o.platform === 'threads') && [...text].length > 500) return toast('Threads 文字最多 500 字');
   if (p.media.length > 10) return toast('自動發最多 10 個圖片影片');
-  // 有 IG 限動：先看限動畫面，確認了才送出
-  if (opts.some(isStory)) return openStoryPreview(p, opts);
+  // 有 IG 限動：先編輯、確認限動畫面，確認了才送出
+  if (opts.some(isStory)) return openStoryEditor(p, opts);
   const when = autoWhen(p);
   if (!confirm(`確定要在「${when}」自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n送出後時間到就會自動發出。`)) return;
   await sendAuto(p, opts, null);
@@ -1354,7 +1380,7 @@ function videoType(m, blob) {
   if (blob.size > 25 * 1024 * 1024) throw new Error(`「${m.name}」超過 25MB，請先壓縮`);
   return /quicktime/.test(m.type) ? 'video/quicktime' : 'video/mp4';
 }
-// storyBlobs：限動用的檔案（圖片已經加上文字），和 p.media 一一對應
+// storyBlobs：限動用的檔案（已經畫上文字貼圖），和 p.media 一一對應
 async function sendAuto(p, opts, storyBlobs) {
   const text = fullText(p), late = p.time && new Date(p.time) < Date.now(), when = autoWhen(p);
   const btn = $('#autoSend');
@@ -1375,7 +1401,7 @@ async function sendAuto(p, opts, storyBlobs) {
     if (storyBlobs) for (const [i, b] of storyBlobs.entries()) {
       tick();
       const m = p.media[i];
-      storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType(m, b)) : await uploadMedia(b, 'image/jpeg'));
+      storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType({ ...m, type: b.type || m.type }, b)) : await uploadMedia(b, 'image/jpeg'));
     }
     btn.textContent = '送出中⋯';
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia }
@@ -1390,123 +1416,564 @@ async function sendAuto(p, opts, storyBlobs) {
   renderAll();
 }
 
-// ===== IG 限動預覽：文字畫進圖片（IG 的 API 不能在限動上加文字）=====
-const STORY_POS = [['top', '上方'], ['middle', '中間'], ['bottom', '下方'], ['none', '不加文字']];
-const STORY_STYLE = [['dark', '黑底白字'], ['light', '白底黑字'], ['plain', '只有白字']];
-function storySettings(p) {
-  p.story ||= { text: p.text.trim(), pos: 'bottom', style: 'dark' };
-  return p.story;
+// ===== 限動編輯器：文字（大小、字體、顏色）、貼圖、地點／時間／提及樣式，照片影片可以移動縮放 =====
+// IG 的 API 不能在限動上加字或貼圖，所以全部畫進圖片（影片則錄成新的 MP4）。
+// p.storyEdit = { ver, frames: { [檔案 id]: { zoom, ox, oy, fill, filter, layers: [...] } }, out: { [檔案 id]: 已輸出的 ver } }
+// layer = { id, kind: 'text'|'emoji'|'tag', text, x, y（中心點，1080×1920 座標）, size, font, color, bg, icon }
+const SW = 1080, SH = 1920;
+const SE_FONTS = [
+  ['sans', '黑體', '"Noto Sans TC"', 700],
+  ['serif', '明體', '"Noto Serif TC"', 700],
+  ['round', '圓體', '"Huninn"', 400],
+  ['kai', '楷書', '"LXGW WenKai TC"', 700],
+  ['hand', '手寫', '"Iansui"', 400],
+];
+const SE_FALLBACK = '"Microsoft JhengHei", "PingFang TC", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+const SE_COLORS = ['#ffffff', '#111111', '#f5c46b', '#ff6b6b', '#ff8fb1', '#7bd389', '#5ab0ff', '#b48cff'];
+const SE_BGS = [['none', '無'], ['dark', '黑底'], ['light', '白底'], ['solid', '同色底']];
+const SE_FILTERS = [['none', '原圖', ''], ['vivid', '鮮豔', 'saturate(1.35) contrast(1.06)'], ['warm', '暖色', 'sepia(.22) saturate(1.15) brightness(1.03)'],
+  ['cool', '冷色', 'saturate(.9) hue-rotate(-12deg) brightness(1.04)'], ['bright', '明亮', 'brightness(1.13) contrast(1.04)'], ['bw', '黑白', 'grayscale(1) contrast(1.1)']];
+const SE_FILLS = [['blur', '模糊'], ['black', '黑'], ['white', '白']];
+const SE_EMOJI = '😀😍🥰😎🤩😂👍👏🙌💪🙏✨🔥💖❤️🧡💛💚💙💜⭐🌟🎉🎁🛍️🏷️📣💯✅⚡🌸🌿🍂☀️🌙☕🍰🏠🛋️🪑🎄'.match(/\p{Extended_Pictographic}️?/gu);
+const seFont = id => SE_FONTS.find(f => f[0] === id) || SE_FONTS[0];
+const seUid = () => Math.random().toString(36).slice(2, 9);
+let seFontsLinked = false;
+function seLinkFonts() {
+  if (seFontsLinked) return;
+  seFontsLinked = true;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700&family=Huninn&family=LXGW+WenKai+TC:wght@700&family=Iansui&display=swap';
+  document.head.appendChild(l);
+  document.fonts?.addEventListener?.('loadingdone', () => seDraw());
 }
-function roundRectPath(g, x, y, w, h, r) {
+// 中文字體是分片下載的，畫之前要先把用到的字載好
+async function seLoadFonts(layers) {
+  if (!document.fonts?.load) return;
+  await Promise.all(layers.filter(l => l.kind !== 'emoji').map(l => {
+    const f = seFont(l.font);
+    return document.fonts.load(`${f[3]} 64px ${f[2]}`, l.text || 'a').catch(() => {});
+  }));
+}
+function storyEdit(p) {
+  p.storyEdit ||= { ver: 1, frames: {}, out: {} };
+  const se = p.storyEdit;
+  p.media.forEach((m, i) => {
+    if (se.frames[m.id]) return;
+    const fr = { zoom: 1, ox: 0, oy: 0, fill: 'blur', filter: 'none', layers: [] };
+    // 舊版的限動設定（文字＋上中下位置）轉成文字圖層；新的只在第一張放貼文文字
+    const old = p.story, text = old ? (old.pos === 'none' ? '' : old.text) : i === 0 ? p.text.trim() : '';
+    if (text && text.trim()) {
+      const y = { top: 420, middle: SH / 2, bottom: SH - 520 }[old?.pos || 'bottom'] || SH - 520;
+      fr.layers.push({ id: seUid(), kind: 'text', text: text.trim(), x: SW / 2, y, size: [...text].length > 60 ? 46 : 60, font: 'sans',
+        color: old?.style === 'light' ? '#111111' : '#ffffff', bg: old?.style === 'light' ? 'light' : old?.style === 'plain' ? 'none' : 'dark' });
+    }
+    se.frames[m.id] = fr;
+  });
+  return se;
+}
+function seBump(p) { p.storyEdit.ver++; save(); }
+
+// ---- 畫圖 ----
+function seRoundRect(g, x, y, w, h, r) {
   g.beginPath();
   g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
   g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
 }
-function drawStoryText(g, text, st, W, H) {
-  const size = 68, lh = Math.round(size * 1.35), maxW = W - 200, pad = 40;
-  g.font = `bold ${size}px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif`;
-  const lines = [];
-  for (const para of text.split('\n')) {
-    let line = '';
-    for (const ch of [...para]) {
-      if (line && g.measureText(line + ch).width > maxW) { lines.push(line); line = ch; } else line += ch;
-    }
-    lines.push(line);
+const seContrast = hex => { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150 ? '#111111' : '#ffffff'; };
+// 算出圖層要畫的行和外框（中心點 x,y）
+function seLayout(g, l) {
+  if (l.kind === 'emoji') {
+    g.font = `${l.size}px ${SE_FALLBACK}`;
+    const w = g.measureText(l.text).width;
+    return { lines: [l.text], lh: l.size * 1.15, font: g.font, w, h: l.size * 1.15, pad: 0 };
   }
-  const shown = lines.slice(0, 8);
-  if (lines.length > 8) shown[7] = shown[7].slice(0, -1) + '…';
-  const boxW = Math.max(...shown.map(l => g.measureText(l).width)) + pad * 2;
-  const boxH = shown.length * lh + pad * 2 - (lh - size);
-  // IG 限動上下各有一段會被頭像和回覆框蓋住，避開那兩段
-  const y = st.pos === 'top' ? 280 : st.pos === 'middle' ? (H - boxH) / 2 : H - boxH - 330;
-  const [bg, fg] = { dark: ['rgba(0,0,0,.62)', '#fff'], light: ['rgba(255,255,255,.93)', '#111'], plain: [null, '#fff'] }[st.style] || [null, '#fff'];
-  if (bg) { g.fillStyle = bg; roundRectPath(g, (W - boxW) / 2, y, boxW, boxH, 28); g.fill(); }
-  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'top';
-  if (!bg) { g.shadowColor = 'rgba(0,0,0,.75)'; g.shadowBlur = 14; }
-  shown.forEach((l, i) => g.fillText(l, W / 2, y + pad + i * lh));
-  g.shadowBlur = 0;
+  const f = l.kind === 'tag' ? SE_FONTS[0] : seFont(l.font);
+  const label = l.kind === 'tag' ? `${l.icon} ${l.text}` : l.text;
+  g.font = `${f[3]} ${l.size}px ${f[2]}, ${SE_FALLBACK}`;
+  const lines = wrapLines(g, label, SW - 140).slice(0, 14);
+  const lh = l.size * 1.32;
+  const w = Math.max(1, ...lines.map(s => g.measureText(s).width));
+  const pad = l.kind === 'tag' ? l.size * 0.55 : (l.bg === 'none' ? 0 : l.size * 0.5);
+  return { lines, lh, font: g.font, w: w + pad * 2, h: lines.length * lh + pad * 2 - (lh - l.size) + (l.kind === 'tag' ? 0 : 0), pad };
 }
-// 1080×1920：背景用同一張圖放大模糊，前面放完整的原圖，再疊文字
-async function composeStory(blob, st) {
-  const W = 1080, H = 1920, bmp = await createImageBitmap(blob);
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d');
-  g.fillStyle = '#16181d'; g.fillRect(0, 0, W, H);
-  const cover = Math.max(W / bmp.width, H / bmp.height);
-  if ('filter' in g) {
-    g.filter = 'blur(40px) brightness(0.55)';
-    g.drawImage(bmp, (W - bmp.width * cover) / 2, (H - bmp.height * cover) / 2, bmp.width * cover, bmp.height * cover);
-    g.filter = 'none';
+function seDrawLayer(g, l) {
+  const L = seLayout(g, l), x0 = l.x - L.w / 2, y0 = l.y - L.h / 2;
+  g.save();
+  g.textAlign = 'center'; g.textBaseline = 'top'; g.font = L.font;
+  let fg = l.color || '#ffffff';
+  if (l.kind === 'tag') {
+    g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowBlur = 18; g.shadowOffsetY = 4;
+    g.fillStyle = '#ffffff'; seRoundRect(g, x0, y0, L.w, L.h, Math.min(L.h / 2, 28)); g.fill();
+    g.shadowColor = 'transparent';
+    const gr = g.createLinearGradient(x0, 0, x0 + L.w, 0);
+    gr.addColorStop(0, '#8a3ab9'); gr.addColorStop(.5, '#e1306c'); gr.addColorStop(1, '#f77737');
+    fg = gr;
+  } else if (l.kind === 'text' && l.bg !== 'none') {
+    const bg = l.bg === 'dark' ? 'rgba(0,0,0,.62)' : l.bg === 'light' ? 'rgba(255,255,255,.94)' : l.color;
+    if (l.bg === 'light') fg = l.color === '#ffffff' ? '#111111' : l.color;
+    if (l.bg === 'solid') fg = seContrast(l.color);
+    g.fillStyle = bg; seRoundRect(g, x0, y0, L.w, L.h, Math.min(28, l.size * 0.45)); g.fill();
+  } else if (l.kind === 'text') {
+    g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = l.size * 0.25;
   }
-  const fit = Math.min(W / bmp.width, H / bmp.height), w = bmp.width * fit, h = bmp.height * fit;
-  g.drawImage(bmp, (W - w) / 2, (H - h) / 2, w, h);
-  const text = (st.text || '').trim();
-  if (text && st.pos !== 'none') drawStoryText(g, text, st, W, H);
+  g.fillStyle = fg;
+  L.lines.forEach((s, i) => g.fillText(s, l.x, y0 + L.pad + i * L.lh));
+  g.restore();
+  return { x0, y0, x1: x0 + L.w, y1: y0 + L.h };
+}
+// src：ImageBitmap 或 <video>；w/h 是原始大小
+function seDrawFrame(g, fr, src, w, h, sel) {
+  g.save();
+  g.fillStyle = fr.fill === 'white' ? '#ffffff' : '#000000'; g.fillRect(0, 0, SW, SH);
+  const filt = SE_FILTERS.find(f => f[0] === fr.filter)?.[2] || '';
+  const canFilter = 'filter' in g;
+  if (src && w && h) {
+    if (fr.fill === 'blur' && canFilter) {
+      const cover = Math.max(SW / w, SH / h);
+      g.filter = `blur(40px) brightness(.55) ${filt}`;
+      g.drawImage(src, (SW - w * cover) / 2, (SH - h * cover) / 2, w * cover, h * cover);
+    }
+    if (canFilter) g.filter = filt || 'none';
+    const s = Math.min(SW / w, SH / h) * fr.zoom;
+    g.drawImage(src, SW / 2 + fr.ox - w * s / 2, SH / 2 + fr.oy - h * s / 2, w * s, h * s);
+    if (canFilter) g.filter = 'none';
+  }
+  g.restore();
+  const boxes = {};
+  for (const l of fr.layers) boxes[l.id] = seDrawLayer(g, l);
+  if (sel && boxes[sel]) {
+    const b = boxes[sel];
+    g.save(); g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.setLineDash([16, 12]);
+    g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 6;
+    g.strokeRect(b.x0 - 14, b.y0 - 14, b.x1 - b.x0 + 28, b.y1 - b.y0 + 28);
+    g.restore();
+  }
+  return boxes;
+}
+
+// ---- 編輯器視窗 ----
+let seCtx = null;   // { p, opts（全自動要發的目標，沒有就是只編輯）, i（第幾個檔案）, sel, src, video, boxes, raf }
+function openStoryEditor(p, opts = null) {
+  if (!p.media.length) return toast('限動要先加入圖片或影片');
+  seLinkFonts();
+  storyEdit(p);
+  seCtx = { p, opts, i: 0, sel: null, boxes: {} };
+  $('#storyModal').classList.add('open');
+  renderStoryEditor();
+  seLoadSource();
+}
+function seFrame() { const { p, i } = seCtx; return p.storyEdit.frames[p.media[i].id]; }
+function seLayer() { return seFrame().layers.find(l => l.id === seCtx.sel); }
+async function seLoadSource() {
+  const ctx = seCtx, m = ctx.p.media[ctx.i];
+  seStopVideo(ctx);
+  ctx.src = null;
+  const blob = await mediaBlob(m);
+  if (seCtx !== ctx || ctx.p.media[ctx.i] !== m) return;
+  if (!blob) return toast(`找不到「${m.name}」，請重新加入`);
+  if (isVideo(m)) {
+    const v = document.createElement('video');
+    v.src = ctx.videoUrl = URL.createObjectURL(blob); v.muted = true; v.loop = true; v.playsInline = true;
+    await new Promise(r => { v.onloadeddata = r; v.onerror = r; });
+    v.play().catch(() => {});
+    ctx.video = v; ctx.src = { el: v, w: v.videoWidth, h: v.videoHeight };
+    const loop = () => { if (seCtx !== ctx || ctx.video !== v) return; seDraw(); ctx.raf = requestAnimationFrame(loop); };
+    loop();
+  } else {
+    const bmp = await createImageBitmap(blob);
+    ctx.src = { el: bmp, w: bmp.width, h: bmp.height };
+  }
+  await seLoadFonts(seFrame().layers);
+  seDraw();
+}
+function seStopVideo(ctx) {
+  if (ctx.raf) cancelAnimationFrame(ctx.raf);
+  if (ctx.video) { ctx.video.pause(); ctx.video = null; }
+  if (ctx.videoUrl) { URL.revokeObjectURL(ctx.videoUrl); ctx.videoUrl = null; }
+}
+function seDraw() {
+  const ctx = seCtx, c = $('#seCanvas');
+  if (!ctx || !c) return;
+  const g = c.getContext('2d'), s = ctx.src;
+  ctx.boxes = seDrawFrame(g, seFrame(), s?.el, s?.w, s?.h, ctx.sel);
+}
+function closeStoryEditor() {
+  if (seCtx) seStopVideo(seCtx);
+  seCtx = null;
+  $('#storyModal').classList.remove('open');
+  if (active()) renderEditorSettings(active());
+}
+function renderStoryEditor() {
+  const ctx = seCtx, { p, opts } = ctx, n = p.media.length;
+  const stories = (opts || []).filter(isStory), others = (opts || []).filter(o => !isStory(o));
+  $('#storyBody').innerHTML = `
+    ${n > 1 ? `<div class="se-pages">${p.media.map((m, i) => `<button class="chip ${i === ctx.i ? 'on' : ''}" data-sepage="${i}">${isVideo(m) ? '🎬' : '🖼️'} 第 ${i + 1} 張</button>`).join('')}</div>` : ''}
+    <div class="se-wrap">
+      <div class="se-stage"><canvas id="seCanvas" width="${SW}" height="${SH}"></canvas></div>
+      <div class="se-side">
+        <div class="se-tools">
+          <button data-seadd="text">＋ 文字</button><button data-seadd="emoji">😊 貼圖</button>
+          <button data-seadd="loc">📍 地點</button><button data-seadd="time">🕒 時間</button><button data-seadd="mention">＠ 提及</button>
+        </div>
+        <div class="se-emoji" id="seEmoji" hidden>${SE_EMOJI.map(e => `<button data-seemoji="${e}">${e}</button>`).join('')}</div>
+        <div id="seLayerBox"></div>
+        <div class="se-sec"><b>${isVideo(p.media[ctx.i]) ? '影片' : '照片'}</b>
+          <div class="se-row"><span>大小</span><input type="range" id="seZoom" min="30" max="300" step="1" value="${Math.round(seFrame().zoom * 100)}"><button class="link" id="seFit">完整顯示</button><button class="link" id="seCover">填滿畫面</button></div>
+          <div class="se-row"><span>空白處</span><div class="chips">${SE_FILLS.map(([v, l]) => `<button class="chip ${seFrame().fill === v ? 'on' : ''}" data-sefill="${v}">${l}</button>`).join('')}</div></div>
+          <div class="se-row"><span>濾鏡</span><div class="chips">${SE_FILTERS.map(([v, l]) => `<button class="chip ${seFrame().filter === v ? 'on' : ''}" data-sefilter="${v}">${l}</button>`).join('')}</div></div>
+          <p class="hint-s" style="margin:6px 0 0">在畫面上拖曳可以移動；點文字或貼圖可以選取、拖動；滾輪或兩指可以縮放。</p>
+        </div>
+        <details class="se-note"><summary>IG／FB 自己的貼圖和特效可以用嗎？</summary>
+          <p>這裡加的文字、貼圖、📍地點、🕒時間、＠提及都是<b>畫在圖上</b>的，看起來一樣，但別人點了不會跳轉。</p>
+          <p>可以點的地點、連結、音樂、投票、問答、特效濾鏡，IG／FB 沒有開放給外部程式加，<b>全自動做不到</b>。要用的話改用<b>半自動</b>：這裡編好的圖分享到 IG／FB App 後，在 App 裡照常加。</p>
+        </details>
+      </div>
+    </div>
+    ${opts ? `<div class="box hint-s" style="margin-top:12px"><b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${stories.map(o => `IG 限動 @${esc(o.username)}`).concat(others.map(o => `${o.label} @${esc(o.username)}`)).join('、')}</div>` : ''}
+    <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>
+    <div class="ai-wait" id="seBusy" hidden></div>`;
+  const box = $('#storyBody');
+  box.querySelectorAll('[data-sepage]').forEach(b => b.onclick = () => { ctx.i = +b.dataset.sepage; ctx.sel = null; renderStoryEditor(); seLoadSource(); });
+  box.querySelectorAll('[data-seadd]').forEach(b => b.onclick = () => seAdd(b.dataset.seadd));
+  box.querySelectorAll('[data-seemoji]').forEach(b => b.onclick = () => { $('#seEmoji').hidden = true; seAddLayer({ kind: 'emoji', text: b.dataset.seemoji, size: 220 }); });
+  const fr = seFrame();
+  $('#seZoom').oninput = e => { fr.zoom = e.target.value / 100; seBump(p); seDraw(); };
+  $('#seFit').onclick = () => { Object.assign(fr, { zoom: 1, ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw(); };
+  $('#seCover').onclick = () => {
+    const s = ctx.src; if (!s) return;
+    Object.assign(fr, { zoom: Math.max(SW / s.w, SH / s.h) / Math.min(SW / s.w, SH / s.h), ox: 0, oy: 0 }); seBump(p); renderStoryEditor(); seDraw();
+  };
+  box.querySelectorAll('[data-sefill]').forEach(b => b.onclick = () => { fr.fill = b.dataset.sefill; seBump(p); renderStoryEditor(); seDraw(); });
+  box.querySelectorAll('[data-sefilter]').forEach(b => b.onclick = () => { fr.filter = b.dataset.sefilter; seBump(p); renderStoryEditor(); seDraw(); });
+  $('#seCancel').onclick = closeStoryEditor;
+  $('#seOk').onclick = seFinish;
+  seBindStage();
+  renderSeLayer();
+  seDraw();
+}
+function seAdd(kind) {
+  if (kind === 'emoji') { $('#seEmoji').hidden = !$('#seEmoji').hidden; return; }
+  const p = seCtx.p;
+  if (kind === 'text') return seAddLayer({ kind: 'text', text: '輸入文字', size: 72, font: 'sans', color: '#ffffff', bg: 'none' }, true);
+  if (kind === 'loc') {
+    const place = (S.places || [])[0]?.name || '';
+    return seAddLayer({ kind: 'tag', icon: '📍', text: place || '地點名稱', size: 54 }, !place);
+  }
+  if (kind === 'time') {
+    const d = p.time ? new Date(p.time) : new Date();
+    return seAddLayer({ kind: 'tag', icon: '🕒', text: `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, size: 54 });
+  }
+  if (kind === 'mention') return seAddLayer({ kind: 'tag', icon: '＠', text: '帳號名稱', size: 54 }, true);
+}
+async function seAddLayer(l, focus) {
+  const fr = seFrame(), n = fr.layers.length;
+  const layer = { id: seUid(), x: SW / 2, y: SH / 2 - 200 + (n % 5) * 110, color: '#ffffff', font: 'sans', bg: 'none', ...l };
+  fr.layers.push(layer);
+  seCtx.sel = layer.id; seBump(seCtx.p);
+  renderSeLayer(); seDraw();
+  await seLoadFonts([layer]); seDraw();
+  if (focus) { const t = $('#seText'); t?.focus(); t?.select(); }
+}
+function renderSeLayer() {
+  const l = seLayer(), box = $('#seLayerBox');
+  if (!box) return;
+  if (!l) { box.innerHTML = `<p class="hint-s se-sec" style="margin:10px 0 0">點畫面上的文字或貼圖來修改。</p>`; return; }
+  const name = l.kind === 'emoji' ? '貼圖' : l.kind === 'tag' ? { '📍': '地點', '🕒': '時間', '＠': '提及' }[l.icon] || '標籤' : '文字';
+  box.innerHTML = `<div class="se-sec se-layer"><div class="se-row" style="justify-content:space-between"><b>${name}</b><span><button class="link" id="seUp">移到最上層</button><button class="link danger" id="seDel">刪除</button></span></div>
+    ${l.kind !== 'emoji' ? `<textarea id="seText" rows="${l.kind === 'text' ? 3 : 1}">${esc(l.text)}</textarea>` : ''}
+    <div class="se-row"><span>大小</span><input type="range" id="seSize" min="${l.kind === 'emoji' ? 60 : 24}" max="${l.kind === 'emoji' ? 600 : 200}" value="${l.size}"></div>
+    ${l.kind === 'text' ? `
+      <div class="se-row"><span>字體</span><div class="chips">${SE_FONTS.map(([v, lab, fam]) => `<button class="chip ${l.font === v ? 'on' : ''}" data-sefont="${v}" style="font-family:${fam}, sans-serif">${lab}</button>`).join('')}</div></div>
+      <div class="se-row"><span>顏色</span><div class="se-colors">${SE_COLORS.map(c => `<button class="${l.color === c ? 'on' : ''}" data-secolor="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div></div>
+      <div class="se-row"><span>底色</span><div class="chips">${SE_BGS.map(([v, lab]) => `<button class="chip ${l.bg === v ? 'on' : ''}" data-sebg="${v}">${lab}</button>`).join('')}</div></div>` : ''}
+  </div>`;
+  const p = seCtx.p;
+  if ($('#seText')) $('#seText').oninput = async e => { l.text = e.target.value; seBump(p); seDraw(); await seLoadFonts([l]); seDraw(); };
+  $('#seSize').oninput = e => { l.size = +e.target.value; seBump(p); seDraw(); };
+  $('#seDel').onclick = () => { const fr = seFrame(); fr.layers = fr.layers.filter(x => x !== l); seCtx.sel = null; seBump(p); renderSeLayer(); seDraw(); };
+  $('#seUp').onclick = () => { const fr = seFrame(); fr.layers = [...fr.layers.filter(x => x !== l), l]; seBump(p); seDraw(); };
+  box.querySelectorAll('[data-sefont]').forEach(b => b.onclick = async () => { l.font = b.dataset.sefont; seBump(p); renderSeLayer(); seDraw(); await seLoadFonts([l]); seDraw(); });
+  box.querySelectorAll('[data-secolor]').forEach(b => b.onclick = () => { l.color = b.dataset.secolor; seBump(p); renderSeLayer(); seDraw(); });
+  box.querySelectorAll('[data-sebg]').forEach(b => b.onclick = () => { l.bg = b.dataset.sebg; seBump(p); renderSeLayer(); seDraw(); });
+}
+// 拖曳：點到圖層就移動圖層，點到空白就移動照片；兩指縮放、滾輪縮放
+function seBindStage() {
+  const c = $('#seCanvas'), pts = new Map();
+  let drag = null, pinch = null;
+  const pos = e => { const r = c.getBoundingClientRect(); return { x: (e.clientX - r.left) * SW / r.width, y: (e.clientY - r.top) * SH / r.height }; };
+  const hit = q => {
+    const ls = seFrame().layers;
+    for (let k = ls.length - 1; k >= 0; k--) { const b = seCtx.boxes[ls[k].id]; if (b && q.x >= b.x0 - 20 && q.x <= b.x1 + 20 && q.y >= b.y0 - 20 && q.y <= b.y1 + 20) return ls[k]; }
+    return null;
+  };
+  c.onpointerdown = e => {
+    c.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, pos(e));
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], l = seLayer(), fr = seFrame();
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), base: l ? l.size : fr.zoom, l };
+      drag = null; return;
+    }
+    const q = pos(e), l = hit(q), fr = seFrame();
+    if ((seCtx.sel || null) !== (l?.id || null)) { seCtx.sel = l?.id || null; renderSeLayer(); }
+    drag = l ? { l, dx: l.x - q.x, dy: l.y - q.y } : { bg: true, sx: q.x, sy: q.y, ox: fr.ox, oy: fr.oy };
+    seDraw();
+  };
+  c.onpointermove = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, pos(e));
+    if (pinch && pts.size === 2) {
+      const [a, b] = [...pts.values()], k = Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
+      if (pinch.l) pinch.l.size = Math.max(24, Math.min(600, Math.round(pinch.base * k)));
+      else seFrame().zoom = Math.max(.3, Math.min(3, pinch.base * k));
+      seDraw(); return;
+    }
+    if (!drag) return;
+    const q = pos(e), fr = seFrame();
+    if (drag.l) { drag.l.x = Math.round(q.x + drag.dx); drag.l.y = Math.round(q.y + drag.dy); }
+    else { fr.ox = Math.round(drag.ox + q.x - drag.sx); fr.oy = Math.round(drag.oy + q.y - drag.sy); }
+    seDraw();
+  };
+  c.onpointerup = c.onpointercancel = e => {
+    pts.delete(e.pointerId);
+    if (drag || pinch) { seBump(seCtx.p); if (pinch) { renderSeLayer(); const z = $('#seZoom'); if (z) z.value = Math.round(seFrame().zoom * 100); } }
+    if (!pts.size) { drag = null; pinch = null; }
+  };
+  c.onwheel = e => {
+    e.preventDefault();
+    const l = seLayer(), fr = seFrame(), k = e.deltaY < 0 ? 1.06 : 1 / 1.06;
+    if (l) { l.size = Math.max(24, Math.min(600, Math.round(l.size * k))); const s = $('#seSize'); if (s) s.value = l.size; }
+    else { fr.zoom = Math.max(.3, Math.min(3, fr.zoom * k)); const z = $('#seZoom'); if (z) z.value = Math.round(fr.zoom * 100); }
+    seBump(seCtx.p); seDraw();
+  };
+  c.ondblclick = () => $('#seText')?.focus();
+}
+
+// ---- 輸出：圖片畫成 JPEG；影片一邊播放一邊錄成 MP4（瀏覽器不支援就用原檔）----
+async function seExportImage(fr, blob) {
+  const bmp = await createImageBitmap(blob);
+  await seLoadFonts(fr.layers);
+  const c = document.createElement('canvas'); c.width = SW; c.height = SH;
+  seDrawFrame(c.getContext('2d'), fr, bmp, bmp.width, bmp.height, null);
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
 }
-let storyCtx = null;   // { p, opts, blobs, urls }
-function openStoryPreview(p, opts) {
-  storyCtx = { p, opts, blobs: [], urls: [] };
-  $('#storyModal').classList.add('open');
-  renderStoryModal();
+// 影片：一邊播放一邊把每一格畫上文字貼圖，重新壓成 1080×1920 的 MP4（H.264＋AAC，IG 收這種）。
+// 優先用 WebCodecs（軟體編碼比較穩，有些電腦的硬體編碼會卡住）；不支援就改用 MediaRecorder；都不行就用原檔。
+let muxerLib = null;
+function loadMuxer() {
+  return muxerLib ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.min.js';
+    s.onload = () => res(window.Mp4Muxer);
+    s.onerror = () => { muxerLib = null; s.remove(); rej(new Error('影片工具下載失敗，請檢查網路')); };
+    document.head.appendChild(s);
+  });
 }
-function renderStoryModal() {
-  const { p, opts } = storyCtx, st = storySettings(p);
-  const stories = opts.filter(isStory), others = opts.filter(o => !isStory(o));
-  $('#storyBody').innerHTML = `
-    <p class="hint-s" style="margin-top:0">這是發布後的限動畫面。IG 不能在限動上另外加字，所以文字會直接畫在圖片上${p.media.length > 1 ? `，${p.media.length} 個檔案會各發一則` : ''}。</p>
-    <div class="story-frames" id="storyFrames">${p.media.map((m, i) => `<div class="story-frame" data-i="${i}"><span class="hint-s">產生中⋯</span></div>`).join('')}</div>
-    <label class="field" for="storyText" style="margin-top:14px">限動上的文字</label>
-    <textarea id="storyText" style="min-height:80px">${esc(st.text)}</textarea>
-    <div class="pick-label">文字位置</div>
-    <div class="chips">${STORY_POS.map(([v, l]) => `<button class="chip ${st.pos === v ? 'on' : ''}" data-spos="${v}">${l}</button>`).join('')}</div>
-    ${st.pos === 'none' ? '' : `<div class="pick-label">樣式</div>
-    <div class="chips">${STORY_STYLE.map(([v, l]) => `<button class="chip ${st.style === v ? 'on' : ''}" data-sstyle="${v}">${l}</button>`).join('')}</div>`}
-    ${p.media.some(isVideo) ? '<p class="hint-s">影片限動沒辦法加文字，會照原樣發出。</p>' : ''}
-    <div class="box hint-s" style="margin-top:14px">
-      <b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${stories.map(o => `IG 限動 @${esc(o.username)}`).concat(others.map(o => `${o.label} @${esc(o.username)}`)).join('、')}
-    </div>
-    <div class="send"><div class="nav"><button class="link" id="storyCancel">先不要</button><button class="primary" id="storyOk" disabled>產生中⋯</button></div></div>`;
-  const box = $('#storyBody');
-  box.querySelectorAll('[data-spos]').forEach(b => b.onclick = () => { st.pos = b.dataset.spos; save(); renderStoryModal(); });
-  box.querySelectorAll('[data-sstyle]').forEach(b => b.onclick = () => { st.style = b.dataset.sstyle; save(); renderStoryModal(); });
-  let typing;
-  $('#storyText').oninput = e => { st.text = e.target.value; save(); clearTimeout(typing); typing = setTimeout(drawStoryFrames, 350); };
-  $('#storyCancel').onclick = closeStoryModal;
-  $('#storyOk').onclick = async () => {
-    const { p, opts, blobs } = storyCtx;
-    closeStoryModal();
-    await sendAuto(p, opts, blobs);
-  };
-  drawStoryFrames();
-}
-async function drawStoryFrames() {
-  if (!storyCtx) return;
-  const ctx = storyCtx, { p } = ctx, st = storySettings(p), run = (ctx.run = (ctx.run || 0) + 1);
-  const ok = $('#storyOk'); if (ok) { ok.disabled = true; ok.textContent = '產生中⋯'; }
-  const blobs = [];
-  for (const [i, m] of p.media.entries()) {
-    const src = await mediaBlob(m);
-    if (!src) { toast(`找不到「${m.name}」，請重新加入`); return; }
-    const b = isVideo(m) ? src : await composeStory(src, st);
-    if (ctx.run !== run || storyCtx !== ctx) return;   // 又改了設定，這一輪作廢
-    blobs.push(b);
-    const cell = document.querySelector(`#storyFrames [data-i="${i}"]`);
-    if (!cell) return;
-    if (ctx.urls[i]) URL.revokeObjectURL(ctx.urls[i]);
-    ctx.urls[i] = URL.createObjectURL(b);
-    cell.innerHTML = isVideo(m) ? `<video src="${ctx.urls[i]}" muted playsinline controls></video>` : `<img src="${ctx.urls[i]}" alt="限動預覽 ${i + 1}">`;
+async function seVideoConfig() {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
+  for (const hw of ['prefer-software', 'no-preference']) for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42002a']) {
+    const cfg = { codec, width: SW, height: SH, bitrate: 6e6, framerate: 30, hardwareAcceleration: hw, avc: { format: 'avc' } };
+    if ((await VideoEncoder.isConfigSupported(cfg).catch(() => null))?.supported) return cfg;
   }
-  ctx.blobs = blobs;
-  if (ok) { ok.disabled = false; ok.textContent = `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發`; }
+  return null;
 }
-function closeStoryModal() {
-  if (storyCtx) storyCtx.urls.forEach(u => u && URL.revokeObjectURL(u));
-  storyCtx = null;
-  $('#storyModal').classList.remove('open');
+// 把影片的聲音解成 48kHz 的聲波（沒有聲音就回傳 null）
+async function seDecodeAudio(blob) {
+  try {
+    const ac = new OfflineAudioContext(2, 48000, 48000);
+    const buf = await ac.decodeAudioData(await blob.arrayBuffer());
+    return buf.length ? buf : null;
+  } catch { return null; }
 }
-$('#autoSend').onclick = () => active() && submitAuto(active());
-$('#storyClose').onclick = closeStoryModal;
+const SE_LIMIT = 60;   // IG 限動影片最長 60 秒
+async function seEncodeVideo(fr, blob, onTick) {
+  const vcfg = await seVideoConfig();
+  if (!vcfg) return null;
+  const audio = await seDecodeAudio(blob), ch = audio ? Math.min(2, audio.numberOfChannels) : 0;
+  const acfg = audio && typeof AudioEncoder !== 'undefined' ? { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: ch, bitrate: 128000 } : null;
+  if (audio && !(acfg && (await AudioEncoder.isConfigSupported(acfg).catch(() => null))?.supported)) return null;   // 有聲音卻不能壓 AAC：改用別的方法
+  const M = await loadMuxer();
+  await seLoadFonts(fr.layers);
+  const url = URL.createObjectURL(blob), v = document.createElement('video');
+  v.src = url; v.muted = true; v.playsInline = true;
+  try {
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); });
+    const limit = Math.min(isFinite(v.duration) && v.duration > 0 ? v.duration : SE_LIMIT, SE_LIMIT);
+    const target = new M.ArrayBufferTarget();
+    const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset',
+      video: { codec: 'avc', width: SW, height: SH }, ...(acfg ? { audio: { codec: 'aac', numberOfChannels: ch, sampleRate: 48000 } } : {}) });
+    let err = null;
+    const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => err = e });
+    venc.configure(vcfg);
+    const c = document.createElement('canvas'); c.width = SW; c.height = SH;
+    const g = c.getContext('2d');
+    let last = -1, n = 0;
+    await new Promise((res, rej) => {
+      let finished = false;
+      const end = () => { if (!finished) { finished = true; res(); } };
+      const onFrame = async (now, meta) => {
+        if (finished) return;
+        if (err) { finished = true; return rej(err); }
+        const t = meta?.mediaTime ?? v.currentTime;
+        if (t > last && t < limit) {
+          last = t;
+          seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
+          const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6) });
+          venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close();
+          onTick?.(t, limit);
+          // 電腦壓不夠快時先暫停播放，等它跟上，才不會漏掉畫面
+          if (venc.encodeQueueSize > 12) {
+            v.pause();
+            while (venc.encodeQueueSize > 3 && !err) await new Promise(r => setTimeout(r, 15));
+            await v.play().catch(() => {});
+          }
+        }
+        if (t >= limit || v.ended) { v.pause(); return end(); }
+        v.requestVideoFrameCallback ? v.requestVideoFrameCallback(onFrame) : requestAnimationFrame(() => onFrame(0, null));
+      };
+      v.onended = () => setTimeout(end, 50);
+      v.play().then(() => onFrame(0, null), rej);
+    });
+    await venc.flush();
+    if (err) throw err;
+    if (!n) return null;
+    if (acfg) {
+      const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => err = e });
+      aenc.configure(acfg);
+      const total = Math.min(audio.length, Math.floor(Math.min(limit, last + 0.05) * 48000)), step = 4800;
+      for (let off = 0; off < total && !err; off += step) {
+        const k = Math.min(step, total - off), data = new Float32Array(k * ch);
+        for (let i = 0; i < ch; i++) data.set(audio.getChannelData(i).subarray(off, off + k), i * k);
+        const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: k, numberOfChannels: ch, timestamp: Math.round(off / 48 * 1000), data });
+        aenc.encode(ad); ad.close();
+      }
+      await aenc.flush();
+      if (err) throw err;
+    }
+    muxer.finalize();
+    return new Blob([target.buffer], { type: 'video/mp4' });
+  } finally {
+    v.pause(); v.removeAttribute('src'); v.load();
+    URL.revokeObjectURL(url);
+  }
+}
+// 備用：MediaRecorder 錄成 MP4（Safari 等不支援 WebCodecs 音訊時）
+function seVideoMime() {
+  if (typeof MediaRecorder === 'undefined') return '';
+  return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+async function seRecordVideo(fr, blob, onTick, ac) {
+  const mime = seVideoMime();
+  if (!mime) return null;
+  await seLoadFonts(fr.layers);
+  const url = URL.createObjectURL(blob), v = document.createElement('video');
+  v.src = url; v.playsInline = true;
+  await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); });
+  const c = document.createElement('canvas'); c.width = SW; c.height = SH;
+  const g = c.getContext('2d');
+  const stream = c.captureStream(30);
+  // 聲音：接到錄影裡，不從喇叭播出來（AudioContext 要在按下按鈕的當下建立，不然會被暫停、影片卡住）
+  if (ac) await ac.resume().catch(() => {});
+  if (ac?.state === 'running') {
+    const dest = ac.createMediaStreamDestination();
+    ac.createMediaElementSource(v).connect(dest);
+    dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+  } else v.muted = true;
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6e6 });
+  const chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const done = new Promise(r => rec.onstop = r);
+  const limit = Math.min(isFinite(v.duration) && v.duration > 0 ? v.duration : SE_LIMIT, SE_LIMIT);
+  let stopped = false;
+  const stop = () => { if (stopped) return; stopped = true; v.pause(); rec.state !== 'inactive' && rec.stop(); };
+  const draw = () => {
+    if (stopped) return;
+    seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
+    onTick?.(Math.min(v.currentTime, limit), limit);
+    if (v.currentTime >= limit || v.ended) { stop(); return; }
+    v.requestVideoFrameCallback ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw);
+  };
+  v.onended = stop;
+  seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
+  rec.start(1000);
+  try { await v.play(); } catch { v.muted = true; await v.play(); }
+  draw();
+  await done;
+  URL.revokeObjectURL(url);
+  const out = new Blob(chunks, { type: 'video/mp4' });
+  return await seVideoOk(out) ? out : null;
+}
+// 有些電腦說支援 MP4 錄影，實際錄出來是空的：讀讀看確認是好的影片
+async function seVideoOk(b) {
+  if (!b || b.size < 1000) return false;
+  const u = URL.createObjectURL(b), v = document.createElement('video');
+  v.muted = true; v.src = u;
+  const ok = await new Promise(r => { v.onloadedmetadata = () => r(v.videoWidth > 0); v.onerror = () => r(false); setTimeout(() => r(false), 5000); });
+  URL.revokeObjectURL(u);
+  return ok;
+}
+async function seExportVideo(fr, blob, onTick, ac) {
+  try { const b = await seEncodeVideo(fr, blob, onTick); if (b) return b; }
+  catch (e) { console.warn('WebCodecs 失敗，改用錄影', e); }
+  return seRecordVideo(fr, blob, onTick, ac).catch(e => { console.warn('錄影失敗', e); return null; });
+}
+// 輸出全部檔案；存進瀏覽器，半自動發送時直接拿來分享／下載
+async function seExportAll(p, onMsg, ac) {
+  const se = storyEdit(p), out = [];
+  let warned = false;
+  for (const [i, m] of p.media.entries()) {
+    const blob = await mediaBlob(m);
+    if (!blob) throw new Error(`找不到「${m.name}」，請重新加入`);
+    const fr = se.frames[m.id];
+    let b;
+    if (!isVideo(m)) { onMsg?.(`產生第 ${i + 1} 張⋯`); b = await seExportImage(fr, blob); }
+    else {
+      b = await seExportVideo(fr, blob, (t, total) => onMsg?.(`影片處理中 ${Math.floor(t)}／${Math.ceil(total)} 秒，請不要切換分頁⋯`), ac);
+      if (!b) { b = blob; if (!warned) { warned = true; toast('這個瀏覽器不能把字加進影片，影片會用原檔'); } }
+    }
+    out.push(b);
+  }
+  return out;
+}
+// 半自動用：讀取編好的限動檔案；沒編輯過就回傳 null（用原檔）
+const storyOut = {};
+async function storyFiles(p) {
+  if (!p.storyEdit?.done) return null;
+  const key = p.id + ':' + p.storyEdit.ver + ':' + p.media.map(m => m.id).join(',');
+  if (storyOut[key]) return storyOut[key];
+  const saved = dbOk ? await DB.get('kv', 'storyOut:' + p.id).catch(() => null) : null;
+  let blobs = saved && saved.key === key ? saved.blobs : null;
+  if (!blobs) blobs = await seExportAll(p);
+  const files = blobs.map((b, i) => {
+    const m = p.media[i], vid = /^video\//.test(b.type);
+    return new File([b], m.name.replace(/\.[^.]+$/, '') + '-限動' + (vid ? (/mp4/.test(b.type) ? '.mp4' : '.' + (m.name.split('.').pop() || 'mp4')) : '.jpg'), { type: b.type || m.type });
+  });
+  storyOut[key] = files;
+  return files;
+}
+async function seFinish() {
+  const ctx = seCtx, { p, opts } = ctx;
+  const busy = $('#seBusy'), ok = $('#seOk');
+  const ac = p.media.some(isVideo) && window.AudioContext ? new AudioContext() : null;
+  ok.disabled = true; busy.hidden = false;
+  seStopVideo(ctx);
+  try {
+    const blobs = await seExportAll(p, msg => { if (seCtx === ctx) busy.textContent = msg; }, ac).finally(() => ac?.close().catch(() => {}));
+    if (seCtx !== ctx) return;
+    const key = p.id + ':' + p.storyEdit.ver + ':' + p.media.map(m => m.id).join(',');
+    if (dbOk) await DB.put('kv', 'storyOut:' + p.id, { key, blobs }).catch(() => {});
+    p.storyEdit.done = true; save();
+    delete storyOut[key];
+    closeStoryEditor();
+    if (opts) await sendAuto(p, opts, blobs);
+    else toast('限動畫面已存好，發 IG／FB 限動時會用編好的版本');
+  } catch (e) {
+    toast('產生失敗：' + e.message);
+    if (seCtx === ctx) { ok.disabled = false; busy.hidden = true; seLoadSource(); }
+  }
+}
+$('#storyClose').onclick = closeStoryEditor;
 
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
@@ -1766,10 +2233,13 @@ async function fsAddToPost() {
   if (!c.blobs || c.blobs.length !== c.frames.length) return;
   const base = (c.file?.name || '限動').replace(/\.[^.]+$/, '').slice(0, 30);
   const files = c.blobs.map((b, i) => new File([b], `${base}-限動${i + 1}.jpg`, { type: 'image/jpeg' }));
-  // 圖上已經有字了，之後的「確認限動畫面」不要再疊一次文字
-  storySettings(p).pos = 'none';
   closeFileStory();
+  const before = new Set(p.media.map(m => m.id));
   await addFiles(p, files);
+  // 圖上已經有字了，限動編輯器裡不要再預設疊一次文字
+  p.storyEdit ||= { ver: 1, frames: {}, out: {} };
+  for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'blur', filter: 'none', layers: [] };
+  save();
   toast(`已加入 ${files.length} 張限動圖，發到「IG 限動」會一張一張發出`);
 }
 
