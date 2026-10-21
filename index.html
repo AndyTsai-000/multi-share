@@ -58,6 +58,8 @@ aside .new { width: 100%; }
 .home-item:first-of-type { border-top: 0; }
 .home-item .snip { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .home-warn { border-color: rgba(245, 166, 35, .55); }
+.home-ok { border-color: #22c55e; background: rgba(34, 197, 94, .1); }
+.se-busy { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--soft); color: var(--soft-ink); font-weight: 600; text-align: center; }
 .step-nav.bare { border-top: 0; margin-top: 0; padding-top: 0; }
 .post-item { display: block; width: 100%; text-align: left; border: 1px solid transparent; background: none; padding: 9px 10px; margin-bottom: 4px; border-radius: 10px; }
 .post-item:hover { background: var(--bg); border-color: transparent; }
@@ -500,6 +502,8 @@ function localInput(d) {
 }
 function postTargets(p) { return p.mode === 'auto' ? [] : p.targets.map(id => S.targets.find(t => t.id === id)).filter(Boolean); }
 function postStatus(p) {
+  // 全自動還沒送到伺服器：不管有沒有選時間，都是「還沒送出」
+  if (p.mode === 'auto' && !p.serverPost) return { cls: 'unsched', text: p.time ? '⚠️ 還沒送出' : '未排程' };
   const ts = postTargets(p), n = ts.filter(t => p.done?.[t.id]).length;
   if (ts.length && n === ts.length) return { cls: 'done', text: '已完成', finished: true };
   if (p.time && new Date(p.time) <= new Date()) return { cls: 'due', text: n ? `已發 ${n}/${ts.length}` : '時間到了' };
@@ -508,7 +512,7 @@ function postStatus(p) {
 function fullText(p) { return [p.text.trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
 const hasContent = p => !!(fullText(p) || p.media.length);
 // 已排程：全自動已送到伺服器，或半自動設了時間（時間到會提醒）
-const isScheduled = p => !!p.serverPost || !!p.time;
+const isScheduled = p => !!p.serverPost || (p.mode !== 'auto' && !!p.time);
 
 // ===== 左側列表 =====
 function renderList() {
@@ -518,7 +522,7 @@ function renderList() {
   $('#postList').innerHTML = groups.map(([title, f], gi) => {
     const items = sorted.filter(f);
     if (!items.length) return '';
-    return `<div class="group-title ${gi === 1 ? 'warn' : ''}">${title}<span>${items.length}</span></div>` + (gi === 1 ? '<p class="group-hint">還沒排時間、也還沒發出去</p>' : '') + items.map(p => {
+    return `<div class="group-title ${gi === 1 ? 'warn' : ''}">${title}<span>${items.length}</span></div>` + (gi === 1 ? '<p class="group-hint">還沒排好、也還沒發出去</p>' : '') + items.map(p => {
       const st = listStatus(p);
       const snip = p.text.trim().split('\n')[0] || p.link || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）');
       return `<button class="post-item ${p.id === S.activeId ? 'active' : ''}" data-id="${p.id}">
@@ -683,7 +687,7 @@ function renderEditor() {
       <button class="chip ${p.time ? 'on' : ''}" data-when="later">排程</button>
     </div>
     ${p.time ? schedulePicker(p) : ''}
-    ${p.time && p.mode === 'auto' ? `<p class="hint-s" style="margin:10px 0 0">⚡ 時間到會自動發出，網頁和電腦都可以關掉。按下方「排程自動發」才會送出。</p>` : ''}
+    ${p.mode === 'auto' ? `<div class="phone-note">⚠️ <b>還沒送出</b>：選好帳號和時間後，要按右下角「<b>⚡ ${p.time ? '排程' : '立即'}自動發</b>」${autoSelected(p).some(isStory) ? '，再在限動畫面按「<b>確認</b>」' : ''}，才會送到伺服器。送出後會回到主畫面，左邊出現在「⏰ 已排程」就成功了；之後網頁和電腦都可以關掉。</div>` : ''}
     ${p.time && p.mode === 'manual' ? `<p class="hint-s" style="margin:10px 0 8px">時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><button id="ics">📅 加到行事曆提醒</button>${new Date(p.time) > new Date() && postTargets(p).length ? '<button class="primary" id="schedDone">✓ 完成排程，回主畫面</button>' : ''}</div>` : ''}
   </div>
@@ -777,12 +781,16 @@ function renderHome() {
   const item = p => `<button class="home-item" data-home="${p.id}"><span class="pill ${listStatus(p).cls}">${listStatus(p).text}</span>
     <span class="snip">${esc(p.text.trim().split('\n')[0] || p.link || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'))}</span>
     <span class="hint-s">${isScheduled(p) ? esc(fmtTime(p.time || (serverPosts[p.serverPost]?.run_at ? new Date(serverPosts[p.serverPost].run_at).toISOString() : null))) : ''}</span></button>`;
+  const lr = S.lastResult && Date.now() - S.lastResult.at < 30 * 60e3 ? S.lastResult : null;
   $('#editor').innerHTML = `<div class="home">
     <div class="home-head"><h2>貼文總覽</h2><button class="primary" id="homeNew">＋ 新增貼文</button></div>
-    ${un.length ? `<div class="card home-warn"><h2>⚠️ 未排程 <small>${un.length} 則還沒排時間、也還沒發出去</small></h2>${un.map(item).join('')}</div>` : ''}
+    ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
+      <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
+    ${un.length ? `<div class="card home-warn"><h2>⚠️ 未排程 <small>${un.length} 則還沒排好、也還沒發出去</small></h2>${un.map(item).join('')}</div>` : ''}
     <div class="card"><h2>⏰ 已排程 <small>${sched.length} 則</small></h2>${sched.length ? sched.map(item).join('') : '<p class="hint-s" style="margin:0">目前沒有排程的貼文。</p>'}</div>
   </div>`;
   $('#homeNew').onclick = () => newPost();
+  if ($('#homeOkClose')) $('#homeOkClose').onclick = () => { S.lastResult = null; save(); renderHome(); };
   $('#editor').querySelectorAll('[data-home]').forEach(b => b.onclick = () => { S.activeId = b.dataset.home; save(); renderAll(); });
 }
 function goHome(msg) {
@@ -841,7 +849,7 @@ async function addFiles(p, files) {
 function renderBar() {
   const p = active(), btn = $('#startSend');
   $('#delPost').hidden = !p;
-  if (!p) { btn.disabled = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
+  if (!p) { btn.hidden = true; $('#autoSend').hidden = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
   const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
   const empty = !fullText(p) && !p.media.length;
   const lineLeft = lineTargets(p).filter(t => !p.done?.[t.id]).length;
@@ -852,7 +860,7 @@ function renderBar() {
   const last = p.step === 3;
   $('#autoSend').hidden = !last || !autoN || !!p.serverPost;
   $('#autoSend').disabled = empty;
-  $('#autoSend').textContent = p.time ? `⚡ 排程自動發（${autoN}）` : `⚡ 立即自動發（${autoN}）`;
+  $('#autoSend').textContent = p.time && new Date(p.time) > new Date() ? `⚡ 排程自動發（${autoN}）` : p.time ? `⚡ 時間已過，立即發（${autoN}）` : `⚡ 立即自動發（${autoN}）`;
   btn.hidden = !last || p.mode === 'auto';
   if (!last) $('#lineBatch').hidden = true;
   btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
@@ -1355,6 +1363,13 @@ const AUTO_KINDS = [
 ];
 let session = '', autoAccounts = [];
 const serverPosts = {};
+// 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
+function logRemote(where, msg) {
+  try {
+    fetch(API + '/log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ where, msg: String(msg).slice(0, 500), ua: navigator.userAgent.slice(0, 200) }) }).catch(() => {});
+  } catch {}
+}
 async function apiCall(path, opts = {}) {
   const r = await fetch(API + path, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + session } });
   const j = await r.json().catch(() => ({}));
@@ -1431,9 +1446,9 @@ async function submitAuto(p) {
   const opts = autoSelected(p);
   if (!opts.length) return;
   const text = fullText(p);
-  if (opts.some(o => o.platform === 'ig') && !p.media.length) return toast('Instagram 一定要有圖片或影片');
-  if (opts.some(o => o.platform === 'threads') && [...text].length > 500) return toast('Threads 文字最多 500 字');
-  if (p.media.length > 10) return toast('自動發最多 10 個圖片影片');
+  if (opts.some(o => o.platform === 'ig') && !p.media.length) { toast('Instagram 一定要有圖片或影片'); return alert('⚠️ 還沒送出\n\nInstagram 一定要有圖片或影片'); }
+  if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
+  if (p.media.length > 10) { toast('自動發最多 10 個圖片影片'); return alert('⚠️ 還沒送出\n\n自動發最多 10 個圖片影片'); }
   // 有 IG 限動：先編輯、確認限動畫面，確認了才送出
   if (opts.some(isStory)) return openStoryEditor(p, opts);
   const when = autoWhen(p);
@@ -1454,7 +1469,7 @@ function videoType(m, blob) {
   return /quicktime/.test(m.type) ? 'video/quicktime' : 'video/mp4';
 }
 // storyBlobs：限動用的檔案（已經畫上文字貼圖），和 p.media 一一對應
-async function sendAuto(p, opts, storyBlobs) {
+async function sendAuto(p, opts, storyBlobs, onMsg) {
   const text = fullText(p), late = p.time && new Date(p.time) < Date.now(), when = autoWhen(p);
   const btn = $('#autoSend');
   btn.disabled = true;
@@ -1462,7 +1477,7 @@ async function sendAuto(p, opts, storyBlobs) {
     const needMain = opts.some(o => !isStory(o));
     const total = (needMain ? p.media.length : 0) + (storyBlobs ? storyBlobs.length : 0);
     let done = 0;
-    const tick = () => { btn.textContent = `上傳中 ${++done}/${total}⋯`; };
+    const tick = () => { const t = `上傳中 ${++done}/${total}⋯`; btn.textContent = t; onMsg?.(t); };
     const media = [];
     if (needMain) for (const m of p.media) {
       tick();
@@ -1476,7 +1491,7 @@ async function sendAuto(p, opts, storyBlobs) {
       const m = p.media[i];
       storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType({ ...m, type: b.type || m.type }, b)) : await uploadMedia(b, 'image/jpeg'));
     }
-    btn.textContent = '送出中⋯';
+    btn.textContent = '送出中⋯'; onMsg?.('送出中⋯');
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia }
       : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ig: igPayload(p) } : { account: o.account, kind: o.kind });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1484,9 +1499,17 @@ async function sendAuto(p, opts, storyBlobs) {
     p.serverPost = r.id; save();
     serverPosts[r.id] = { status: 'scheduled', run_at: r.run_at, targets: opts.map(o => ({ account: o.account, kind: o.kind })), jobs: [] };
     setTimeout(refreshServerPosts, 8000);
-    return goHome(when === '現在' ? '已送出，大約 1～2 分鐘內發出' : `已排程：${fmtTime(p.time)} 自動發出`);
-  } catch (e) { toast('自動發失敗：' + e.message); }
-  renderAll();
+    const where = opts.map(o => `${o.label} @${o.username}`).join('、');
+    S.lastResult = { at: Date.now(), postId: p.id, title: when === '現在' ? '✅ 已送出' : '✅ 排程成功',
+      text: when === '現在' ? `大約 1～2 分鐘內會發到：${where}` : `${fmtTime(p.time)} 會自動發到：${where}` };
+    goHome(when === '現在' ? '已送出，大約 1～2 分鐘內發出' : `排程成功：${fmtTime(p.time)} 自動發出`);
+    return true;
+  } catch (e) {
+    logRemote('sendAuto', e.message);
+    renderAll();
+    alert('⚠️ 自動發沒有送出\n\n原因：' + e.message + '\n\n請照上面的說明處理後，再按一次「排程自動發」。');
+    return false;
+  }
 }
 
 // ===== 限動編輯器：文字（大小、字體、顏色）、貼圖、地點／時間／提及樣式，照片影片可以移動縮放 =====
@@ -1648,7 +1671,7 @@ async function seLoadSource() {
   if (isVideo(m)) {
     const v = document.createElement('video');
     v.src = ctx.videoUrl = URL.createObjectURL(blob); v.muted = true; v.loop = true; v.playsInline = true;
-    await new Promise(r => { v.onloadeddata = r; v.onerror = r; });
+    await new Promise(r => { v.onloadeddata = r; v.onerror = r; setTimeout(r, 8000); });
     v.play().catch(() => {});
     ctx.video = v; ctx.src = { el: v, w: v.videoWidth, h: v.videoHeight };
     const loop = () => { if (seCtx !== ctx || ctx.video !== v) return; seDraw(); ctx.raf = requestAnimationFrame(loop); };
@@ -1704,8 +1727,8 @@ function renderStoryEditor() {
       </div>
     </div>
     ${opts ? `<div class="box hint-s" style="margin-top:12px"><b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${stories.map(o => `IG 限動 @${esc(o.username)}`).concat(others.map(o => `${o.label} @${esc(o.username)}`)).join('、')}</div>` : ''}
-    <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>
-    <div class="ai-wait" id="seBusy" hidden></div>`;
+    <div class="se-busy" id="seBusy" hidden></div>
+    <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>`;
   const box = $('#storyBody');
   box.querySelectorAll('[data-sepage]').forEach(b => b.onclick = () => { ctx.i = +b.dataset.sepage; ctx.sel = null; renderStoryEditor(); seLoadSource(); });
   box.querySelectorAll('[data-seadd]').forEach(b => b.onclick = () => seAdd(b.dataset.seadd));
@@ -1871,8 +1894,10 @@ async function seEncodeVideo(fr, blob, onTick) {
   const url = URL.createObjectURL(blob), v = document.createElement('video');
   v.src = url; v.muted = true; v.playsInline = true;
   try {
-    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); });
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); setTimeout(() => rej(new Error('影片讀不出來（逾時）')), 15000); });
     const limit = Math.min(isFinite(v.duration) && v.duration > 0 ? v.duration : SE_LIMIT, SE_LIMIT);
+    // 上傳上限 25MB：影片越長，畫質壓低一點
+    vcfg.bitrate = Math.max(1.2e6, Math.min(6e6, Math.floor(25 * 1024 * 1024 * 8 * 0.85 / limit) - 128000));
     const target = new M.ArrayBufferTarget();
     const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset',
       video: { codec: 'avc', width: SW, height: SH }, ...(acfg ? { audio: { codec: 'aac', numberOfChannels: ch, sampleRate: 48000 } } : {}) });
@@ -1883,14 +1908,19 @@ async function seEncodeVideo(fr, blob, onTick) {
     const g = c.getContext('2d');
     let last = -1, n = 0;
     await new Promise((res, rej) => {
-      let finished = false;
-      const end = () => { if (!finished) { finished = true; res(); } };
+      let finished = false, moved = Date.now();
+      const end = () => { if (!finished) { finished = true; clearInterval(watch); res(); } };
+      // 有些影片格式（例如 iPhone 的 HEVC）瀏覽器解不開，畫面不會動：10 秒沒進度就放棄
+      const watch = setInterval(() => {
+        if (finished) return clearInterval(watch);
+        if (Date.now() - moved > 10000) { finished = true; clearInterval(watch); v.pause(); rej(new Error('影片解不開（可能是 HEVC 格式）')); }
+      }, 1000);
       const onFrame = async (now, meta) => {
         if (finished) return;
-        if (err) { finished = true; return rej(err); }
+        if (err) { finished = true; clearInterval(watch); return rej(err); }
         const t = meta?.mediaTime ?? v.currentTime;
         if (t > last && t < limit) {
-          last = t;
+          last = t; moved = Date.now();
           seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
           const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6) });
           venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close();
@@ -1906,7 +1936,7 @@ async function seEncodeVideo(fr, blob, onTick) {
         v.requestVideoFrameCallback ? v.requestVideoFrameCallback(onFrame) : requestAnimationFrame(() => onFrame(0, null));
       };
       v.onended = () => setTimeout(end, 50);
-      v.play().then(() => onFrame(0, null), rej);
+      v.play().then(() => onFrame(0, null), e => { finished = true; clearInterval(watch); rej(e); });
     });
     await venc.flush();
     if (err) throw err;
@@ -1942,7 +1972,7 @@ async function seRecordVideo(fr, blob, onTick, ac) {
   await seLoadFonts(fr.layers);
   const url = URL.createObjectURL(blob), v = document.createElement('video');
   v.src = url; v.playsInline = true;
-  await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); });
+  await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); setTimeout(() => rej(new Error('影片讀不出來（逾時）')), 15000); });
   const c = document.createElement('canvas'); c.width = SW; c.height = SH;
   const g = c.getContext('2d');
   const stream = c.captureStream(30);
@@ -1968,6 +1998,12 @@ async function seRecordVideo(fr, blob, onTick, ac) {
     v.requestVideoFrameCallback ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw);
   };
   v.onended = stop;
+  let lastT = -1, moved = Date.now();
+  const watch = setInterval(() => {
+    if (stopped) return clearInterval(watch);
+    if (v.currentTime !== lastT) { lastT = v.currentTime; moved = Date.now(); }
+    else if (Date.now() - moved > 10000) { clearInterval(watch); stop(); }
+  }, 1000);
   seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
   rec.start(1000);
   try { await v.play(); } catch { v.muted = true; await v.play(); }
@@ -2003,7 +2039,11 @@ async function seExportAll(p, onMsg, ac) {
     if (!isVideo(m)) { onMsg?.(`產生第 ${i + 1} 張⋯`); b = await seExportImage(fr, blob); }
     else {
       b = await seExportVideo(fr, blob, (t, total) => onMsg?.(`影片處理中 ${Math.floor(t)}／${Math.ceil(total)} 秒，請不要切換分頁⋯`), ac);
-      if (!b) { b = blob; if (!warned) { warned = true; toast('這個瀏覽器不能把字加進影片，影片會用原檔'); } }
+      if (!b) {
+        if (blob.size > 25 * 1024 * 1024) throw new Error(`「${m.name}」沒辦法加字，原檔又超過 25MB（${(blob.size / 1048576).toFixed(0)}MB）。請先用手機把影片壓縮、剪短，或改用 MP4（H.264）格式再加入。`);
+        b = blob;
+        if (!warned) { warned = true; toast('這部影片沒辦法加字，會用原本的影片'); }
+      }
     }
     out.push(b);
   }
@@ -2029,7 +2069,8 @@ async function seFinish() {
   const ctx = seCtx, { p, opts } = ctx;
   const busy = $('#seBusy'), ok = $('#seOk');
   const ac = p.media.some(isVideo) && window.AudioContext ? new AudioContext() : null;
-  ok.disabled = true; busy.hidden = false;
+  ok.disabled = true; busy.hidden = false; busy.textContent = '處理中⋯';
+  busy.scrollIntoView({ block: 'nearest' });
   seStopVideo(ctx);
   try {
     const blobs = await seExportAll(p, msg => { if (seCtx === ctx) busy.textContent = msg; }, ac).finally(() => ac?.close().catch(() => {}));
@@ -2038,12 +2079,15 @@ async function seFinish() {
     if (dbOk) await DB.put('kv', 'storyOut:' + p.id, { key, blobs }).catch(() => {});
     p.storyEdit.done = true; save();
     delete storyOut[key];
-    closeStoryEditor();
-    if (opts) await sendAuto(p, opts, blobs);
-    else toast('限動畫面已存好，發 IG／FB 限動時會用編好的版本');
+    if (opts) {
+      const okSent = await sendAuto(p, opts, blobs, msg => { if (seCtx === ctx) busy.textContent = msg; });
+      if (okSent) closeStoryEditor();
+      else if (seCtx === ctx) { ok.disabled = false; busy.hidden = true; seLoadSource(); }
+    } else { closeStoryEditor(); toast('限動畫面已存好，發 IG／FB 限動時會用編好的版本'); }
   } catch (e) {
-    toast('產生失敗：' + e.message);
+    logRemote('storyExport', e.message);
     if (seCtx === ctx) { ok.disabled = false; busy.hidden = true; seLoadSource(); }
+    alert('⚠️ 限動畫面產生失敗\n\n原因：' + e.message);
   }
 }
 $('#storyClose').onclick = closeStoryEditor;
