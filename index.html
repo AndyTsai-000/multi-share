@@ -112,6 +112,15 @@ main { overflow: auto; min-height: 0; }
 .ai-ver { border: 1px solid var(--line); border-radius: 10px; padding: 12px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
 .ai-ver .row { margin-top: 10px; justify-content: flex-end; white-space: normal; }
 .ai-wait { text-align: center; padding: 24px 0; color: var(--sub); }
+.fs-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fs-pick b { word-break: break-all; }
+.fs-frames { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0 8px; margin-top: 14px; }
+.fs-frame { flex: none; width: 210px; display: grid; gap: 6px; }
+.fs-frame .story-frame { width: 100%; position: relative; }
+.fs-frame .story-frame .del { position: absolute; top: 6px; right: 6px; border-radius: 99px; padding: 2px 9px; background: rgba(0,0,0,.6); color: #fff; border: 0; }
+.fs-frame input, .fs-frame textarea { font-size: 13px; padding: 6px 8px; }
+.fs-frame textarea { min-height: 64px; }
+@media (max-width: 760px) { .fs-frame { width: 160px; } }
 .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 
 .send .progress { height: 6px; background: var(--hint); border-radius: 99px; overflow: hidden; margin-bottom: 16px; }
@@ -251,6 +260,12 @@ main { overflow: auto; min-height: 0; }
 <div class="modal-bg" id="aiModal"><div class="modal">
   <h3>✨ AI 幫我寫文案 <button class="link" data-close>關閉</button></h3>
   <div id="aiBody"></div>
+</div></div>
+
+<div class="modal-bg" id="fsModal"><div class="modal" style="width:min(820px,100%)">
+  <h3>📄 用檔案做限動 <button class="link" id="fsClose">關閉</button></h3>
+  <div id="fsBody"></div>
+  <input type="file" id="fsFile" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.html,.odt,.ods,image/*" hidden>
 </div></div>
 
 <div class="modal-bg" id="autoModal"><div class="modal">
@@ -601,6 +616,7 @@ function renderEditor() {
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
+    <div class="text-head" style="margin:12px 0 0"><span class="hint-s">有活動 DM、型錄、報價單？AI 幫你做成限動圖</span><button class="ai-btn" id="fsOpen">📄 用檔案做限動</button></div>
   </div>
   <div class="card">
     <h2>什麼時候發</h2>
@@ -650,6 +666,7 @@ function renderEditor() {
   renderThumbs();
   const refreshSettings = () => { const c = $('#editor .card:last-child'); if (c && !p.serverPost) { renderEditorSettings(p); } };
   $('#aiOpen').onclick = () => openAi(p);
+  $('#fsOpen').onclick = () => openFileStory(p);
   $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshSettings(); };
   $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshSettings(); };
   const drop = $('#drop'), file = $('#file');
@@ -1491,7 +1508,6 @@ function closeStoryModal() {
 $('#autoSend').onclick = () => active() && submitAuto(active());
 $('#storyClose').onclick = closeStoryModal;
 
-// ===== IG 貼文設定：標註人物、協作者（最多 3 位）、常用地點 =====
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
 const AI_TONES = [['warm', '輕鬆生活'], ['pro', '專業質感'], ['promo', '促銷活動']];
@@ -1543,13 +1559,7 @@ function renderAi() {
 // 照片縮小成 768px 的 JPEG 給 AI 看（省流量、AI 也看得夠清楚）
 async function aiImage(m) {
   const blob = await mediaBlob(m);
-  if (!blob) return '';
-  const bmp = await createImageBitmap(blob);
-  const sc = Math.min(1, 768 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement('canvas');
-  c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
-  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-  return c.toDataURL('image/jpeg', 0.8);
+  return blob ? shrinkImage(blob, 768, 0.8) : '';
 }
 async function aiGenerate() {
   const ctx = aiCtx, { p } = ctx, a = p.ai, ph = aiPhoto(p);
@@ -1570,6 +1580,200 @@ async function aiGenerate() {
   if (aiCtx === ctx) renderAi();
 }
 
+// ===== AI 用檔案做限動：讀檔案（PDF、Word、Excel、圖片、文字）→ 拆成幾張 → 畫成 1080×1920 的圖 =====
+const FS_THEMES = [
+  ['navy', '深藍', ['#1e2a4a', '#0d1222'], '#fff', '#f5c46b'],
+  ['cream', '米白', ['#f7f1e6', '#e9dcc5'], '#2b2420', '#b0703a'],
+  ['sunset', '暖橘', ['#f39c6b', '#c2456a'], '#fff', '#fff3c4'],
+  ['photo', '照片背景'],
+];
+const FS_COUNTS = [[0, 'AI 決定'], [1, '1 張'], [3, '3 張'], [5, '5 張']];
+const DOC_EXT = /\.(pdf|docx|xlsx|xlsm|xls|ods|odt|csv|html?)$/i, TEXT_EXT = /\.(txt|md)$/i;
+let fsCtx = null;   // { p, file, photo(blob), count, theme, frames:[{title,body}], urls, busy }
+function openFileStory(p) {
+  fsCtx = { p, file: null, photo: null, count: 0, theme: 'navy', frames: [], urls: [], busy: false };
+  renderFileStory();
+  $('#fsModal').classList.add('open');
+}
+function closeFileStory() {
+  if (fsCtx) fsCtx.urls.forEach(u => u && URL.revokeObjectURL(u));
+  fsCtx = null;
+  $('#fsModal').classList.remove('open');
+}
+// 照片背景：選的檔案是圖片就用它，不然用這則貼文的第一張照片
+async function fsPhoto() {
+  if (fsCtx.file && /^image\//.test(fsCtx.file.type)) return fsCtx.file;
+  const m = aiPhoto(fsCtx.p);
+  return m ? await mediaBlob(m) : null;
+}
+function renderFileStory() {
+  const c = fsCtx, f = c.file, hasPhoto = (f && /^image\//.test(f.type)) || aiPhoto(c.p);
+  const themes = FS_THEMES.filter(t => t[0] !== 'photo' || hasPhoto);
+  if (!themes.some(t => t[0] === c.theme)) c.theme = 'navy';
+  $('#fsBody').innerHTML = `
+    <div class="fs-pick"><button id="fsChoose">${f ? '換一個檔案' : '選擇檔案'}</button>
+      ${f ? `<b>${esc(f.name)}</b>` : `<span class="hint-s">PDF、Word、Excel、圖片或文字檔，最多 10MB</span>`}</div>
+    <div class="pick-label">做幾張</div>
+    <div class="chips">${FS_COUNTS.map(([v, l]) => `<button class="chip ${c.count === v ? 'on' : ''}" data-fscount="${v}">${l}</button>`).join('')}</div>
+    <div class="pick-label">樣式</div>
+    <div class="chips">${themes.map(([v, l]) => `<button class="chip ${c.theme === v ? 'on' : ''}" data-fstheme="${v}">${l}</button>`).join('')}</div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="fsGo" ${c.busy || !f ? 'disabled' : ''}>${c.frames.length ? '🔄 重新做' : '✨ 開始做'}</button></div>
+    ${c.busy ? `<div class="ai-wait">AI 正在讀檔案、整理重點，大約 10～20 秒⋯</div>` : ''}
+    ${c.frames.length && !c.busy ? `
+      <p class="hint-s" style="margin:14px 0 0">文字可以直接改，畫面會跟著更新；不要的那張按 ✕。</p>
+      <div class="fs-frames">${c.frames.map((fr, i) => `<div class="fs-frame" data-i="${i}">
+        <div class="story-frame"><span class="hint-s">產生中⋯</span>${c.frames.length > 1 ? `<button class="del" data-fsdel="${i}" title="刪掉這張">✕</button>` : ''}</div>
+        <input data-fstitle="${i}" value="${esc(fr.title)}" placeholder="標題">
+        <textarea data-fsbody="${i}" placeholder="內文">${esc(fr.body)}</textarea></div>`).join('')}</div>
+      <p class="hint-s">AI 整理的內容請看過再發，日期、價格要再確認一次。</p>
+      <div class="send"><div class="nav"><button class="link" id="fsCancel">先不要</button><button class="primary" id="fsAdd">加入這則貼文（${c.frames.length} 張）</button></div></div>` : ''}`;
+  const box = $('#fsBody');
+  $('#fsChoose').onclick = () => $('#fsFile').click();
+  box.querySelectorAll('[data-fscount]').forEach(b => b.onclick = () => { c.count = +b.dataset.fscount; renderFileStory(); });
+  box.querySelectorAll('[data-fstheme]').forEach(b => b.onclick = () => { c.theme = b.dataset.fstheme; renderFileStory(); });
+  $('#fsGo').onclick = fsGenerate;
+  if (!c.frames.length || c.busy) return;
+  let typing;
+  const redraw = () => { clearTimeout(typing); typing = setTimeout(drawFsFrames, 300); };
+  box.querySelectorAll('[data-fstitle]').forEach(x => x.oninput = () => { c.frames[+x.dataset.fstitle].title = x.value; redraw(); });
+  box.querySelectorAll('[data-fsbody]').forEach(x => x.oninput = () => { c.frames[+x.dataset.fsbody].body = x.value; redraw(); });
+  box.querySelectorAll('[data-fsdel]').forEach(b => b.onclick = () => { c.frames.splice(+b.dataset.fsdel, 1); renderFileStory(); });
+  $('#fsCancel').onclick = closeFileStory;
+  $('#fsAdd').onclick = fsAddToPost;
+  drawFsFrames();
+}
+$('#fsClose').onclick = closeFileStory;
+$('#fsFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || !fsCtx) return;
+  if (!/^image\//.test(f.type) && !DOC_EXT.test(f.name) && !TEXT_EXT.test(f.name)) return toast('這種檔案看不懂，請用 PDF、Word、Excel、圖片或文字檔');
+  if (f.size > 10 * 1024 * 1024) return toast('檔案太大，最多 10MB');
+  fsCtx.file = f; fsCtx.frames = [];
+  if (/^image\//.test(f.type)) fsCtx.theme = 'photo';
+  renderFileStory();
+};
+async function shrinkImage(blob, max, q = 0.85) {
+  const bmp = await createImageBitmap(blob);
+  const sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', q);
+}
+const fileBase64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
+async function fsGenerate() {
+  const c = fsCtx, f = c.file;
+  if (!f) return;
+  c.busy = true; renderFileStory();
+  try {
+    const body = { name: f.name, type: f.type, count: c.count, brand: S.brand || '' };
+    if (/^image\//.test(f.type)) body.image = await shrinkImage(f, 1024);
+    else if (TEXT_EXT.test(f.name)) body.text = (await f.text()).slice(0, 8000);
+    else body.data = await fileBase64(f);
+    const r = await fetch(API + '/ai/story', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
+    c.frames = j.frames;
+  } catch (e) {
+    toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message);
+  }
+  c.busy = false;
+  if (fsCtx === c) renderFileStory();
+}
+// 一行一行斷字（中文逐字、英文數字盡量不拆開）
+function wrapLines(g, text, maxW) {
+  const lines = [];
+  for (const para of String(text).split('\n')) {
+    const tokens = para.match(/[A-Za-z0-9.,:/%$&@'’\-+()]+|\s+|./gu) || [''];
+    let line = '';
+    for (const t of tokens) {
+      // 標點不放在行首，寧可這行稍微超出一點
+      if (line && g.measureText(line + t).width > maxW && !/^[，。！？、；：」』）)…,.!?~～]/.test(t)) { lines.push(line.trimEnd()); line = t.trimStart(); }
+      else line += t;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+const STORY_FONT = '"Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+async function drawFsFrame(fr, theme, photo) {
+  const W = 1080, H = 1920;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const t = FS_THEMES.find(x => x[0] === theme) || FS_THEMES[0];
+  let fg = t[3] || '#fff', accent = t[4] || '#f5c46b';
+  if (theme === 'photo' && photo) {
+    const bmp = await createImageBitmap(photo);
+    const cover = Math.max(W / bmp.width, H / bmp.height);
+    g.drawImage(bmp, (W - bmp.width * cover) / 2, (H - bmp.height * cover) / 2, bmp.width * cover, bmp.height * cover);
+    const sh = g.createLinearGradient(0, 0, 0, H);
+    sh.addColorStop(0, 'rgba(0,0,0,.25)'); sh.addColorStop(.45, 'rgba(0,0,0,.55)'); sh.addColorStop(1, 'rgba(0,0,0,.8)');
+    g.fillStyle = sh; g.fillRect(0, 0, W, H);
+    fg = '#fff'; accent = '#f5c46b';
+  } else {
+    const [a, b] = (t[2] || FS_THEMES[0][2]);
+    const bg = g.createLinearGradient(0, 0, W * 0.4, H);
+    bg.addColorStop(0, a); bg.addColorStop(1, b);
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.globalAlpha = .08; g.fillStyle = fg;   // 角落的圓點裝飾
+    g.beginPath(); g.arc(W - 120, 330, 260, 0, 7); g.fill();
+    g.beginPath(); g.arc(90, H - 360, 200, 0, 7); g.fill();
+    g.globalAlpha = 1;
+  }
+  const maxW = W - 160;
+  g.font = `bold 104px ${STORY_FONT}`;
+  const tl = wrapLines(g, fr.title || '', maxW).slice(0, 4);
+  g.font = `64px ${STORY_FONT}`;
+  const bl = wrapLines(g, fr.body || '', maxW).slice(0, 9);
+  const tH = tl.length * 134, gap = tl.length && bl.length ? 96 : 0, bH = bl.length * 96;
+  // 文字放在畫面中間偏上，避開 IG 上方頭像和下方回覆框
+  let y = Math.max(300, Math.min(H - 380 - (tH + gap + bH), (H - (tH + gap + bH)) / 2 - 60));
+  g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = fg;
+  if (theme === 'photo') { g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 16; }
+  g.font = `bold 104px ${STORY_FONT}`;
+  tl.forEach((l, i) => g.fillText(l, W / 2, y + i * 134));
+  y += tH;
+  if (gap) { g.shadowBlur = 0; g.fillStyle = accent; g.fillRect(W / 2 - 60, y + 40, 120, 10); g.fillStyle = fg; if (theme === 'photo') g.shadowBlur = 16; }
+  y += gap;
+  g.font = `64px ${STORY_FONT}`;
+  bl.forEach((l, i) => g.fillText(l, W / 2, y + i * 96));
+  g.shadowBlur = 0;
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+}
+async function drawFsFrames() {
+  const c = fsCtx;
+  if (!c) return;
+  const run = (c.run = (c.run || 0) + 1);
+  const add = $('#fsAdd'); if (add) add.disabled = true;
+  const photo = c.theme === 'photo' ? await fsPhoto() : null;
+  c.blobs = [];
+  for (const [i, fr] of c.frames.entries()) {
+    const b = await drawFsFrame(fr, c.theme, photo);
+    if (fsCtx !== c || c.run !== run) return;   // 又改了，這一輪作廢
+    c.blobs.push(b);
+    const cell = document.querySelector(`#fsBody .fs-frame[data-i="${i}"] .story-frame`);
+    if (!cell) return;
+    if (c.urls[i]) URL.revokeObjectURL(c.urls[i]);
+    c.urls[i] = URL.createObjectURL(b);
+    const del = cell.querySelector('.del');
+    cell.innerHTML = `<img src="${c.urls[i]}" alt="限動 ${i + 1}">`;
+    if (del) cell.appendChild(del);
+  }
+  if (add) add.disabled = false;
+}
+async function fsAddToPost() {
+  const c = fsCtx, { p } = c;
+  if (!c.blobs || c.blobs.length !== c.frames.length) return;
+  const base = (c.file?.name || '限動').replace(/\.[^.]+$/, '').slice(0, 30);
+  const files = c.blobs.map((b, i) => new File([b], `${base}-限動${i + 1}.jpg`, { type: 'image/jpeg' }));
+  // 圖上已經有字了，之後的「確認限動畫面」不要再疊一次文字
+  storySettings(p).pos = 'none';
+  closeFileStory();
+  await addFiles(p, files);
+  toast(`已加入 ${files.length} 張限動圖，發到「IG 限動」會一張一張發出`);
+}
+
+// ===== IG 貼文設定：標註人物、協作者（最多 3 位）、常用地點 =====
 // p.ig = { tags: { [檔案 id]: [{username,x,y}] }, collaborators: [], location: 地點編號 }；常用地點存在 S.places
 const igOpts = p => (p.ig ||= { tags: {}, collaborators: [], location: '' });
 const cleanName = v => String(v || '').trim().replace(/^@/, '');
