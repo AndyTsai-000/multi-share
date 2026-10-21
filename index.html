@@ -175,7 +175,7 @@ main { overflow: auto; min-height: 0; }
 .se-emoji button { font-size: 22px; padding: 4px; border: 0; background: transparent; }
 .se-sec { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
 .se-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-.se-row > span:first-child { font-size: 13px; color: var(--sub); width: 44px; flex: none; }
+.se-row > span:first-child { font-size: 13px; color: var(--sub); width: 56px; flex: none; }
 .se-row input[type=range] { flex: 1; min-width: 120px; width: auto; padding: 0; }
 .se-row .chips { flex: 1; gap: 6px; }
 .se-row .chip { padding: 3px 10px; font-size: 13px; }
@@ -1370,7 +1370,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1021g";
+const APP_VERSION = "v1022a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1532,13 +1532,25 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
 // p.storyEdit = { ver, frames: { [檔案 id]: { zoom, ox, oy, fill, filter, layers: [...] } }, out: { [檔案 id]: 已輸出的 ver } }
 // layer = { id, kind: 'text'|'emoji'|'tag', text, x, y（中心點，1080×1920 座標）, size, font, color, bg, icon }
 const SW = 1080, SH = 1920;
+// 字體：IG 限動風格（IG 自己的字不能用，用外觀相近的免費字體＋同樣的效果；IG 這些風格主要改英文數字，中文配黑體／明體）
+// fam：英文數字用的字體＋中文字體；upper：英文轉大寫；spacing：字距（倍數）；italic；glow：霓虹發光
 const SE_FONTS = [
-  ['sans', '黑體', '"Noto Sans TC"', 700],
-  ['serif', '明體', '"Noto Serif TC"', 700],
-  ['round', '圓體', '"Huninn"', 400],
-  ['kai', '楷書', '"LXGW WenKai TC"', 700],
-  ['hand', '手寫', '"Iansui"', 400],
+  { id: 'classic', label: 'Classic 經典', group: 'ig', fam: '"Inter", "Noto Sans TC"', w: 700 },
+  { id: 'modern', label: 'Modern 現代', group: 'ig', fam: '"Montserrat", "Noto Sans TC"', w: 700, upper: true, spacing: 0.08 },
+  { id: 'neon', label: 'Neon 霓虹', group: 'ig', fam: '"Pacifico", "Noto Sans TC"', w: 400, glow: true },
+  { id: 'typewriter', label: 'Typewriter 打字機', group: 'ig', fam: '"Courier Prime", "Noto Sans TC"', w: 700 },
+  { id: 'strong', label: 'Strong 粗體', group: 'ig', fam: '"Archivo Black", "Noto Sans TC"', w: 700, upper: true, italic: true },
+  { id: 'poster', label: 'Poster 海報', group: 'ig', fam: '"Anton", "Noto Sans TC"', w: 400, upper: true, spacing: 0.02 },
+  { id: 'editor', label: 'Editor 編輯', group: 'ig', fam: '"Playfair Display", "Noto Serif TC"', w: 700, italic: true },
+  { id: 'literature', label: 'Literature 文學', group: 'ig', fam: '"Lora", "Noto Serif TC"', w: 700 },
+  { id: 'sans', label: '黑體', group: 'zh', fam: '"Noto Sans TC"', w: 700 },
+  { id: 'serif', label: '明體', group: 'zh', fam: '"Noto Serif TC"', w: 700 },
+  { id: 'round', label: '圓體', group: 'zh', fam: '"Huninn"', w: 400 },
+  { id: 'kai', label: '楷書', group: 'zh', fam: '"LXGW WenKai TC"', w: 700 },
+  { id: 'hand', label: '手寫', group: 'zh', fam: '"Iansui"', w: 400 },
 ];
+const seFontCss = (f, size) => `${f.italic ? 'italic ' : ''}${f.w} ${size}px ${f.fam}`;
+const seText = (f, t) => f.upper ? t.toUpperCase() : t;
 const SE_FALLBACK = '"Microsoft JhengHei", "PingFang TC", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
 const SE_COLORS = ['#ffffff', '#111111', '#f5c46b', '#ff6b6b', '#ff8fb1', '#7bd389', '#5ab0ff', '#b48cff'];
 const SE_BGS = [['none', '無'], ['dark', '黑底'], ['light', '白底'], ['solid', '同色底']];
@@ -1546,7 +1558,7 @@ const SE_FILTERS = [['none', '原圖', ''], ['vivid', '鮮豔', 'saturate(1.35) 
   ['cool', '冷色', 'saturate(.9) hue-rotate(-12deg) brightness(1.04)'], ['bright', '明亮', 'brightness(1.13) contrast(1.04)'], ['bw', '黑白', 'grayscale(1) contrast(1.1)']];
 const SE_FILLS = [['blur', '模糊'], ['black', '黑'], ['white', '白']];
 const SE_EMOJI = '😀😍🥰😎🤩😂👍👏🙌💪🙏✨🔥💖❤️🧡💛💚💙💜⭐🌟🎉🎁🛍️🏷️📣💯✅⚡🌸🌿🍂☀️🌙☕🍰🏠🛋️🪑🎄'.match(/\p{Extended_Pictographic}️?/gu);
-const seFont = id => SE_FONTS.find(f => f[0] === id) || SE_FONTS[0];
+const seFont = id => SE_FONTS.find(f => f.id === id) || SE_FONTS.find(f => f.id === 'sans');
 const seUid = () => Math.random().toString(36).slice(2, 9);
 let seFontsLinked = false;
 function seLinkFonts() {
@@ -1554,7 +1566,8 @@ function seLinkFonts() {
   seFontsLinked = true;
   const l = document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700&family=Huninn&family=LXGW+WenKai+TC:wght@700&family=Iansui&display=swap';
+  l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700&family=Huninn&family=LXGW+WenKai+TC:wght@700&family=Iansui'
+    + '&family=Inter:wght@700&family=Montserrat:wght@700&family=Pacifico&family=Courier+Prime:wght@700&family=Archivo+Black&family=Anton&family=Playfair+Display:ital,wght@1,700&family=Lora:wght@700&display=swap';
   document.head.appendChild(l);
   document.fonts?.addEventListener?.('loadingdone', () => seDraw());
 }
@@ -1562,8 +1575,8 @@ function seLinkFonts() {
 async function seLoadFonts(layers) {
   if (!document.fonts?.load) return;
   await Promise.all(layers.filter(l => l.kind !== 'emoji').map(l => {
-    const f = seFont(l.font);
-    return document.fonts.load(`${f[3]} 64px ${f[2]}`, l.text || 'a').catch(() => {});
+    const f = l.kind === 'tag' ? seFont('sans') : seFont(l.font);
+    return document.fonts.load(seFontCss(f, 64), seText(f, l.text || 'a')).catch(() => {});
   }));
 }
 function storyEdit(p) {
@@ -1599,19 +1612,21 @@ function seLayout(g, l) {
     const w = g.measureText(l.text).width;
     return { lines: [l.text], lh: l.size * 1.15, font: g.font, w, h: l.size * 1.15, pad: 0 };
   }
-  const f = l.kind === 'tag' ? SE_FONTS[0] : seFont(l.font);
-  const label = l.kind === 'tag' ? `${l.icon} ${l.text}` : l.text;
-  g.font = `${f[3]} ${l.size}px ${f[2]}, ${SE_FALLBACK}`;
+  const f = l.kind === 'tag' ? seFont('sans') : seFont(l.font);
+  const label = l.kind === 'tag' ? `${l.icon} ${l.text}` : seText(f, l.text);
+  g.font = `${seFontCss(f, l.size)}, ${SE_FALLBACK}`;
+  if ('letterSpacing' in g) g.letterSpacing = f.spacing ? `${Math.round(l.size * f.spacing)}px` : '0px';
   const lines = wrapLines(g, label, SW - 140).slice(0, 14);
   const lh = l.size * 1.32;
   const w = Math.max(1, ...lines.map(s => g.measureText(s).width));
   const pad = l.kind === 'tag' ? l.size * 0.55 : (l.bg === 'none' ? 0 : l.size * 0.5);
-  return { lines, lh, font: g.font, w: w + pad * 2, h: lines.length * lh + pad * 2 - (lh - l.size) + (l.kind === 'tag' ? 0 : 0), pad };
+  return { f, lines, lh, font: g.font, w: w + pad * 2, h: lines.length * lh + pad * 2 - (lh - l.size) + (l.kind === 'tag' ? 0 : 0), pad };
 }
 function seDrawLayer(g, l) {
   const L = seLayout(g, l), x0 = l.x - L.w / 2, y0 = l.y - L.h / 2;
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'top'; g.font = L.font;
+  if ('letterSpacing' in g) g.letterSpacing = L.f?.spacing ? `${Math.round(l.size * L.f.spacing)}px` : '0px';
   let fg = l.color || '#ffffff';
   if (l.kind === 'tag') {
     g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowBlur = 18; g.shadowOffsetY = 4;
@@ -1629,6 +1644,12 @@ function seDrawLayer(g, l) {
     g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = l.size * 0.25;
   }
   g.fillStyle = fg;
+  if (l.kind === 'text' && L.f?.glow) {
+    // 霓虹：同色光暈疊兩次，字本身亮一點
+    g.shadowColor = l.color; g.shadowBlur = l.size * 0.6;
+    L.lines.forEach((s, i) => g.fillText(s, l.x, y0 + L.pad + i * L.lh));
+    g.shadowBlur = l.size * 0.25; g.fillStyle = '#ffffff'; g.globalAlpha = .85;
+  }
   L.lines.forEach((s, i) => g.fillText(s, l.x, y0 + L.pad + i * L.lh));
   g.restore();
   return { x0, y0, x1: x0 + L.w, y1: y0 + L.h };
@@ -1768,7 +1789,7 @@ function renderStoryEditor() {
 function seAdd(kind) {
   if (kind === 'emoji') { $('#seEmoji').hidden = !$('#seEmoji').hidden; return; }
   const p = seCtx.p;
-  if (kind === 'text') return seAddLayer({ kind: 'text', text: '輸入文字', size: 72, font: 'sans', color: '#ffffff', bg: 'none' }, true);
+  if (kind === 'text') return seAddLayer({ kind: 'text', text: '輸入文字', size: 72, font: 'classic', color: '#ffffff', bg: 'none' }, true);
   if (kind === 'loc') {
     const place = (S.places || [])[0]?.name || '';
     return seAddLayer({ kind: 'tag', icon: '📍', text: place || '地點名稱', size: 54 }, !place);
@@ -1797,7 +1818,9 @@ function renderSeLayer() {
     ${l.kind !== 'emoji' ? `<textarea id="seText" rows="${l.kind === 'text' ? 3 : 1}">${esc(l.text)}</textarea>` : ''}
     <div class="se-row"><span>大小</span><input type="range" id="seSize" min="${l.kind === 'emoji' ? 60 : 24}" max="${l.kind === 'emoji' ? 600 : 200}" value="${l.size}"></div>
     ${l.kind === 'text' ? `
-      <div class="se-row"><span>字體</span><div class="chips">${SE_FONTS.map(([v, lab, fam]) => `<button class="chip ${l.font === v ? 'on' : ''}" data-sefont="${v}" style="font-family:${fam}, sans-serif">${lab}</button>`).join('')}</div></div>
+      <div class="se-row"><span>IG 風格</span><div class="chips">${SE_FONTS.filter(f => f.group === 'ig').map(f => `<button class="chip ${l.font === f.id ? 'on' : ''}" data-sefont="${f.id}" style="font-family:${esc(f.fam)}, sans-serif;${f.italic ? 'font-style:italic;' : ''}">${f.label}</button>`).join('')}</div></div>
+      <div class="se-row"><span>中文字體</span><div class="chips">${SE_FONTS.filter(f => f.group === 'zh').map(f => `<button class="chip ${l.font === f.id ? 'on' : ''}" data-sefont="${f.id}" style="font-family:${esc(f.fam)}, sans-serif">${f.label}</button>`).join('')}</div></div>
+      <p class="hint-s" style="margin:4px 0 0">IG 風格會改變英文和數字的樣子（跟 IG 一樣，中文看起來差不多）。</p>
       <div class="se-row"><span>顏色</span><div class="se-colors">${SE_COLORS.map(c => `<button class="${l.color === c ? 'on' : ''}" data-secolor="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div></div>
       <div class="se-row"><span>底色</span><div class="chips">${SE_BGS.map(([v, lab]) => `<button class="chip ${l.bg === v ? 'on' : ''}" data-sebg="${v}">${lab}</button>`).join('')}</div></div>` : ''}
   </div>`;
