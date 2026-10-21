@@ -1370,7 +1370,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022a";
+const APP_VERSION = "v1022b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1506,7 +1506,8 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
       storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType({ ...m, type: b.type || m.type }, b)) : await uploadMedia(b, 'image/jpeg'));
     }
     btn.textContent = '送出中⋯'; onMsg?.('送出中⋯');
-    const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia }
+    const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
+    const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
       : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ig: igPayload(p) } : { account: o.account, kind: o.kind });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
@@ -1578,6 +1579,14 @@ async function seLoadFonts(layers) {
     const f = l.kind === 'tag' ? seFont('sans') : seFont(l.font);
     return document.fonts.load(seFontCss(f, 64), seText(f, l.text || 'a')).catch(() => {});
   }));
+}
+const IG_USER = /^[A-Za-z0-9._]{1,30}$/;
+const seMentionName = l => String(l.text || '').replace(/^[@＠]/, '').trim();
+// 每個檔案的提及：[{ username, x, y }]（位置換成 0～1）
+function storyMentions(p) {
+  const se = p.storyEdit;
+  return p.media.map(m => (se?.frames[m.id]?.layers || []).filter(l => l.kind === 'tag' && l.icon === '＠' && seMentionName(l))
+    .map(l => ({ username: seMentionName(l), x: Math.round(Math.min(1, Math.max(0, l.x / SW)) * 1000) / 1000, y: Math.round(Math.min(1, Math.max(0, l.y / SH)) * 1000) / 1000 })));
 }
 function storyEdit(p) {
   p.storyEdit ||= { ver: 1, frames: {}, out: {} };
@@ -1798,7 +1807,7 @@ function seAdd(kind) {
     const d = p.time ? new Date(p.time) : new Date();
     return seAddLayer({ kind: 'tag', icon: '🕒', text: `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, size: 54 });
   }
-  if (kind === 'mention') return seAddLayer({ kind: 'tag', icon: '＠', text: '帳號名稱', size: 54 }, true);
+  if (kind === 'mention') return seAddLayer({ kind: 'tag', icon: '＠', text: '', size: 54 }, true);
 }
 async function seAddLayer(l, focus) {
   const fr = seFrame(), n = fr.layers.length;
@@ -1815,7 +1824,8 @@ function renderSeLayer() {
   if (!l) { box.innerHTML = `<p class="hint-s se-sec" style="margin:10px 0 0">點畫面上的文字或貼圖來修改。</p>`; return; }
   const name = l.kind === 'emoji' ? '貼圖' : l.kind === 'tag' ? { '📍': '地點', '🕒': '時間', '＠': '提及' }[l.icon] || '標籤' : '文字';
   box.innerHTML = `<div class="se-sec se-layer"><div class="se-row" style="justify-content:space-between"><b>${name}</b><span><button class="link" id="seUp">移到最上層</button><button class="link danger" id="seDel">刪除</button></span></div>
-    ${l.kind !== 'emoji' ? `<textarea id="seText" rows="${l.kind === 'text' ? 3 : 1}">${esc(l.text)}</textarea>` : ''}
+    ${l.kind !== 'emoji' ? `<textarea id="seText" rows="${l.kind === 'text' ? 3 : 1}" ${l.icon === '＠' ? 'placeholder="IG 帳號，例如 chihongtsai_850109（不用打 @）"' : ''}>${esc(l.text)}</textarea>` : ''}
+    ${l.icon === '＠' ? `<p class="hint-s" style="margin:6px 0 0">${seCtx.opts ? '全自動發的時候會<b>真的提及</b>這個帳號，對方會收到通知，點標籤會跳到他的 IG。' : '這裡只會畫在圖上；用半自動發的話，請在 IG App 裡再用「提及」貼圖加一次，才會通知對方。'}${l.text && !IG_USER.test(seMentionName(l)) ? '<br><span style="color:var(--danger)">帳號只能有英文、數字、底線和點，最多 30 字</span>' : ''}</p>` : ''}
     <div class="se-row"><span>大小</span><input type="range" id="seSize" min="${l.kind === 'emoji' ? 60 : 24}" max="${l.kind === 'emoji' ? 600 : 200}" value="${l.size}"></div>
     ${l.kind === 'text' ? `
       <div class="se-row"><span>IG 風格</span><div class="chips">${SE_FONTS.filter(f => f.group === 'ig').map(f => `<button class="chip ${l.font === f.id ? 'on' : ''}" data-sefont="${f.id}" style="font-family:${esc(f.fam)}, sans-serif;${f.italic ? 'font-style:italic;' : ''}">${f.label}</button>`).join('')}</div></div>
@@ -1825,7 +1835,8 @@ function renderSeLayer() {
       <div class="se-row"><span>底色</span><div class="chips">${SE_BGS.map(([v, lab]) => `<button class="chip ${l.bg === v ? 'on' : ''}" data-sebg="${v}">${lab}</button>`).join('')}</div></div>` : ''}
   </div>`;
   const p = seCtx.p;
-  if ($('#seText')) $('#seText').oninput = async e => { l.text = e.target.value; seBump(p); seDraw(); await seLoadFonts([l]); seDraw(); };
+  if ($('#seText')) $('#seText').oninput = async e => { l.text = l.icon === '＠' ? e.target.value.replace(/^[@＠]/, '').trim() : e.target.value; seBump(p); seDraw(); await seLoadFonts([l]); seDraw(); };
+  if ($('#seText') && l.icon === '＠') $('#seText').onchange = () => renderSeLayer();
   $('#seSize').oninput = e => { l.size = +e.target.value; seBump(p); seDraw(); };
   $('#seDel').onclick = () => { const fr = seFrame(); fr.layers = fr.layers.filter(x => x !== l); seCtx.sel = null; seBump(p); renderSeLayer(); seDraw(); };
   $('#seUp').onclick = () => { const fr = seFrame(); fr.layers = [...fr.layers.filter(x => x !== l), l]; seBump(p); seDraw(); };
@@ -2110,6 +2121,8 @@ async function storyFiles(p) {
 async function seFinish() {
   const ctx = seCtx, { p, opts } = ctx;
   const busy = $('#seBusy'), ok = $('#seOk');
+  const bad = storyMentions(p).flat().find(t => !IG_USER.test(t.username));
+  if (opts && bad) return alert(`⚠️ 還沒送出\n\n提及的帳號「${bad.username}」格式不對：IG 帳號只能有英文、數字、底線和點。`);
   const ac = p.media.some(isVideo) && window.AudioContext ? new AudioContext() : null;
   ok.disabled = true; busy.hidden = false; busy.textContent = '處理中⋯';
   const t0 = Date.now();
