@@ -196,6 +196,32 @@ main { overflow: auto; min-height: 0; }
 .pe-stage canvas, .pe-stage video { width: 100%; border-radius: 10px; display: block; background: #000; }
 .pe-stage canvas { touch-action: none; cursor: grab; }
 .pe-num { width: 34px; text-align: right; flex: none; }
+.pp-wrap { display: grid; grid-template-columns: minmax(0, 375px) 1fr; gap: 20px; align-items: start; }
+.pp-phone { background: #fff; color: #111; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); font-size: 14px; }
+.pp-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.pp-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; flex: none;
+  background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #dd2a7b; }
+.pp-who { flex: 1; min-width: 0; line-height: 1.25; }
+.pp-who small { display: block; color: #555; font-size: 12px; }
+.pp-dots { color: #333; font-weight: 700; }
+.pp-media { position: relative; background: #000; width: 100%; overflow: hidden; touch-action: pan-y; }
+.pp-slide, .pp-slide img, .pp-slide video { width: 100%; height: 100%; display: block; object-fit: cover; }
+.pp-count { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 99px; }
+.pp-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 0; background: rgba(255,255,255,.85); color: #111; font-size: 20px; line-height: 1; }
+.pp-nav.l { left: 8px; } .pp-nav.r { right: 8px; }
+.pp-tagged { position: absolute; left: 10px; bottom: 10px; background: rgba(0,0,0,.6); border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; font-size: 13px; }
+.pp-actions { display: flex; align-items: center; gap: 14px; padding: 8px 12px 4px; font-size: 22px; }
+.pp-ind { flex: 1; display: flex; justify-content: center; gap: 4px; }
+.pp-ind i { width: 6px; height: 6px; border-radius: 50%; background: #ccc; }
+.pp-ind i.on { background: #0095f6; }
+.pp-cap { padding: 4px 12px; line-height: 1.45; word-break: break-word; }
+.pp-link { color: #00376b; }
+.pp-more { border: 0; background: none; padding: 0; color: #737373; font-size: 14px; }
+.pp-time { padding: 2px 12px 12px; color: #737373; font-size: 12px; }
+.pp-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pp-tools button { border-radius: 99px; padding: 6px 12px; font-size: 14px; }
+.pp-count-line { margin: 4px 0 0; }
+@media (max-width: 760px) { .pp-wrap { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .pe-wrap { grid-template-columns: 1fr; } .pe-stage { width: min(300px, 86%); margin: 0 auto; } }
 .se-pages { align-items: center; }
 .se-undo { margin-left: auto; display: flex; gap: 6px; }
@@ -306,6 +332,11 @@ main { overflow: auto; min-height: 0; }
   <h3>發送對象 <button class="link" data-close>關閉</button></h3>
   <div id="targetList"></div>
   <div id="targetForm"></div>
+</div></div>
+
+<div class="modal-bg" id="postPrevModal"><div class="modal" style="width:min(900px,100%)">
+  <h3>👁 貼文預覽 <button class="link" id="postPrevClose">關閉</button></h3>
+  <div id="postPrevBody"></div>
 </div></div>
 
 <div class="modal-bg" id="postEdModal"><div class="modal" style="width:min(940px,100%)">
@@ -639,7 +670,7 @@ function settingsHtml(p) {
   if (p.mode === 'auto') {
     const opts = autoSelected(p), parts = [];
     if (postMedia(p).length > 20) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 20 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
-    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button><button class="link" data-peopen style="color:var(--accent)">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button></div>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">標註人物／協作者／地點 ⚙</button><button class="link" data-peopen style="color:var(--accent)">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
     if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
@@ -670,7 +701,7 @@ function renderEditor() {
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
-    <div class="text-head" style="margin:12px 0 0"><span class="hint-s">IG 貼文的裁切比例、濾鏡、調整、排序、替代文字</span><button class="ai-btn" id="peOpen">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button></div>
+    <div class="text-head" style="margin:12px 0 0"><span class="hint-s">IG 貼文的裁切比例、濾鏡、調整、排序、替代文字</span><span class="row" style="gap:6px;flex-wrap:nowrap"><button class="ai-btn" id="ppOpen">👁 預覽貼文</button><button class="ai-btn" id="peOpen">🎨 編輯貼文${p.postEdit?.done ? ' ✓' : ''}</button></span></div>
     <div class="text-head" style="margin:8px 0 0"><span class="hint-s">有活動 DM、型錄、報價單？AI 幫你做成限動圖</span><button class="ai-btn" id="fsOpen">📄 用檔案做限動</button></div>
   </div>
   <div class="card" id="storyCard">${storyCardHtml(p)}</div>
@@ -757,6 +788,7 @@ function renderEditor() {
     $('#aiOpen').onclick = () => openAi(p);
     $('#fsOpen').onclick = () => openFileStory(p);
     $('#peOpen').onclick = () => openPostEditor(p);
+    $('#ppOpen').onclick = () => openPostPreview(p);
     $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     const drop = $('#drop'), file = $('#file');
@@ -848,6 +880,7 @@ function bindSettings(p) {
   if ($('#igOptsOpen')) $('#igOptsOpen').onclick = () => openIgOpts(p);
   document.querySelectorAll('#editor [data-seopen]').forEach(x => x.onclick = () => openStoryEditor(p));
   document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
+  document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -1403,7 +1436,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022f";
+const APP_VERSION = "v1022g";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1497,7 +1530,8 @@ async function submitAuto(p) {
   if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
   if (postMedia(p).length > 20) { toast('自動發最多 20 個圖片影片'); logRemote('trace', '擋下：超過 20 個'); return alert('⚠️ 還沒送出\n\n自動發貼文最多 20 個圖片影片'); }
   if (opts.some(isStory) && p.media.length > 10) { toast('限動一次最多 10 則'); return alert('⚠️ 還沒送出\n\n限動一次最多 10 則'); }
-  // 有 IG 限動：先編輯、確認限動畫面，確認了才送出
+  // 有 IG 貼文：先看貼文預覽；有 IG 限動：再編輯、確認限動畫面；都確認了才送出
+  if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) return openPostPreview(p, opts);
   if (opts.some(isStory)) return openStoryEditor(p, opts);
   const when = autoWhen(p);
   logRemote('trace', '跳出確認視窗');
@@ -2441,6 +2475,7 @@ async function seFinish() {
 }
 $('#storyClose').onclick = () => closeStoryEditor('按了右上角關閉');
 $('#postEdClose').onclick = closePostEditor;
+$('#postPrevClose').onclick = closePostPreview;
 $('#autoSend').onclick = () => {
   logRemote('trace', '按鈕被按 ' + (active() ? 'mode=' + active().mode + ' auto=' + (active().auto || []).join('+') : '沒有選貼文'));
   if (active()) submitAuto(active()).catch(e => { logRemote('error', 'submitAuto: ' + e.message); alert('⚠️ 自動發出錯：' + e.message); });
@@ -2714,6 +2749,122 @@ function peBindStage() {
   c.onwheel = e => { e.preventDefault(); const it = peItem(); it.zoom = Math.max(1, Math.min(3, it.zoom * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); $('#peZoom').value = Math.round(it.zoom * 100); peBump(1); peDrawStage(); };
 }
 
+// ===== 貼文預覽：跟 IG 動態上看到的一樣（帳號、地點、照片輪播、說明文字），旁邊可以直接改 =====
+// opts 有值＝全自動送出前的確認；沒有＝只是預覽
+let ppCtx = null;   // { p, opts, i（第幾張）, urls, more }
+const PP_CAP_MAX = 2200, PP_TAG_MAX = 30, PP_AT_MAX = 20;
+function openPostPreview(p, opts = null) {
+  if (!postMedia(p).length) return toast('IG 貼文要先加入照片或影片');
+  postEdit(p);
+  ppCtx = { p, opts, i: 0, urls: [], more: false };
+  $('#postPrevModal').classList.add('open');
+  renderPostPreview();
+}
+function closePostPreview() {
+  if (ppCtx) ppCtx.urls.forEach(u => u && URL.revokeObjectURL(u));
+  ppCtx = null;
+  $('#postPrevModal').classList.remove('open');
+  if (active()) renderEditorSettings(active());
+}
+// 說明文字裡的 #標籤、@帳號
+const ppTags = t => t.match(/#[^\s#@，。！？、,.!?]+/g) || [];
+const ppAts = t => t.match(/@[A-Za-z0-9._]+/g) || [];
+function ppCaptionHtml(t) {
+  return esc(t).replace(/(#[^\s#@，。！？、,.!?&<]+|@[A-Za-z0-9._]+)/g, '<span class="pp-link">$1</span>').replace(/\n/g, '<br>');
+}
+function ppWho(p, opts) {
+  const o = (opts || []).find(x => x.platform === 'ig');
+  return o?.username || autoAccounts.find(a => a.platform === 'ig')?.username || '你的帳號';
+}
+async function renderPostPreview() {
+  const ctx = ppCtx; if (!ctx) return;
+  const { p, opts } = ctx, pm = postMedia(p), o = igOpts(p), who = ppWho(p, opts);
+  ctx.i = Math.min(ctx.i, pm.length - 1);
+  const cap = fullText(p), tags = ppTags(cap), ats = ppAts(cap), len = [...cap].length;
+  const place = (S.places || []).find(x => x.id === o.location)?.name || '';
+  const collab = o.collaborators || [], tagged = Object.values(o.tags || {}).some(l => l.length);
+  const r = await peRatio(p);
+  if (ppCtx !== ctx) return;
+  const short = [...cap].length > 125 && !ctx.more;
+  const warn = [len > PP_CAP_MAX ? `說明文字 ${len} 字，IG 最多 ${PP_CAP_MAX} 字` : '', tags.length > PP_TAG_MAX ? `主題標籤 ${tags.length} 個，IG 最多 ${PP_TAG_MAX} 個` : '',
+    ats.length > PP_AT_MAX ? `提及 ${ats.length} 個，IG 最多 ${PP_AT_MAX} 個` : ''].filter(Boolean);
+  const stories = (opts || []).some(isStory), others = (opts || []).filter(x => !(x.platform === 'ig' && x.kind === 'post'));
+  $('#postPrevBody').innerHTML = `
+    <div class="pp-wrap">
+      <div class="pp-phone">
+        <div class="pp-head"><span class="pp-avatar">${esc(who[0] || '?').toUpperCase()}</span>
+          <div class="pp-who"><b>${esc(who)}</b>${collab.length ? ` 和 <b>${esc(collab[0])}</b>${collab.length > 1 ? ` 等 ${collab.length} 人` : ''}` : ''}${place ? `<small>${esc(place)}</small>` : ''}</div><span class="pp-dots">⋯</span></div>
+        <div class="pp-media" style="aspect-ratio:${r}">
+          <div class="pp-slide" id="ppSlide"></div>
+          ${pm.length > 1 ? `<span class="pp-count">${ctx.i + 1}/${pm.length}</span>
+            ${ctx.i ? '<button class="pp-nav l" id="ppPrev">‹</button>' : ''}${ctx.i < pm.length - 1 ? '<button class="pp-nav r" id="ppNext">›</button>' : ''}` : ''}
+          ${tagged ? '<span class="pp-tagged" title="有標註人物">👤</span>' : ''}
+        </div>
+        <div class="pp-actions"><span>♡</span><span>💬</span><span>➤</span>
+          ${pm.length > 1 ? `<span class="pp-ind">${pm.map((_, i) => `<i class="${i === ctx.i ? 'on' : ''}"></i>`).join('')}</span>` : '<span class="pp-ind"></span>'}<span>🔖</span></div>
+        <div class="pp-cap"><b>${esc(who)}</b> ${cap ? (short ? ppCaptionHtml([...cap].slice(0, 125).join('')) + '⋯ <button class="pp-more" id="ppMore">更多</button>' : ppCaptionHtml(cap)) : '<span class="hint-s">（沒有說明文字）</span>'}</div>
+        <div class="pp-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time))}</div>
+      </div>
+      <div class="pp-side">
+        <label class="field" for="ppText">說明文字</label>
+        <textarea id="ppText" rows="7" placeholder="寫點什麼⋯">${esc(p.text)}</textarea>
+        <p class="hint-s pp-count-line">${len} / ${PP_CAP_MAX} 字・# 標籤 ${tags.length} / ${PP_TAG_MAX}・@ 提及 ${ats.length} / ${PP_AT_MAX}${p.link.trim() ? '<br>連結會接在最後面（IG 說明文字裡的連結不能點）' : ''}</p>
+        ${warn.length ? `<p class="warn-line" style="margin:4px 0 0">⚠️ ${warn.join('；')}</p>` : ''}
+        <div class="pp-tools">
+          <button id="ppEditPhoto">🎨 編輯照片${p.postEdit?.done ? ' ✓' : ''}</button>
+          <button id="ppIgOpts">👤 標註人物／協作者／地點</button>
+          <button id="ppAi">✨ AI 幫我寫</button>
+        </div>
+        <p class="hint-s">預覽是照 IG 動態的樣子排的；實際字體、按讚數等會依 IG App 顯示。</p>
+      </div>
+    </div>
+    ${opts ? `<div class="box hint-s" style="margin-top:12px"><b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${opts.map(x => `${x.label} @${esc(x.username)}`).join('、')}${stories ? '<br>確認貼文後，接著確認限動畫面。' : ''}</div>` : ''}
+    <div class="send"><div class="nav"><button class="link" id="ppCancel">${opts ? '先不要' : '關閉'}</button>
+      <button class="primary" id="ppOk" ${opts && warn.length ? 'disabled' : ''}>${opts ? (stories ? '✓ 貼文沒問題，下一步：限動' : `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發`) : '✓ 完成'}</button></div></div>`;
+  const go = d => { ctx.i += d; renderPostPreview(); };
+  if ($('#ppPrev')) $('#ppPrev').onclick = () => go(-1);
+  if ($('#ppNext')) $('#ppNext').onclick = () => go(1);
+  // 手機左右滑
+  let sx = null;
+  const slideBox = $('#ppSlide');
+  slideBox.parentElement.onpointerdown = e => { sx = e.clientX; };
+  slideBox.parentElement.onpointerup = e => { if (sx == null) return; const dx = e.clientX - sx; sx = null; if (dx < -40 && ctx.i < pm.length - 1) go(1); else if (dx > 40 && ctx.i > 0) go(-1); };
+  if ($('#ppMore')) $('#ppMore').onclick = () => { ctx.more = true; renderPostPreview(); };
+  let typing;
+  $('#ppText').oninput = e => {
+    p.text = e.target.value; save(); renderList();
+    clearTimeout(typing); typing = setTimeout(() => { const pos = e.target.selectionStart; renderPostPreview().then(() => { const t = $('#ppText'); if (t) { t.focus(); t.setSelectionRange(pos, pos); } }); }, 500);
+  };
+  $('#ppEditPhoto').onclick = () => openPostEditor(p);
+  $('#ppIgOpts').onclick = () => openIgOpts(p);
+  $('#ppAi').onclick = () => openAi(p);
+  $('#ppCancel').onclick = closePostPreview;
+  $('#ppOk').onclick = async () => {
+    const o2 = ctx.opts;
+    closePostPreview();
+    if (!o2) return toast('貼文看起來沒問題');
+    if (o2.some(isStory)) return openStoryEditor(p, o2);
+    logRemote('trace', '貼文預覽按了確認');
+    await sendAuto(p, o2, null);
+  };
+  // 照片（全自動會發的就是這個版本）
+  const m = pm[ctx.i], slide = $('#ppSlide');
+  if (isVideo(m)) {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.loop = true; v.autoplay = true; v.src = await mediaUrl(m);
+    slide.appendChild(v);
+  } else {
+    const key = m.id + ':' + p.postEdit.ver + ':' + r;
+    if (!ctx.urls[ctx.i] || ctx.keys?.[ctx.i] !== key) {
+      if (ctx.urls[ctx.i]) URL.revokeObjectURL(ctx.urls[ctx.i]);
+      ctx.urls[ctx.i] = URL.createObjectURL(await peExportImage(p, m));
+      (ctx.keys ||= [])[ctx.i] = key;
+    }
+    if (ppCtx !== ctx) return;
+    const img = document.createElement('img'); img.src = ctx.urls[ctx.i]; img.alt = postEdit(p).items[m.id]?.alt || '';
+    slide.appendChild(img);
+  }
+}
+
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
 const AI_TONES = [['warm', '輕鬆生活'], ['pro', '專業質感'], ['promo', '促銷活動']];
@@ -2759,7 +2910,7 @@ function renderAi() {
     p.text = versions[+b.dataset.use]; save();
     $('#aiModal').classList.remove('open');
     renderEditor(); renderList(); renderBar();
-    toast('已放進文字框，可以再自己修改');
+    toast(ppCtx ? '已放進說明文字' : '已放進文字框，可以再自己修改');
   });
 }
 // 照片縮小成 768px 的 JPEG 給 AI 看（省流量、AI 也看得夠清楚）
@@ -3177,6 +3328,7 @@ function navCloseModal(el) {
     else if (el.id === 'igOptsModal') closeIgOpts();
     else if (el.id === 'fsModal') closeFileStory();
     else if (el.id === 'postEdModal') closePostEditor();
+    else if (el.id === 'postPrevModal') closePostPreview();
     else { const b = el.querySelector('[data-close]'); b ? b.click() : el.classList.remove('open'); }
   } finally { navApplying = false; }
 }
@@ -3185,6 +3337,7 @@ new MutationObserver(list => {
   for (const m of list) {
     const el = m.target, open = el.classList.contains('open'), was = (m.oldValue || '').split(' ').includes('open');
     if (open === was) continue;
+    if (!open && el.id !== 'postPrevModal' && ppCtx && $('#postPrevModal').classList.contains('open')) setTimeout(renderPostPreview);
     if (open && !navApplying) history.pushState({ ...navNow(), modal: el.id }, '');
     else if (!open && !navApplying && history.state?.modal === el.id) { navSkip = true; history.back(); }
   }
@@ -3192,7 +3345,7 @@ new MutationObserver(list => {
 window.addEventListener('popstate', e => {
   if (navSkip) { navSkip = false; navSync(); return; }   // 用按鈕關掉視窗時退掉的那一筆；畫面若已經換了（例如送出後回主畫面）就補記
   const open = [...document.querySelectorAll('.modal-bg.open')];
-  if (open.length) { open.forEach(navCloseModal); return; }
+  if (open.length) { navCloseModal(open[open.length - 1]); if (open.length > 1 && e.state?.modal !== open[open.length - 2].id) history.pushState({ ...navNow(), modal: open[open.length - 2].id }, ''); return; }
   const st = e.state || { id: null, step: 0 };
   if (st.modal) return;
   navApplying = true;
