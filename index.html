@@ -213,6 +213,16 @@ main { overflow: auto; min-height: 0; }
 .ss-range input[type=range] { flex: 1; padding: 0; }
 .ss-music { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ss-music b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.mu-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
+.mu-row b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.mu-row .link { padding: 0; }
+.mp-list { margin-top: 12px; max-height: min(52vh, 460px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.mp-row:last-child { border-bottom: 0; }
+.mp-play { width: 36px; height: 36px; border-radius: 50%; padding: 0; flex: none; }
+.mp-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mp-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-name small { color: var(--sub); font-size: 12px; }
 .media-card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .media-card-row .hint-s { flex: 1; min-width: 200px; color: var(--ink); }
 .media-card-btns { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -379,7 +389,6 @@ main { overflow: auto; min-height: 0; }
 <div class="modal-bg" id="ssModal"><div class="modal" style="width:min(860px,100%)">
   <h3>🎵 照片變影片 <button class="link" id="ssClose">關閉</button></h3>
   <div id="ssBody"></div>
-  <input type="file" id="ssMusicFile" accept="audio/*,.mp3,.m4a,.wav,.aac" hidden>
 </div></div>
 
 <div class="modal-bg" id="aiModal"><div class="modal">
@@ -407,6 +416,12 @@ main { overflow: auto; min-height: 0; }
   </div>
   <input type="file" id="importFile" accept=".json,application/json" hidden>
   <p class="hint-s">圖片和影片檔案太大，不會放進備份檔。只想把發送對象給同事的話，匯出後傳給他匯入就好。</p>
+</div></div>
+
+<div class="modal-bg" id="musicModal"><div class="modal" style="width:min(640px,100%)">
+  <h3>🎵 選音樂 <button class="link" id="mpClose">關閉</button></h3>
+  <div id="mpBody"></div>
+  <input type="file" id="mpFile" accept="audio/*,.mp3,.m4a,.wav,.aac" hidden>
 </div></div>
 
 <div class="modal-bg" id="sendModal"><div class="modal send" id="sendBox"></div></div>
@@ -543,6 +558,7 @@ function dropMedia(m) {
   if (urls[m.id]) URL.revokeObjectURL(urls[m.id]);
   delete urls[m.id]; delete blobs[m.id];
   if (dbOk) DB.del('media', m.id).catch(() => {});
+  if (m.mus && dbOk) DB.del('media', 'orig-' + m.id).catch(() => {});
 }
 
 function toast(msg) {
@@ -1479,7 +1495,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022k";
+const APP_VERSION = "v1022l";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1601,6 +1617,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
   btn.disabled = true;
   try {
     const needMain = opts.some(o => !isStory(o));
+    if (needMain && p.postEdit) await peApplyMusic(p, onMsg);
     const total = (needMain ? postMedia(p).length : 0) + (storyBlobs ? storyBlobs.length : 0);
     let done = 0;
     const tick = () => { const t = `上傳中 ${++done}/${total}⋯`; btn.textContent = t; onMsg?.(t); };
@@ -1615,7 +1632,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
     if (storyBlobs) for (const [i, b] of storyBlobs.entries()) {
       tick();
       const m = p.media[i];
-      storyMedia.push(isVideo(m) ? await uploadMedia(b, videoType({ ...m, type: b.type || m.type }, b)) : await uploadMedia(b, 'image/jpeg'));
+      storyMedia.push(isVideo(m) || /^video\//.test(b.type) ? await uploadMedia(b, videoType({ ...m, type: b.type || m.type }, b)) : await uploadMedia(b, 'image/jpeg'));
     }
     btn.textContent = '送出中⋯'; onMsg?.('送出中⋯');
     const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
@@ -2025,6 +2042,7 @@ function seDraw() {
   ctx.boxes = seDrawFrame(g, seFrame(), s?.el, s?.w, s?.h, ctx.sel);
 }
 function closeStoryEditor(why) {
+  muStopPreview();
   if (typeof why === 'string') logRemote('trace', '關掉限動編輯：' + why);
   if (seCtx) seStopVideo(seCtx);
   seCtx = null;
@@ -2046,10 +2064,12 @@ function renderStoryEditor() {
         <div class="se-tools">
           <button data-seadd="text">Aa 文字</button><button data-seadd="pen" class="${ctx.pen ? 'on' : ''}">🖊️ 畫筆</button><button data-seadd="emoji">😊 貼圖</button>
           <button data-seadd="mention">＠ 提及</button><button data-seadd="loc">📍 地點</button><button data-seadd="hashtag"># 主題標籤</button>
-          <button data-seadd="time">🕒 時間</button><button data-seadd="countdown">⏳ 倒數</button>
+          <button data-seadd="time">🕒 時間</button><button data-seadd="countdown">⏳ 倒數</button><button data-seadd="music" class="${fr.music ? 'on' : ''}">🎵 音樂</button>
         </div>
         <div class="se-emoji" id="seEmoji" hidden>${SE_EMOJI.map(e => `<button data-seemoji="${e}">${e}</button>`).join('')}</div>
         <div id="seLayerBox"></div>
+        ${fr.music ? `<div class="se-sec" id="seMusicSec"><b>音樂</b>${muRowHtml(fr.music, { orig: isVideo(m), len: !isVideo(m) })}
+          <p class="hint-s" style="margin:4px 0 0">${isVideo(m) ? '音樂會混進影片的聲音；「原音」拉到最左邊就只聽得到音樂。' : `加了音樂，這張限動會變成 ${fr.music.len || 15} 秒的影片。`}</p></div>` : ''}
         <div class="se-sec"><b>${m?.textOnly ? '背景' : isVideo(m) ? '影片' : '照片'}</b>
           ${m?.textOnly ? '' : `<div class="se-row"><span>大小</span><input type="range" id="seZoom" min="30" max="300" step="1" value="${Math.round(fr.zoom * 100)}"><button class="link" id="seFit">完整顯示</button><button class="link" id="seCover">填滿畫面</button></div>`}
           <div class="se-row"><span>${m?.textOnly ? '底色' : '空白處'}</span><div class="chips">${SE_FILLS.filter(([v]) => !(m?.textOnly && v === 'blur')).map(([v, l]) => v === 'color'
@@ -2060,9 +2080,10 @@ function renderStoryEditor() {
           <p class="hint-s" style="margin:6px 0 0">在畫面上拖曳可以移動；點文字或貼圖可以選取、拖動；滾輪或兩指可以縮放、兩指可以旋轉。</p>
         </div>
         <details class="se-note"><summary>IG 限動還有哪些功能？</summary>
-          <p>✅ <b>這裡都能做</b>：文字（IG 字體、顏色、底色、對齊、旋轉）、畫筆、表情貼圖、提及、地點、主題標籤、時間、倒數、濾鏡、背景漸層、純文字限動、拼貼版面。</p>
+          <p>✅ <b>這裡都能做</b>：文字（IG 字體、顏色、底色、對齊、旋轉）、畫筆、表情貼圖、提及、地點、主題標籤、時間、倒數、濾鏡、背景漸層、純文字限動、拼貼版面、音樂。</p>
+          <p>🎵 音樂會直接混進限動影片裡（照片會變成 5～15 秒的影片），不是 IG 的音樂貼圖，所以畫面上不會出現歌名。</p>
           <p>＠ 提及在<b>全自動</b>時是真的提及（對方會收到通知）；地點、主題標籤、倒數只是畫在圖上，別人點了不會跳轉。</p>
-          <p>❌ <b>IG 沒開放給外部程式</b>：音樂、投票、問答、測驗、表情滑桿、連結、GIF、可點的地點和主題標籤、摯友名單、特效。要用的話改用<b>半自動</b>：編好的圖分享到 IG App 後，在 App 裡照常加。</p>
+          <p>❌ <b>IG 沒開放給外部程式</b>：IG 音樂庫的歌、投票、問答、測驗、表情滑桿、連結、GIF、可點的地點和主題標籤、摯友名單、特效。要用的話改用<b>半自動</b>：編好的圖分享到 IG App 後，在 App 裡照常加。</p>
         </details>
       </div>
     </div>
@@ -2100,11 +2121,22 @@ function renderStoryEditor() {
   box.querySelectorAll('[data-sefilter]').forEach(b => b.onclick = () => { fr.filter = b.dataset.sefilter; seBump(p); renderStoryEditor(); seDraw(); });
   $('#seCancel').onclick = () => closeStoryEditor('按了先不要');
   $('#seOk').onclick = seFinish;
+  if (fr.music) muBindRow($('#seMusicSec'), fr.music, { pick: seMusicPick, del: () => { delete fr.music; seBump(p); renderStoryEditor(); },
+    change: soft => { seBump(p, soft); if (!soft && !isVideo(m)) renderStoryEditor(); }, dur: () => isVideo(m) ? (ctx.video?.duration || 15) : (fr.music.len || 15) });
   seBindStage();
   renderSeLayer();
   seDraw();
 }
+function seMusicPick() {
+  const p = seCtx.p, fr = seFrame();
+  openMusicPicker(mu => {
+    if (seCtx?.p !== p) return;
+    fr.music = { vol: fr.music?.vol ?? 1, origVol: fr.music?.origVol ?? 1, len: fr.music?.len || 15, ...mu, start: 0 };
+    seBump(p); renderStoryEditor();
+  });
+}
 function seAdd(kind) {
+  if (kind === 'music') return seMusicPick();
   if (kind === 'emoji') { $('#seEmoji').hidden = !$('#seEmoji').hidden; return; }
   const p = seCtx.p;
   if (kind === 'pen') {
@@ -2273,6 +2305,15 @@ async function seExportImage(fr, blob) {
   seDrawFrame(c.getContext('2d'), fr, bmp, bmp.width, bmp.height, null);
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
 }
+// 照片限動配音樂：畫好的畫面放 5～15 秒，配上音樂做成影片
+async function seExportStill(fr, blob) {
+  const bmp = await createImageBitmap(blob);
+  await seLoadFonts(fr.layers);
+  const c = document.createElement('canvas'); c.width = SW; c.height = SH;
+  seDrawFrame(c.getContext('2d'), fr, bmp, bmp.width, bmp.height, null);
+  const mu = fr.music, len = mu.len || 15;
+  return encodeFrames({ W: SW, H: SH, dur: len, draw: g => g.drawImage(c, 0, 0), audio: muMix(null, await muBuffer(mu), mu, len) });
+}
 // 影片：一邊播放一邊把每一格畫上文字貼圖，重新壓成 1080×1920 的 MP4（H.264＋AAC，IG 收這種）。
 // 優先用 WebCodecs（軟體編碼比較穩，有些電腦的硬體編碼會卡住）；不支援就改用 MediaRecorder；都不行就用原檔。
 let muxerLib = null;
@@ -2302,19 +2343,24 @@ async function seDecodeAudio(blob) {
   } catch { return null; }
 }
 const SE_LIMIT = 60;   // IG 限動影片最長 60 秒
-async function seEncodeVideo(fr, blob, onTick) {
-  const vcfg = await seVideoConfig();
-  if (!vcfg) return null;
-  const audio = await seDecodeAudio(blob), ch = audio ? Math.min(2, audio.numberOfChannels) : 0;
-  const acfg = audio && typeof AudioEncoder !== 'undefined' ? { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: ch, bitrate: 128000 } : null;
-  if (audio && !(acfg && (await AudioEncoder.isConfigSupported(acfg).catch(() => null))?.supported)) return null;   // 有聲音卻不能壓 AAC：改用別的方法
+// o：{ size(影片寬, 高) → [W, H], draw(g, video, W, H), limit 最長秒數 }；沒給就是 1080×1920 的限動畫面
+async function seEncodeVideo(fr, blob, onTick, o = {}) {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
   const M = await loadMuxer();
-  await seLoadFonts(fr.layers);
+  await seLoadFonts(fr.layers || []);
   const url = URL.createObjectURL(blob), v = document.createElement('video');
   v.src = url; v.muted = true; v.playsInline = true;
   try {
     await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('影片讀不出來')); setTimeout(() => rej(new Error('影片讀不出來（逾時）')), 15000); });
-    const limit = Math.min(isFinite(v.duration) && v.duration > 0 ? v.duration : SE_LIMIT, SE_LIMIT);
+    const lim = o.limit || SE_LIMIT, limit = Math.min(isFinite(v.duration) && v.duration > 0 ? v.duration : lim, lim);
+    const [SW, SH] = o.size ? o.size(v.videoWidth, v.videoHeight) : [1080, 1920];
+    const vcfg = await seVideoConfig(SW, SH);
+    if (!vcfg) return null;
+    let audio = await seDecodeAudio(blob);
+    if (fr.music) audio = muMix(audio, await muBuffer(fr.music), fr.music, limit);
+    const ch = audio ? Math.min(2, audio.numberOfChannels) : 0;
+    const acfg = audio && typeof AudioEncoder !== 'undefined' ? { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: ch, bitrate: 128000 } : null;
+    if (audio && !(acfg && (await AudioEncoder.isConfigSupported(acfg).catch(() => null))?.supported)) return null;   // 有聲音卻不能壓 AAC：改用別的方法
     // 上傳上限 25MB：影片越長，畫質壓低一點
     vcfg.bitrate = Math.max(1.2e6, Math.min(6e6, Math.floor(25 * 1024 * 1024 * 8 * 0.85 / limit) - 128000));
     const target = new M.ArrayBufferTarget();
@@ -2340,7 +2386,7 @@ async function seEncodeVideo(fr, blob, onTick) {
         const t = meta?.mediaTime ?? v.currentTime;
         if (t > last && t < limit) {
           last = t; moved = Date.now();
-          seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
+          if (o.draw) o.draw(g, v, SW, SH); else seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null);
           const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6) });
           venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close();
           onTick?.(t, limit);
@@ -2442,6 +2488,7 @@ async function seVideoOk(b) {
   return ok;
 }
 async function seExportVideo(fr, blob, onTick, ac) {
+  if (fr.music && typeof VideoEncoder === 'undefined') toast('這個瀏覽器沒辦法把音樂加進影片，請改用 Chrome 或 Edge');
   try { const b = await seEncodeVideo(fr, blob, onTick); if (b) return b; logRemote('trace', '影片：WebCodecs 不支援'); }
   catch (e) { console.warn('WebCodecs 失敗，改用錄影', e); logRemote('trace', '影片：WebCodecs 失敗 ' + (e?.message || e)); }
   const r = await seRecordVideo(fr, blob, onTick, ac).catch(e => { console.warn('錄影失敗', e); logRemote('trace', '影片：錄影失敗 ' + (e?.message || e)); return null; });
@@ -2457,7 +2504,8 @@ async function seExportAll(p, onMsg, ac) {
     if (!blob) throw new Error(`找不到「${m.name}」，請重新加入`);
     const fr = se.frames[m.id];
     let b;
-    if (!isVideo(m)) { onMsg?.(`產生第 ${i + 1} 張⋯`); b = await seExportImage(fr, blob); }
+    if (!isVideo(m) && fr.music) { onMsg?.(`第 ${i + 1} 張加音樂、做成影片⋯`); b = await seExportStill(fr, blob); }
+    else if (!isVideo(m)) { onMsg?.(`產生第 ${i + 1} 張⋯`); b = await seExportImage(fr, blob); }
     else {
       b = await seExportVideo(fr, blob, (t, total) => onMsg?.(`影片處理中 ${Math.floor(t)}／${Math.ceil(total)} 秒，請不要切換分頁⋯`), ac);
       if (!b) {
@@ -2592,9 +2640,41 @@ async function peExportImage(p, m) {
   peDraw(c.getContext('2d'), it, await peBitmap(m), W, H);
   return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
 }
+// 影片的音樂：設定跟上次做好的不一樣才重做；原本的影片另外存著，拿掉音樂時換回來
+const peMusicKey = (p, m) => { const mu = p.postEdit?.items[m.id]?.music; return mu ? JSON.stringify(mu) : ''; };
+const peNeedMusic = p => postMedia(p).some(m => isVideo(m) && peMusicKey(p, m) !== (m.mus || ''));
+async function peApplyMusic(p, onMsg) {
+  for (const m of postMedia(p)) {
+    if (!isVideo(m)) continue;
+    const want = peMusicKey(p, m);
+    if (want === (m.mus || '')) continue;
+    const okey = 'orig-' + m.id;
+    let orig = await mediaBlob({ id: okey });
+    if (!orig) {
+      orig = await mediaBlob(m);
+      if (!orig) throw new Error(`找不到「${m.name}」，請重新加入`);
+      blobs[okey] = orig;
+      if (dbOk) await DB.put('media', okey, orig).catch(() => {});
+    }
+    let out = orig;
+    if (want) {
+      onMsg?.('把音樂加進影片⋯');
+      out = await seEncodeVideo({ music: JSON.parse(want) }, orig, (t, total) => onMsg?.(`把音樂加進影片 ${Math.floor(t)}／${Math.ceil(total)} 秒，請不要切換分頁⋯`), {
+        limit: 900, size: (w, h) => { const W = Math.min(1080, w - w % 2); return [W, Math.round(W * h / w / 2) * 2]; }, draw: (g, v, W, H) => g.drawImage(v, 0, 0, W, H) });
+      if (!out) throw new Error('這個瀏覽器沒辦法把音樂加進影片，請改用電腦的 Chrome 或 Edge');
+    }
+    blobs[m.id] = out;
+    if (dbOk) await DB.put('media', m.id, out).catch(() => {});
+    if (urls[m.id]) { URL.revokeObjectURL(urls[m.id]); delete urls[m.id]; }
+    if (want) { m.type = 'video/mp4'; m.mus = want; }
+    else { m.type = orig.type || m.type; delete m.mus; delete blobs[okey]; if (dbOk) DB.del('media', okey).catch(() => {}); }
+    save();
+  }
+}
 // 半自動分享、下載用：編過才用編好的版本
 const peOut = {};
 async function postFiles(p) {
+  await peApplyMusic(p);
   const key = p.id + ':' + p.postEdit.ver + ':' + postMedia(p).map(m => m.id).join(',');
   if (peOut[key]) return peOut[key];
   const out = [];
@@ -2628,6 +2708,7 @@ function openPostEditor(p, focus) {
   renderPostEditor().then(() => { if (focus === 'ig') $('#peIgSec')?.scrollIntoView({ block: 'start' }); });
 }
 function closePostEditor() {
+  muStopPreview();
   if (peCtx?.video) peCtx.video.pause();
   peCtx = null;
   $('#postEdModal').classList.remove('open');
@@ -2692,6 +2773,10 @@ async function renderPostEditor() {
             <label class="row" style="gap:8px;margin-top:10px;font-size:14px;cursor:pointer"><input type="checkbox" id="peFeed" style="width:auto" ${pe.reel.feed !== false ? 'checked' : ''}> 也顯示在個人檔案的貼文（動態）</label>`
             : '<p class="hint-s">影片放在輪播裡會照原樣發，不能設封面。</p>'}
             <p class="hint-s">影片不能裁切或加濾鏡；IG 會照原本的比例發。</p>
+          </div>
+          <div class="se-sec" id="peMusicSec"><b>音樂</b>
+            ${it.music ? muRowHtml(it.music, { orig: true }) : '<div style="margin-top:8px"><button id="peMusicAdd">🎵 加音樂</button></div>'}
+            <p class="hint-s" style="margin:4px 0 0">按「✓ 完成」時會把音樂混進影片，要等影片播完一遍的時間。</p>
           </div>` : `
           <div class="se-sec" style="border:0;margin:0;padding:0"><b>比例 <small style="font-weight:400;color:var(--sub)">${pm.length > 1 ? '（輪播每張都用同一個比例，跟 IG 一樣）' : ''}</small></b>
             <div class="chips" style="margin-top:8px">${PE_RATIOS.map(([v, l]) => `<button class="chip ${pe.ratio === v ? 'on' : ''}" data-peratio="${v}">${l}</button>`).join('')}</div>
@@ -2706,17 +2791,22 @@ async function renderPostEditor() {
             ${PE_ADJ.map(([k, l, min]) => `<div class="se-row"><span>${l}</span><input type="range" data-peadj="${k}" min="${min}" max="100" value="${it.adj?.[k] || 0}"><span class="hint-s pe-num">${it.adj?.[k] || 0}</span></div>`).join('')}
             <div class="row" style="gap:12px;margin-top:6px">${pm.length > 1 ? '<button class="link" id="peAll" style="color:var(--accent);padding:0">濾鏡和調整套用到全部照片</button>' : ''}<button class="link" id="peReset" style="padding:0">這張恢復原狀</button></div>
           </div>
+          <div class="se-sec"><b>音樂</b>
+            <p class="hint-s" style="margin:6px 0">IG 不能幫照片貼文自動加音樂。想要有音樂，可以把照片配上音樂做成影片（Reels）。</p>
+            <button id="peToSlide">🎵 照片配音樂做成影片</button>
+          </div>
           <div class="se-sec"><b>替代文字 <small style="font-weight:400;color:var(--sub)">給視障朋友的說明，全自動發的時候會一起送出</small></b>
             <textarea id="peAlt" rows="2" maxlength="1000" placeholder="例如：胡桃木色的實木餐桌，搭配四張淺灰布面餐椅">${esc(it.alt || '')}</textarea>
           </div>`}
         ${peIgSecHtml(p, m, vid)}
         <details class="se-note"><summary>IG 貼文還有哪些功能？</summary>
-          <p>✅ <b>這裡可以做</b>：比例裁切（4:5、1:1、1.91:1）、旋轉拉直、IG 濾鏡、調整亮度對比等、排序、替代文字、Reels 封面和音訊名稱。標註人物、協作者（最多 3 位）、地點在上面「IG 設定」。</p>
-          <p>❌ <b>IG 沒開放給外部程式</b>：加音樂、貼文投票、商品標籤以外的購物功能、「新增你的」貼圖。要用的話改用<b>半自動</b>在 IG App 裡加。</p>
+          <p>✅ <b>這裡可以做</b>：比例裁切（4:5、1:1、1.91:1）、旋轉拉直、IG 濾鏡、調整亮度對比等、排序、替代文字、Reels 封面和音訊名稱、影片加音樂（照片可以用「照片變影片」配音樂）。標註人物、協作者（最多 3 位）、地點在上面「IG 設定」。</p>
+          <p>❌ <b>IG 沒開放給外部程式</b>：IG 音樂庫的歌、貼文投票、商品標籤以外的購物功能、「新增你的」貼圖。要用的話改用<b>半自動</b>在 IG App 裡加。</p>
           <p>💡 IG 規定照片比例要在 4:5～1.91:1 之間，超出的話全自動會照這裡的比例自動裁切。</p>
         </details>
       </div>
     </div>
+    <div class="se-busy" id="peBusy" hidden></div>
     <div class="send"><div class="nav"><button class="link" id="peClose">關閉</button><button class="primary" id="peOk">✓ 完成</button></div></div>`;
   const box = $('#postEdBody'), goPage = i => { peCommit(); ctx.i = i; renderPostEditor(); };
   box.querySelectorAll('[data-pepage]').forEach(b => b.onclick = () => goPage(+b.dataset.pepage));
@@ -2730,7 +2820,18 @@ async function renderPostEditor() {
   if ($('#peRight')) $('#peRight').onclick = () => move(1);
   $('#peUndo').onclick = peUndo; $('#peRedo').onclick = peRedo; peUndoBtns();
   $('#peClose').onclick = closePostEditor;
-  $('#peOk').onclick = () => { peCommit(); closePostEditor(); toast('貼文照片編好了，發貼文時會用編好的版本'); };
+  $('#peOk').onclick = async () => {
+    peCommit(); muStopPreview();
+    const busy = $('#peBusy'), ok = $('#peOk');
+    if (peNeedMusic(p)) {
+      busy.hidden = false; busy.textContent = '把音樂加進影片⋯'; ok.disabled = true;
+      try { await peApplyMusic(p, t => busy.textContent = t); }
+      catch (e) { busy.hidden = true; ok.disabled = false; return alert('音樂沒加成功：' + (e?.message || e)); }
+      if (peCtx !== ctx) return;
+    }
+    closePostEditor(); toast('貼文編好了，發貼文時會用編好的版本');
+  };
+  if ($('#peToSlide')) $('#peToSlide').onclick = () => { peCommit(); closePostEditor(); openSlide(p); };
   if (vid) {
     const v = $('#peVideo'), b = await mediaBlob(m);
     if (peCtx !== ctx) return;
@@ -2740,6 +2841,10 @@ async function renderPostEditor() {
     if ($('#peThumb')) $('#peThumb').oninput = e => { pe.reel.thumb = +e.target.value; v.currentTime = pe.reel.thumb; $('#peThumbT').textContent = pe.reel.thumb.toFixed(1) + ' 秒'; peBump(1); };
     if ($('#peAudio')) $('#peAudio').oninput = e => { pe.reel.audio = e.target.value; peBump(1); };
     if ($('#peFeed')) $('#peFeed').onchange = e => { pe.reel.feed = e.target.checked; peBump(); };
+    const pickMu = () => openMusicPicker(mu => { if (peCtx !== ctx) return; it.music = { vol: it.music?.vol ?? 1, origVol: it.music?.origVol ?? 0.3, ...mu, start: 0 }; peBump(); renderPostEditor(); });
+    if ($('#peMusicAdd')) $('#peMusicAdd').onclick = pickMu;
+    if (it.music) muBindRow($('#peMusicSec'), it.music, { pick: pickMu, del: () => { delete it.music; peBump(); renderPostEditor(); },
+      change: soft => peBump(soft), dur: () => Math.min(30, v.duration || 15) });
     peBindIg(p, m);
     return;
   }
@@ -3062,13 +3167,193 @@ async function aiGenerate() {
   if (aiCtx === ctx) renderAi();
 }
 
+// ===== 音樂：內建免費音樂（CC0，可以商用、不用註明出處）或自己的音樂檔 =====
+// 音樂設定（存在限動畫面、貼文影片、照片變影片裡）：{ lib: 內建編號 | own: 自己的檔案編號, title, dur, start, vol, origVol, len }
+const MU_CATS = [['all', '全部'], ['upbeat', '輕快'], ['warm', '溫馨木吉他'], ['lofi', 'Lo-fi 放鬆'], ['chill', '時尚爵士'], ['piano', '鋼琴音樂盒'], ['xmas', '聖誕節']];
+let muList = null;
+const muLoadList = () => muList ||= fetch('music/list.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(e => { muList = null; throw e; });
+const muBufs = {};
+async function muUrl(mu) { return mu.lib ? `music/m${mu.lib}.m4a` : await mediaUrl({ id: mu.own }); }
+function muBuffer(mu) {
+  const key = mu.lib ? 'lib' + mu.lib : mu.own;
+  return muBufs[key] ||= (async () => {
+    const blob = mu.lib ? await fetch(`music/m${mu.lib}.m4a`).then(r => r.ok ? r.blob() : null).catch(() => null) : await mediaBlob({ id: mu.own });
+    if (!blob) throw new Error(mu.lib ? '音樂下載失敗，請檢查網路' : '找不到音樂檔，請重新選一次');
+    const b = await seDecodeAudio(blob);
+    if (!b) throw new Error('音樂檔讀不出來，請換 MP3 或 M4A');
+    return b;
+  })().catch(e => { delete muBufs[key]; throw e; });
+}
+// 把音樂混進原本的聲音（48kHz 雙聲道）：從 start 秒開始、不夠長就重複，開頭淡入、結尾淡出
+function muMix(orig, buf, mu, dur) {
+  const R = 48000, len = Math.round(dur * R), from = Math.round((mu.start || 0) * R);
+  const vol = mu.vol ?? 1, ov = mu.origVol ?? 1, out = [new Float32Array(len), new Float32Array(len)];
+  for (let ch = 0; ch < 2; ch++) {
+    const src = buf.getChannelData(Math.min(ch, buf.numberOfChannels - 1)), o = out[ch];
+    const os = orig && ov > 0 ? orig.getChannelData(Math.min(ch, orig.numberOfChannels - 1)) : null;
+    for (let i = 0; i < len; i++) {
+      let s = src[(from + i) % src.length] * vol * Math.min(1, i / (0.3 * R), (len - i) / (1.5 * R));
+      if (os && i < os.length) s += os[i] * ov;
+      o[i] = s > 1 ? 1 : s < -1 ? -1 : s;
+    }
+  }
+  return { length: len, numberOfChannels: 2, getChannelData: i => out[i] };
+}
+// 一格一格畫出來壓成 MP4（不用即時播放，很快）：照片變影片、照片限動配音樂
+async function encodeFrames({ W, H, dur, draw, audio, onTick, isCancel }) {
+  const vcfg = await seVideoConfig(W, H);
+  if (!vcfg) throw new Error('這個瀏覽器不能做影片，請改用電腦或手機的 Chrome、Edge');
+  const acfg = audio ? { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 160000 } : null;
+  if (acfg && !(typeof AudioEncoder !== 'undefined' && (await AudioEncoder.isConfigSupported(acfg).catch(() => null))?.supported))
+    throw new Error('這個瀏覽器不能把音樂放進影片，請改用電腦或手機的 Chrome、Edge');
+  vcfg.bitrate = Math.max(1.5e6, Math.min(8e6, Math.floor(25 * 1024 * 1024 * 8 * 0.85 / dur) - 160000));
+  const M = await loadMuxer(), FPS = 30;
+  const target = new M.ArrayBufferTarget();
+  const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset',
+    video: { codec: 'avc', width: W, height: H, frameRate: FPS }, ...(acfg ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 48000 } } : {}) });
+  let err = null;
+  const venc = new VideoEncoder({ output: (ch, m) => muxer.addVideoChunk(ch, m), error: e => err = e });
+  venc.configure(vcfg);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), N = Math.round(dur * FPS);
+  for (let f = 0; f < N; f++) {
+    if (isCancel?.()) { venc.close(); throw new Error('cancel'); }
+    if (err) throw err;
+    draw(g, f / FPS);
+    const vf = new VideoFrame(cv, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+    venc.encode(vf, { keyFrame: f % 60 === 0 }); vf.close();
+    while (venc.encodeQueueSize > 6 && !err) await new Promise(r => setTimeout(r, 10));
+    if (f % 15 === 0) { onTick?.(f / N); await new Promise(r => setTimeout(r)); }
+  }
+  await venc.flush();
+  if (err) throw err;
+  if (acfg) {
+    const len = audio.length, step = 4800;
+    const aenc = new AudioEncoder({ output: (ch, m) => muxer.addAudioChunk(ch, m), error: e => err = e });
+    aenc.configure(acfg);
+    for (let off = 0; off < len && !err; off += step) {
+      const k = Math.min(step, len - off), buf = new Float32Array(k * 2);
+      buf.set(audio.getChannelData(0).subarray(off, off + k), 0); buf.set(audio.getChannelData(1).subarray(off, off + k), k);
+      const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: k, numberOfChannels: 2, timestamp: Math.round(off / 48 * 1000), data: buf });
+      aenc.encode(ad); ad.close();
+    }
+    await aenc.flush();
+    if (err) throw err;
+  }
+  muxer.finalize();
+  return new Blob([target.buffer], { type: 'video/mp4' });
+}
+// ---- 試聽 ----
+let muPrev = null;
+async function muPreview(mu, dur, btn) {
+  if (muPrev) { const same = muPrev.btn === btn; muStopPreview(); if (same) return; }
+  const au = new Audio(await muUrl(mu));
+  au.volume = Math.min(1, mu.vol ?? 1);
+  muPrev = { au, btn, t: setTimeout(muStopPreview, dur * 1000) };
+  au.onloadedmetadata = () => { au.currentTime = mu.start || 0; };
+  au.play().catch(() => {});
+  if (btn) btn.textContent = '⏸ 停止';
+}
+function muStopPreview() {
+  if (!muPrev) return;
+  clearTimeout(muPrev.t); muPrev.au.pause();
+  if (muPrev.btn) muPrev.btn.textContent = muPrev.btn.dataset.label || '▶ 試聽';
+  muPrev = null;
+}
+const muFmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+// ---- 音樂設定列：曲名、換一首、拿掉、試聽、從第幾秒、音量（影片多一個原音；照片限動多一個長度）----
+function muRowHtml(mu, o = {}) {
+  const max = Math.max(0, Math.floor((mu.dur || 0) - 5));
+  return `<div class="mu-row"><b>🎵 ${esc(mu.title)}</b>${o.noPlay ? '' : '<button class="link" data-mu="play" data-label="▶ 試聽">▶ 試聽</button>'}<button class="link" data-mu="change">換一首</button><button class="link danger" data-mu="del">拿掉</button></div>
+    ${max ? `<div class="se-row"><span>從第</span><input type="range" data-mu="start" min="0" max="${max}" step="1" value="${Math.min(max, mu.start || 0)}"><span class="hint-s" data-muv="start">${mu.start || 0} 秒開始</span></div>` : ''}
+    <div class="se-row"><span>音量</span><input type="range" data-mu="vol" min="0" max="100" value="${Math.round((mu.vol ?? 1) * 100)}"></div>
+    ${o.orig ? `<div class="se-row"><span>原音</span><input type="range" data-mu="origVol" min="0" max="100" value="${Math.round((mu.origVol ?? 1) * 100)}"></div>` : ''}
+    ${o.len ? `<div class="se-row"><span>長度</span><input type="range" data-mu="len" min="5" max="15" step="1" value="${mu.len || 15}"><span class="hint-s" data-muv="len">${mu.len || 15} 秒</span></div>` : ''}`;
+}
+// h：{ pick 換一首, del 拿掉, change(soft) 改了設定, dur() 試聽多久 }
+function muBindRow(box, mu, h) {
+  if (!box) return;
+  const q = k => box.querySelector(`[data-mu="${k}"]`);
+  q('change').onclick = () => { muStopPreview(); h.pick(); };
+  q('del').onclick = () => { muStopPreview(); h.del(); };
+  if (q('play')) q('play').onclick = e => muPreview(mu, h.dur?.() || 15, e.currentTarget);
+  const rng = (k, set, label) => {
+    const r = q(k); if (!r) return;
+    r.oninput = () => { set(+r.value); const v = box.querySelector(`[data-muv="${k}"]`); if (v) v.textContent = label(+r.value); h.change(true); };
+    r.onchange = () => { muStopPreview(); h.change(false); };
+  };
+  rng('start', v => mu.start = v, v => v + ' 秒開始');
+  rng('vol', v => mu.vol = v / 100);
+  rng('origVol', v => mu.origVol = v / 100);
+  rng('len', v => mu.len = v, v => v + ' 秒');
+}
+// ---- 選音樂視窗 ----
+let mpCtx = null;   // { onPick, cat, au, playing }
+function openMusicPicker(onPick) {
+  muStopPreview();
+  mpCtx = { onPick, cat: S.musicCat || 'all', au: null, playing: null };
+  $('#musicModal').classList.add('open');
+  renderMusicPicker();
+}
+function closeMusicPicker() {
+  if (mpCtx?.au) mpCtx.au.pause();
+  mpCtx = null;
+  $('#musicModal').classList.remove('open');
+}
+async function renderMusicPicker() {
+  const c = mpCtx; if (!c) return;
+  if (!muList) $('#mpBody').innerHTML = '<div class="ai-wait">載入音樂清單⋯</div>';
+  let list;
+  try { list = await muLoadList(); } catch { if (mpCtx === c) $('#mpBody').innerHTML = '<p class="hint-s">音樂清單載入失敗，請檢查網路後再開一次。</p>'; return; }
+  if (mpCtx !== c) return;
+  const cat = Object.fromEntries(MU_CATS), rows = list.filter(x => c.cat === 'all' || x.cat === c.cat);
+  $('#mpBody').innerHTML = `
+    <div class="chips">${MU_CATS.map(([v, l]) => `<button class="chip ${c.cat === v ? 'on' : ''}" data-mpcat="${v}">${l}</button>`).join('')}</div>
+    <div class="mp-list">${rows.map(x => `<div class="mp-row">
+      <button class="mp-play" data-mpplay="${x.id}" title="試聽">${c.playing === x.id ? '⏸' : '▶'}</button>
+      <span class="mp-name"><b>${esc(x.title)}</b><small>${esc(x.artist)}・${muFmt(x.dur)}${c.cat === 'all' ? '・' + cat[x.cat] : ''}</small></span>
+      <button class="ai-btn" data-mpuse="${x.id}">用這首</button></div>`).join('')}</div>
+    <div class="row" style="margin-top:12px;gap:10px;align-items:center"><button id="mpOwn">📁 用自己的音樂檔</button><span class="hint-s">MP3、M4A</span></div>
+    <p class="hint-s">內建的音樂都是 CC0（公眾領域），可以商用，<b>不用註明出處</b>（來源：Free Music Archive）。IG 音樂庫的歌只能在 IG App 裡加。</p>`;
+  const box = $('#mpBody');
+  box.querySelectorAll('[data-mpcat]').forEach(b => b.onclick = () => { c.cat = S.musicCat = b.dataset.mpcat; save(); renderMusicPicker(); });
+  box.querySelectorAll('[data-mpplay]').forEach(b => b.onclick = () => {
+    const id = +b.dataset.mpplay;
+    if (c.au) c.au.pause();
+    box.querySelectorAll('[data-mpplay]').forEach(x => x.textContent = '▶');
+    if (c.playing === id) { c.playing = null; return; }
+    c.playing = id; c.au = new Audio(`music/m${id}.m4a`); c.au.play().catch(() => {}); b.textContent = '⏸';
+    c.au.onended = () => { if (c.playing === id) { c.playing = null; b.textContent = '▶'; } };
+  });
+  box.querySelectorAll('[data-mpuse]').forEach(b => b.onclick = () => {
+    const x = list.find(t => t.id === +b.dataset.mpuse), pick = c.onPick;
+    closeMusicPicker();
+    pick({ lib: x.id, title: x.title, dur: x.dur });
+  });
+  $('#mpOwn').onclick = () => $('#mpFile').click();
+}
+$('#mpClose').onclick = closeMusicPicker;
+$('#mpFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  const c = mpCtx; if (!f || !c) return;
+  const buf = await seDecodeAudio(f);
+  if (!buf) return toast('這個音樂檔讀不出來，請換 MP3 或 M4A');
+  const id = 'mus-' + uid();
+  blobs[id] = f;
+  if (dbOk) await DB.put('media', id, f).catch(() => toast('檔案太大，瀏覽器存不下；重新整理後會不見'));
+  muBufs[id] = Promise.resolve(buf);
+  if (mpCtx !== c) return;
+  closeMusicPicker();
+  c.onPick({ own: id, title: f.name.replace(/\.[^.]+$/, ''), dur: Math.floor(buf.duration) });
+};
+
 // ===== 照片變影片：幾張照片配上音樂，做成 MP4（發 Reels 或限動）=====
 // IG 音樂庫只能在 IG App 裡用，這裡用自己的音樂檔。整支影片在瀏覽器裡一格一格畫出來再壓縮，不用即時播放，所以很快。
 const SS_RATIOS = [['9:16', '9:16 直式', 1080, 1920], ['4:5', '4:5', 1080, 1350], ['1:1', '1:1 正方形', 1080, 1080]];
 const SS_FX = [['zoom', '緩慢放大＋淡入淡出'], ['fade', '淡入淡出'], ['cut', '直接切換']];
 const SS_FIT = [['fit', '完整顯示'], ['fill', '填滿畫面（會裁切）']];
 const SS_MAX = 90, SS_FPS = 30;
-let ssCtx = null;   // { p, sel:Set(id), items:{id:{bmp,bg}}, music:File, audio:AudioBuffer, start, busy, cancel, play }
+let ssCtx = null;   // { p, sel:Set(id), items:{id:{bmp,bg}}, music（音樂設定）, busy, cancel, play }
 const ssPhotos = p => p.media.filter(m => !m.storyOnly && !isVideo(m));
 const ssSet = () => S.slideSet ||= { ratio: '9:16', per: 2.5, fx: 'zoom', fit: 'fit', replace: true };
 const ssSel = () => ssPhotos(ssCtx.p).filter(m => ssCtx.sel.has(m.id) && ssCtx.items[m.id]);
@@ -3077,7 +3362,7 @@ const ssDur = () => Math.max(3, ssSel().length * ssSet().per);   // Reels 最短
 async function openSlide(p) {
   const ph = ssPhotos(p);
   if (!ph.length) return toast('先加入照片');
-  ssCtx = { p, sel: new Set(ph.map(m => m.id)), items: {}, music: null, audio: null, start: 0, busy: '', cancel: false, play: null };
+  ssCtx = { p, sel: new Set(ph.map(m => m.id)), items: {}, music: S.slideMusic || null, busy: '', cancel: false, play: null };
   renderSlide();
   $('#ssModal').classList.add('open');
   // 照片先縮小到 1600 以內，畫起來比較快
@@ -3138,15 +3423,25 @@ function ssPreview(t) {
   const tm = $('#ssTime'); if (tm) tm.textContent = `${t.toFixed(1)}／${ssDur().toFixed(1)} 秒`;
 }
 // 預覽播放：有音樂就跟著音樂的時間走
-function ssPlay() {
+async function ssPlay() {
   const c = ssCtx; if (!c) return;
   if (c.play) return ssStop();
-  const dur = ssDur(), au = c.music ? new Audio(URL.createObjectURL(c.music)) : null, t0 = performance.now();
-  if (au) { au.currentTime = c.start; au.play().catch(() => {}); }
-  c.play = { au, raf: 0 };
+  muStopPreview();
+  c.play = { au: null, raf: 0 };
+  const dur = ssDur(), mu = c.music, au = mu ? new Audio(await muUrl(mu)) : null;
+  if (!c.play) return;
+  const start = mu?.start || 0;
+  if (au) {
+    au.volume = Math.min(1, mu.vol ?? 1);
+    await new Promise(r => { au.onloadedmetadata = r; setTimeout(r, 3000); });
+    au.currentTime = start; au.play().catch(() => {});
+  }
+  if (!c.play) { au?.pause(); return; }
+  c.play.au = au;
+  const t0 = performance.now();
   const tick = () => {
     if (!c.play) return;
-    const t = au && !au.paused ? au.currentTime - c.start : (performance.now() - t0) / 1000;
+    const t = au && !au.paused ? au.currentTime - start : (performance.now() - t0) / 1000;
     if (t >= dur) { ssStop(); ssPreview(0); return; }
     ssPreview(Math.max(0, t));
     c.play.raf = requestAnimationFrame(tick);
@@ -3157,7 +3452,7 @@ function ssPlay() {
 function ssStop() {
   const pl = ssCtx?.play; if (!pl) return;
   cancelAnimationFrame(pl.raf);
-  if (pl.au) { pl.au.pause(); URL.revokeObjectURL(pl.au.src); }
+  if (pl.au) pl.au.pause();
   ssCtx.play = null;
   if ($('#ssPlay')) $('#ssPlay').textContent = '▶ 預覽';
 }
@@ -3166,8 +3461,6 @@ async function renderSlide() {
   ssStop();
   const st = ssSet(), ph = ssPhotos(c.p), n = ssSel().length, dur = ssDur(), long = n * st.per > SS_MAX;
   const ready = ph.every(m => c.items[m.id] || !c.sel.has(m.id));
-  const mlen = c.audio ? c.audio.duration : 0, maxStart = Math.max(0, Math.floor(mlen - dur));
-  c.start = Math.min(c.start, maxStart);
   $('#ssBody').innerHTML = `<div class="ss-wrap" ${c.busy ? 'style="pointer-events:none;opacity:.5"' : ''}>
     <div class="ss-left"><canvas id="ssCanvas"></canvas>
       <div class="row"><button id="ssPlay" ${n ? '' : 'disabled'}>▶ 預覽</button><span class="hint-s" id="ssTime"></span></div></div>
@@ -3183,10 +3476,8 @@ async function renderSlide() {
       <div class="pick-label">照片放法</div>
       <div class="chips">${SS_FIT.map(([v, l]) => `<button class="chip ${st.fit === v ? 'on' : ''}" data-ssfit="${v}">${l}</button>`).join('')}</div>
       <div class="pick-label">音樂</div>
-      <div class="ss-music">${c.music ? `<b>🎵 ${esc(c.music.name)}</b><button class="link" id="ssMusicDel">拿掉</button>` : ''}
-        <button id="ssMusic">${c.music ? '換一首' : '選音樂檔'}</button></div>
-      ${c.audio && maxStart > 0 ? `<div class="ss-range" style="margin-top:8px"><span class="hint-s">從第</span><input type="range" id="ssStart" min="0" max="${maxStart}" step="1" value="${c.start}"><span id="ssStartV">${c.start} 秒開始</span></div>` : ''}
-      <p class="hint-s" style="margin:6px 0 0">IG 音樂庫的歌只能在 IG App 裡加。這裡請用自己的音樂檔（MP3、M4A）；免費音樂可以到 YouTube 工作室的「音效庫」下載。有版權的流行歌，IG 可能會把聲音關掉。</p>
+      ${c.music ? `<div id="ssMu">${muRowHtml(c.music, { noPlay: true })}</div>` : '<button id="ssMusic">🎵 選音樂</button>'}
+      <p class="hint-s" style="margin:6px 0 0">內建音樂都可以商用、不用註明出處，也可以用自己的音樂檔。按左邊「▶ 預覽」可以連音樂一起聽。</p>
       <label class="hint-s" style="display:flex;gap:6px;align-items:center;margin-top:12px;color:var(--ink)"><input type="checkbox" id="ssReplace" ${st.replace ? 'checked' : ''} style="width:auto">做好後拿掉這些照片，只發這支影片</label>
     </div></div>
     ${long ? `<p class="hint-s" style="color:var(--danger,#c0392b)">影片最長 ${SS_MAX} 秒：請少選幾張，或把每張的秒數調短。</p>` : dur > 60 ? '<p class="hint-s">超過 60 秒：發 Reels 沒問題，發限動時 IG 只會用前 60 秒。</p>' : ''}
@@ -3200,12 +3491,10 @@ async function renderSlide() {
   box.querySelectorAll('[data-ssfit]').forEach(b => b.onclick = () => { st.fit = b.dataset.ssfit; save(); renderSlide(); });
   $('#ssPer').oninput = e => { st.per = +e.target.value; $('#ssPerV').textContent = st.per + ' 秒'; ssPreview(0); };
   $('#ssPer').onchange = () => { save(); renderSlide(); };
-  if ($('#ssStart')) {
-    $('#ssStart').oninput = e => { c.start = +e.target.value; $('#ssStartV').textContent = c.start + ' 秒開始'; };
-    $('#ssStart').onchange = () => { ssStop(); ssPlay(); };   // 調好就播給你聽
-  }
-  $('#ssMusic').onclick = () => $('#ssMusicFile').click();
-  if ($('#ssMusicDel')) $('#ssMusicDel').onclick = () => { c.music = c.audio = null; c.start = 0; renderSlide(); };
+  const pick = () => openMusicPicker(mu => { if (ssCtx !== c) return; c.music = { vol: c.music?.vol ?? 1, ...mu, start: 0 }; S.slideMusic = c.music; save(); renderSlide(); });
+  if ($('#ssMusic')) $('#ssMusic').onclick = pick;
+  muBindRow($('#ssMu'), c.music, { pick, del: () => { c.music = S.slideMusic = null; save(); renderSlide(); },
+    change: soft => { if (!soft) { save(); ssStop(); ssPlay(); } } });   // 調好就播給你聽
   $('#ssReplace').onchange = e => { st.replace = e.target.checked; save(); };
   $('#ssPlay').onclick = ssPlay;
   $('#ssCancel').onclick = closeSlide;
@@ -3217,81 +3506,17 @@ async function renderSlide() {
   }
 }
 $('#ssClose').onclick = closeSlide;
-$('#ssMusicFile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = '';
-  const c = ssCtx; if (!f || !c) return;
-  c.busy = '讀取音樂中⋯'; renderSlide();
-  const buf = await seDecodeAudio(f);
-  if (ssCtx !== c) return;
-  c.busy = '';
-  if (!buf) { renderSlide(); return toast('這個音樂檔讀不出來，請換 MP3 或 M4A'); }
-  c.music = f; c.audio = buf; c.start = 0;
-  renderSlide();
-};
-// 音樂：從選的秒數開始，不夠長就重複，開頭淡入、結尾淡出
-function ssMixAudio(dur) {
-  const a = ssCtx.audio, R = 48000, len = Math.round(dur * R), from = Math.round(ssCtx.start * R);
-  const out = [new Float32Array(len), new Float32Array(len)];
-  for (let ch = 0; ch < 2; ch++) {
-    const src = a.getChannelData(Math.min(ch, a.numberOfChannels - 1)), o = out[ch];
-    for (let i = 0; i < len; i++) {
-      const j = (from + i) % src.length;
-      const fin = Math.min(1, i / (0.3 * R)), fout = Math.min(1, (len - i) / (1.5 * R));
-      o[i] = src[j] * Math.min(fin, fout);
-    }
-  }
-  return out;
-}
-async function ssEncode(onTick) {
+function ssEncode(onTick) {
   const c = ssCtx, [, , W, H] = ssSize(), dur = ssDur();
-  const vcfg = await seVideoConfig(W, H);
-  if (!vcfg) throw new Error('這個瀏覽器不能做影片，請改用電腦或手機的 Chrome、Edge');
-  const acfg = c.audio ? { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 160000 } : null;
-  if (acfg && !(typeof AudioEncoder !== 'undefined' && (await AudioEncoder.isConfigSupported(acfg).catch(() => null))?.supported))
-    throw new Error('這個瀏覽器不能把音樂放進影片，請改用電腦或手機的 Chrome、Edge');
-  vcfg.bitrate = Math.max(1.5e6, Math.min(8e6, Math.floor(25 * 1024 * 1024 * 8 * 0.85 / dur) - 160000));
-  const M = await loadMuxer();
-  const target = new M.ArrayBufferTarget();
-  const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset',
-    video: { codec: 'avc', width: W, height: H, frameRate: SS_FPS }, ...(acfg ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 48000 } } : {}) });
-  let err = null;
-  const venc = new VideoEncoder({ output: (ch, m) => muxer.addVideoChunk(ch, m), error: e => err = e });
-  venc.configure(vcfg);
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), N = Math.round(dur * SS_FPS);
-  for (let f = 0; f < N; f++) {
-    if (c.cancel) { venc.close(); throw new Error('cancel'); }
-    if (err) throw err;
-    ssDrawAt(g, W, H, f / SS_FPS);
-    const vf = new VideoFrame(cv, { timestamp: Math.round(f * 1e6 / SS_FPS), duration: Math.round(1e6 / SS_FPS) });
-    venc.encode(vf, { keyFrame: f % 60 === 0 }); vf.close();
-    while (venc.encodeQueueSize > 6 && !err) await new Promise(r => setTimeout(r, 10));
-    if (f % 15 === 0) { onTick?.(f / N); await new Promise(r => setTimeout(r)); }
-  }
-  await venc.flush();
-  if (err) throw err;
-  if (acfg) {
-    const data = ssMixAudio(dur), len = data[0].length, step = 4800;
-    const aenc = new AudioEncoder({ output: (ch, m) => muxer.addAudioChunk(ch, m), error: e => err = e });
-    aenc.configure(acfg);
-    for (let off = 0; off < len && !err; off += step) {
-      const k = Math.min(step, len - off), buf = new Float32Array(k * 2);
-      buf.set(data[0].subarray(off, off + k), 0); buf.set(data[1].subarray(off, off + k), k);
-      const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: k, numberOfChannels: 2, timestamp: Math.round(off / 48 * 1000), data: buf });
-      aenc.encode(ad); ad.close();
-    }
-    await aenc.flush();
-    if (err) throw err;
-  }
-  muxer.finalize();
-  return new Blob([target.buffer], { type: 'video/mp4' });
+  return (c.music ? muBuffer(c.music) : Promise.resolve(null)).then(buf => encodeFrames({ W, H, dur,
+    draw: (g, t) => ssDrawAt(g, W, H, t), audio: buf && muMix(null, buf, c.music, dur), onTick, isCancel: () => c.cancel }));
 }
 async function ssMake() {
   const c = ssCtx; if (!c || c.busy) return;
   ssStop();
   const used = ssSel(), dur = ssDur();
   c.busy = '影片製作中 0%，請不要切換分頁⋯'; renderSlide();
-  logRemote('trace', `照片變影片：${used.length} 張、${dur} 秒、${ssSet().ratio}、${c.audio ? '有音樂' : '沒音樂'}`);
+  logRemote('trace', `照片變影片：${used.length} 張、${dur} 秒、${ssSet().ratio}、${c.music ? '有音樂' : '沒音樂'}`);
   try {
     const blob = await ssEncode(k => { const b = $('#ssBusy'); if (b) b.textContent = `影片製作中 ${Math.round(k * 100)}%，請不要切換分頁⋯`; });
     if (ssCtx !== c) return;
@@ -3604,6 +3829,7 @@ function navCloseModal(el) {
     else if (el.id === 'storyModal') closeStoryEditor('按了上一頁');
     else if (el.id === 'fsModal') closeFileStory();
     else if (el.id === 'ssModal') closeSlide();
+    else if (el.id === 'musicModal') closeMusicPicker();
     else if (el.id === 'postEdModal') closePostEditor();
     else if (el.id === 'postPrevModal') closePostPreview();
     else { const b = el.querySelector('[data-close]'); b ? b.click() : el.classList.remove('open'); }
