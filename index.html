@@ -197,6 +197,22 @@ main { overflow: auto; min-height: 0; }
 .pe-stage canvas { touch-action: none; cursor: grab; }
 .pe-num { width: 34px; text-align: right; flex: none; }
 .pe-canvas-box { position: relative; }
+.ss-wrap { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.ss-left { flex: none; width: 240px; margin: 0 auto; text-align: center; }
+.ss-left canvas { width: 100%; border-radius: 12px; background: #000; display: block; }
+.ss-left .row { justify-content: center; margin-top: 8px; gap: 10px; }
+.ss-right { flex: 1; min-width: 260px; }
+@media (max-width: 760px) { .ss-left { width: 180px; } }
+.ss-right .pick-label:first-child { margin-top: 0; }
+.ss-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ss-thumbs button { width: 56px; height: 56px; padding: 0; border-radius: 8px; overflow: hidden; position: relative; border: 2px solid var(--accent); }
+.ss-thumbs button.off { border-color: var(--line); opacity: .35; }
+.ss-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ss-thumbs b { position: absolute; left: 3px; top: 2px; font-size: 11px; color: #fff; text-shadow: 0 0 3px #000; }
+.ss-range { display: flex; align-items: center; gap: 10px; }
+.ss-range input[type=range] { flex: 1; padding: 0; }
+.ss-music { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ss-music b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
 .media-card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .media-card-row .hint-s { flex: 1; min-width: 200px; color: var(--ink); }
 .media-card-btns { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -358,6 +374,12 @@ main { overflow: auto; min-height: 0; }
 <div class="modal-bg" id="storyModal"><div class="modal" style="width:min(920px,100%)">
   <h3>🎨 編輯限動畫面 <button class="link" id="storyClose">關閉</button></h3>
   <div id="storyBody"></div>
+</div></div>
+
+<div class="modal-bg" id="ssModal"><div class="modal" style="width:min(860px,100%)">
+  <h3>🎵 照片變影片 <button class="link" id="ssClose">關閉</button></h3>
+  <div id="ssBody"></div>
+  <input type="file" id="ssMusicFile" accept="audio/*,.mp3,.m4a,.wav,.aac" hidden>
 </div></div>
 
 <div class="modal-bg" id="aiModal"><div class="modal">
@@ -840,8 +862,8 @@ function postCardHtml(p) {
   const has = postMedia(p).length, done = p.postEdit?.done;
   return mediaCardHtml('貼文畫面', '要發 IG 貼文才需要',
     !has ? '先在上面加入照片或影片，就可以預覽和編輯貼文。'
-      : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '裁切比例、濾鏡、調整、排序、替代文字，還有標註人物、協作者、地點',
-    `<button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`);
+      : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '幾張照片配上音樂做成影片（Reels、限動都能用）；裁切比例、濾鏡、排序，還有標註人物、協作者、地點',
+    `<button class="ai-btn" data-ssopen ${ssPhotos(p).length ? '' : 'disabled'}>🎵 照片變影片</button><button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`);
 }
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
@@ -900,6 +922,7 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
   document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
   document.querySelectorAll('#editor [data-fsopen]').forEach(x => x.onclick = () => openFileStory(p));
+  document.querySelectorAll('#editor [data-ssopen]').forEach(x => x.onclick = () => openSlide(p));
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
@@ -1456,7 +1479,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1022j";
+const APP_VERSION = "v1022k";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2262,10 +2285,10 @@ function loadMuxer() {
     document.head.appendChild(s);
   });
 }
-async function seVideoConfig() {
+async function seVideoConfig(width = SW, height = SH) {
   if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
   for (const hw of ['prefer-software', 'no-preference']) for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42002a']) {
-    const cfg = { codec, width: SW, height: SH, bitrate: 6e6, framerate: 30, hardwareAcceleration: hw, avc: { format: 'avc' } };
+    const cfg = { codec, width, height, bitrate: 6e6, framerate: 30, hardwareAcceleration: hw, avc: { format: 'avc' } };
     if ((await VideoEncoder.isConfigSupported(cfg).catch(() => null))?.supported) return cfg;
   }
   return null;
@@ -3039,6 +3062,254 @@ async function aiGenerate() {
   if (aiCtx === ctx) renderAi();
 }
 
+// ===== 照片變影片：幾張照片配上音樂，做成 MP4（發 Reels 或限動）=====
+// IG 音樂庫只能在 IG App 裡用，這裡用自己的音樂檔。整支影片在瀏覽器裡一格一格畫出來再壓縮，不用即時播放，所以很快。
+const SS_RATIOS = [['9:16', '9:16 直式', 1080, 1920], ['4:5', '4:5', 1080, 1350], ['1:1', '1:1 正方形', 1080, 1080]];
+const SS_FX = [['zoom', '緩慢放大＋淡入淡出'], ['fade', '淡入淡出'], ['cut', '直接切換']];
+const SS_FIT = [['fit', '完整顯示'], ['fill', '填滿畫面（會裁切）']];
+const SS_MAX = 90, SS_FPS = 30;
+let ssCtx = null;   // { p, sel:Set(id), items:{id:{bmp,bg}}, music:File, audio:AudioBuffer, start, busy, cancel, play }
+const ssPhotos = p => p.media.filter(m => !m.storyOnly && !isVideo(m));
+const ssSet = () => S.slideSet ||= { ratio: '9:16', per: 2.5, fx: 'zoom', fit: 'fit', replace: true };
+const ssSel = () => ssPhotos(ssCtx.p).filter(m => ssCtx.sel.has(m.id) && ssCtx.items[m.id]);
+const ssSize = () => SS_RATIOS.find(r => r[0] === ssSet().ratio) || SS_RATIOS[0];
+const ssDur = () => Math.max(3, ssSel().length * ssSet().per);   // Reels 最短 3 秒
+async function openSlide(p) {
+  const ph = ssPhotos(p);
+  if (!ph.length) return toast('先加入照片');
+  ssCtx = { p, sel: new Set(ph.map(m => m.id)), items: {}, music: null, audio: null, start: 0, busy: '', cancel: false, play: null };
+  renderSlide();
+  $('#ssModal').classList.add('open');
+  // 照片先縮小到 1600 以內，畫起來比較快
+  for (const m of ph) {
+    const b = await mediaBlob(m).catch(() => null);
+    if (!b || !ssCtx || ssCtx.p !== p) continue;
+    try {
+      let bmp = await createImageBitmap(b);
+      const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      if (k < 1) bmp = await createImageBitmap(bmp, { resizeWidth: Math.round(bmp.width * k), resizeHeight: Math.round(bmp.height * k), resizeQuality: 'high' });
+      // 模糊背景：先縮成很小再放大，就會糊糊的
+      const bg = document.createElement('canvas'); bg.width = 24; bg.height = 24;
+      const g = bg.getContext('2d'), sc = Math.max(24 / bmp.width, 24 / bmp.height);
+      g.drawImage(bmp, (24 - bmp.width * sc) / 2, (24 - bmp.height * sc) / 2, bmp.width * sc, bmp.height * sc);
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, 24, 24);
+      ssCtx.items[m.id] = { bmp, bg };
+    } catch { ssCtx.sel.delete(m.id); }
+  }
+  if (ssCtx?.p === p) { renderSlide(); }
+}
+function closeSlide() {
+  if (!ssCtx) return;
+  ssStop();
+  ssCtx.cancel = true;
+  ssCtx = null;
+  $('#ssModal').classList.remove('open');
+}
+// 畫第 t 秒的畫面
+function ssDrawAt(g, W, H, t) {
+  const its = ssSel(), per = ssSet().per, n = its.length, fx = ssSet().fx;
+  g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  if (!n) return;
+  const i = Math.min(n - 1, Math.floor(t / per)), u = t - i * per;
+  ssDrawSlide(g, W, H, its[i], u / per, i, 1);
+  const T = Math.min(0.6, per / 3);
+  if (fx !== 'cut' && i < n - 1 && u > per - T) ssDrawSlide(g, W, H, its[i + 1], 0, i + 1, (u - (per - T)) / T);
+  // 最後半秒慢慢變暗
+  const left = ssDur() - t;
+  if (fx !== 'cut' && left < 0.5) { g.globalAlpha = 1 - Math.max(0, left) / 0.5; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
+}
+function ssDrawSlide(g, W, H, m, k, i, a) {
+  const { bmp, bg } = ssCtx.items[m.id], fill = ssSet().fit === 'fill';
+  g.globalAlpha = a;
+  if (!fill) { g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(bg, -W * 0.1, -H * 0.1, W * 1.2, H * 1.2); }
+  const s0 = (fill ? Math.max : Math.min)(W / bmp.width, H / bmp.height);
+  k = Math.min(1, k);
+  const z = ssSet().fx === 'zoom' ? (i % 2 ? 1.08 - 0.08 * k : 1 + 0.08 * k) : 1;
+  const w = bmp.width * s0 * z, h = bmp.height * s0 * z;
+  g.drawImage(bmp, (W - w) / 2, (H - h) / 2, w, h);
+  g.globalAlpha = 1;
+}
+function ssPreview(t) {
+  const c = $('#ssCanvas'); if (!c) return;
+  const [, , W, H] = ssSize();
+  if (c.width !== W / 3) { c.width = W / 3; c.height = H / 3; }
+  const g = c.getContext('2d');
+  g.save(); g.scale(1 / 3, 1 / 3); ssDrawAt(g, W, H, t); g.restore();
+  const tm = $('#ssTime'); if (tm) tm.textContent = `${t.toFixed(1)}／${ssDur().toFixed(1)} 秒`;
+}
+// 預覽播放：有音樂就跟著音樂的時間走
+function ssPlay() {
+  const c = ssCtx; if (!c) return;
+  if (c.play) return ssStop();
+  const dur = ssDur(), au = c.music ? new Audio(URL.createObjectURL(c.music)) : null, t0 = performance.now();
+  if (au) { au.currentTime = c.start; au.play().catch(() => {}); }
+  c.play = { au, raf: 0 };
+  const tick = () => {
+    if (!c.play) return;
+    const t = au && !au.paused ? au.currentTime - c.start : (performance.now() - t0) / 1000;
+    if (t >= dur) { ssStop(); ssPreview(0); return; }
+    ssPreview(Math.max(0, t));
+    c.play.raf = requestAnimationFrame(tick);
+  };
+  tick();
+  $('#ssPlay').textContent = '⏸ 停止';
+}
+function ssStop() {
+  const pl = ssCtx?.play; if (!pl) return;
+  cancelAnimationFrame(pl.raf);
+  if (pl.au) { pl.au.pause(); URL.revokeObjectURL(pl.au.src); }
+  ssCtx.play = null;
+  if ($('#ssPlay')) $('#ssPlay').textContent = '▶ 預覽';
+}
+async function renderSlide() {
+  const c = ssCtx; if (!c) return;
+  ssStop();
+  const st = ssSet(), ph = ssPhotos(c.p), n = ssSel().length, dur = ssDur(), long = n * st.per > SS_MAX;
+  const ready = ph.every(m => c.items[m.id] || !c.sel.has(m.id));
+  const mlen = c.audio ? c.audio.duration : 0, maxStart = Math.max(0, Math.floor(mlen - dur));
+  c.start = Math.min(c.start, maxStart);
+  $('#ssBody').innerHTML = `<div class="ss-wrap" ${c.busy ? 'style="pointer-events:none;opacity:.5"' : ''}>
+    <div class="ss-left"><canvas id="ssCanvas"></canvas>
+      <div class="row"><button id="ssPlay" ${n ? '' : 'disabled'}>▶ 預覽</button><span class="hint-s" id="ssTime"></span></div></div>
+    <div class="ss-right">
+      <div class="pick-label">照片 <small>點一下可以不要這張；順序跟貼文一樣，要換順序請到「編輯貼文」</small></div>
+      <div class="ss-thumbs">${ph.map((m, i) => `<button data-ssimg="${m.id}" class="${c.sel.has(m.id) ? '' : 'off'}" title="${esc(m.name)}"><img alt=""><b>${i + 1}</b></button>`).join('')}</div>
+      <div class="pick-label">尺寸</div>
+      <div class="chips">${SS_RATIOS.map(([v, l]) => `<button class="chip ${st.ratio === v ? 'on' : ''}" data-ssratio="${v}">${l}</button>`).join('')}</div>
+      <div class="pick-label">每張幾秒</div>
+      <div class="ss-range"><input type="range" id="ssPer" min="1" max="6" step="0.5" value="${st.per}"><span id="ssPerV">${st.per} 秒</span></div>
+      <div class="pick-label">效果</div>
+      <div class="chips">${SS_FX.map(([v, l]) => `<button class="chip ${st.fx === v ? 'on' : ''}" data-ssfx="${v}">${l}</button>`).join('')}</div>
+      <div class="pick-label">照片放法</div>
+      <div class="chips">${SS_FIT.map(([v, l]) => `<button class="chip ${st.fit === v ? 'on' : ''}" data-ssfit="${v}">${l}</button>`).join('')}</div>
+      <div class="pick-label">音樂</div>
+      <div class="ss-music">${c.music ? `<b>🎵 ${esc(c.music.name)}</b><button class="link" id="ssMusicDel">拿掉</button>` : ''}
+        <button id="ssMusic">${c.music ? '換一首' : '選音樂檔'}</button></div>
+      ${c.audio && maxStart > 0 ? `<div class="ss-range" style="margin-top:8px"><span class="hint-s">從第</span><input type="range" id="ssStart" min="0" max="${maxStart}" step="1" value="${c.start}"><span id="ssStartV">${c.start} 秒開始</span></div>` : ''}
+      <p class="hint-s" style="margin:6px 0 0">IG 音樂庫的歌只能在 IG App 裡加。這裡請用自己的音樂檔（MP3、M4A）；免費音樂可以到 YouTube 工作室的「音效庫」下載。有版權的流行歌，IG 可能會把聲音關掉。</p>
+      <label class="hint-s" style="display:flex;gap:6px;align-items:center;margin-top:12px;color:var(--ink)"><input type="checkbox" id="ssReplace" ${st.replace ? 'checked' : ''} style="width:auto">做好後拿掉這些照片，只發這支影片</label>
+    </div></div>
+    ${long ? `<p class="hint-s" style="color:var(--danger,#c0392b)">影片最長 ${SS_MAX} 秒：請少選幾張，或把每張的秒數調短。</p>` : dur > 60 ? '<p class="hint-s">超過 60 秒：發 Reels 沒問題，發限動時 IG 只會用前 60 秒。</p>' : ''}
+    ${c.busy ? `<div class="ai-wait" id="ssBusy">${esc(c.busy)}</div>` : ''}
+    <div class="send"><div class="nav"><button class="link" id="ssCancel">先不要</button>
+      <button class="primary" id="ssGo" ${!n || long || c.busy || !ready ? 'disabled' : ''}>🎬 做成影片（${dur.toFixed(dur % 1 ? 1 : 0)} 秒）</button></div></div>`;
+  const box = $('#ssBody');
+  box.querySelectorAll('[data-ssimg]').forEach(b => b.onclick = () => { const id = b.dataset.ssimg; c.sel.has(id) ? c.sel.delete(id) : c.sel.add(id); renderSlide(); });
+  box.querySelectorAll('[data-ssratio]').forEach(b => b.onclick = () => { st.ratio = b.dataset.ssratio; save(); renderSlide(); });
+  box.querySelectorAll('[data-ssfx]').forEach(b => b.onclick = () => { st.fx = b.dataset.ssfx; save(); renderSlide(); });
+  box.querySelectorAll('[data-ssfit]').forEach(b => b.onclick = () => { st.fit = b.dataset.ssfit; save(); renderSlide(); });
+  $('#ssPer').oninput = e => { st.per = +e.target.value; $('#ssPerV').textContent = st.per + ' 秒'; ssPreview(0); };
+  $('#ssPer').onchange = () => { save(); renderSlide(); };
+  if ($('#ssStart')) {
+    $('#ssStart').oninput = e => { c.start = +e.target.value; $('#ssStartV').textContent = c.start + ' 秒開始'; };
+    $('#ssStart').onchange = () => { ssStop(); ssPlay(); };   // 調好就播給你聽
+  }
+  $('#ssMusic').onclick = () => $('#ssMusicFile').click();
+  if ($('#ssMusicDel')) $('#ssMusicDel').onclick = () => { c.music = c.audio = null; c.start = 0; renderSlide(); };
+  $('#ssReplace').onchange = e => { st.replace = e.target.checked; save(); };
+  $('#ssPlay').onclick = ssPlay;
+  $('#ssCancel').onclick = closeSlide;
+  $('#ssGo').onclick = ssMake;
+  ssPreview(0);
+  for (const m of ph) {
+    const img = box.querySelector(`[data-ssimg="${m.id}"] img`), u = await mediaUrl(m);
+    if (img && u) img.src = u;
+  }
+}
+$('#ssClose').onclick = closeSlide;
+$('#ssMusicFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  const c = ssCtx; if (!f || !c) return;
+  c.busy = '讀取音樂中⋯'; renderSlide();
+  const buf = await seDecodeAudio(f);
+  if (ssCtx !== c) return;
+  c.busy = '';
+  if (!buf) { renderSlide(); return toast('這個音樂檔讀不出來，請換 MP3 或 M4A'); }
+  c.music = f; c.audio = buf; c.start = 0;
+  renderSlide();
+};
+// 音樂：從選的秒數開始，不夠長就重複，開頭淡入、結尾淡出
+function ssMixAudio(dur) {
+  const a = ssCtx.audio, R = 48000, len = Math.round(dur * R), from = Math.round(ssCtx.start * R);
+  const out = [new Float32Array(len), new Float32Array(len)];
+  for (let ch = 0; ch < 2; ch++) {
+    const src = a.getChannelData(Math.min(ch, a.numberOfChannels - 1)), o = out[ch];
+    for (let i = 0; i < len; i++) {
+      const j = (from + i) % src.length;
+      const fin = Math.min(1, i / (0.3 * R)), fout = Math.min(1, (len - i) / (1.5 * R));
+      o[i] = src[j] * Math.min(fin, fout);
+    }
+  }
+  return out;
+}
+async function ssEncode(onTick) {
+  const c = ssCtx, [, , W, H] = ssSize(), dur = ssDur();
+  const vcfg = await seVideoConfig(W, H);
+  if (!vcfg) throw new Error('這個瀏覽器不能做影片，請改用電腦或手機的 Chrome、Edge');
+  const acfg = c.audio ? { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 160000 } : null;
+  if (acfg && !(typeof AudioEncoder !== 'undefined' && (await AudioEncoder.isConfigSupported(acfg).catch(() => null))?.supported))
+    throw new Error('這個瀏覽器不能把音樂放進影片，請改用電腦或手機的 Chrome、Edge');
+  vcfg.bitrate = Math.max(1.5e6, Math.min(8e6, Math.floor(25 * 1024 * 1024 * 8 * 0.85 / dur) - 160000));
+  const M = await loadMuxer();
+  const target = new M.ArrayBufferTarget();
+  const muxer = new M.Muxer({ target, fastStart: 'in-memory', firstTimestampBehavior: 'offset',
+    video: { codec: 'avc', width: W, height: H, frameRate: SS_FPS }, ...(acfg ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 48000 } } : {}) });
+  let err = null;
+  const venc = new VideoEncoder({ output: (ch, m) => muxer.addVideoChunk(ch, m), error: e => err = e });
+  venc.configure(vcfg);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), N = Math.round(dur * SS_FPS);
+  for (let f = 0; f < N; f++) {
+    if (c.cancel) { venc.close(); throw new Error('cancel'); }
+    if (err) throw err;
+    ssDrawAt(g, W, H, f / SS_FPS);
+    const vf = new VideoFrame(cv, { timestamp: Math.round(f * 1e6 / SS_FPS), duration: Math.round(1e6 / SS_FPS) });
+    venc.encode(vf, { keyFrame: f % 60 === 0 }); vf.close();
+    while (venc.encodeQueueSize > 6 && !err) await new Promise(r => setTimeout(r, 10));
+    if (f % 15 === 0) { onTick?.(f / N); await new Promise(r => setTimeout(r)); }
+  }
+  await venc.flush();
+  if (err) throw err;
+  if (acfg) {
+    const data = ssMixAudio(dur), len = data[0].length, step = 4800;
+    const aenc = new AudioEncoder({ output: (ch, m) => muxer.addAudioChunk(ch, m), error: e => err = e });
+    aenc.configure(acfg);
+    for (let off = 0; off < len && !err; off += step) {
+      const k = Math.min(step, len - off), buf = new Float32Array(k * 2);
+      buf.set(data[0].subarray(off, off + k), 0); buf.set(data[1].subarray(off, off + k), k);
+      const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: k, numberOfChannels: 2, timestamp: Math.round(off / 48 * 1000), data: buf });
+      aenc.encode(ad); ad.close();
+    }
+    await aenc.flush();
+    if (err) throw err;
+  }
+  muxer.finalize();
+  return new Blob([target.buffer], { type: 'video/mp4' });
+}
+async function ssMake() {
+  const c = ssCtx; if (!c || c.busy) return;
+  ssStop();
+  const used = ssSel(), dur = ssDur();
+  c.busy = '影片製作中 0%，請不要切換分頁⋯'; renderSlide();
+  logRemote('trace', `照片變影片：${used.length} 張、${dur} 秒、${ssSet().ratio}、${c.audio ? '有音樂' : '沒音樂'}`);
+  try {
+    const blob = await ssEncode(k => { const b = $('#ssBusy'); if (b) b.textContent = `影片製作中 ${Math.round(k * 100)}%，請不要切換分頁⋯`; });
+    if (ssCtx !== c) return;
+    const p = c.p, name = `照片影片-${new Date().toTimeString().slice(0, 5).replace(':', '')}.mp4`;
+    if (ssSet().replace) { p.media = p.media.filter(m => !used.includes(m)); used.forEach(dropMedia); }
+    await addFiles(p, [new File([blob], name, { type: 'video/mp4' })]);
+    logRemote('trace', `照片變影片：完成 ${(blob.size / 1048576).toFixed(1)}MB`);
+    closeSlide();
+    toast(`影片做好了（${dur.toFixed(dur % 1 ? 1 : 0)} 秒），已經加進這則貼文`);
+  } catch (e) {
+    if (ssCtx !== c) return;
+    c.busy = ''; renderSlide();
+    if (e?.message === 'cancel') return;
+    logRemote('trace', '照片變影片：失敗 ' + (e?.message || e));
+    alert('影片沒做成功：' + (e?.message || e));
+  }
+}
+
 // ===== AI 用檔案做限動：讀檔案（PDF、Word、Excel、圖片、文字）→ 拆成幾張 → 畫成 1080×1920 的圖 =====
 const FS_THEMES = [
   ['navy', '深藍', ['#1e2a4a', '#0d1222'], '#fff', '#f5c46b'],
@@ -3332,6 +3603,7 @@ function navCloseModal(el) {
     if (el.id === 'sendModal') closeSend();
     else if (el.id === 'storyModal') closeStoryEditor('按了上一頁');
     else if (el.id === 'fsModal') closeFileStory();
+    else if (el.id === 'ssModal') closeSlide();
     else if (el.id === 'postEdModal') closePostEditor();
     else if (el.id === 'postPrevModal') closePostPreview();
     else { const b = el.querySelector('[data-close]'); b ? b.click() : el.classList.remove('open'); }
