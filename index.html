@@ -449,7 +449,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
       <button id="openTargets">管理發送對象</button>
       <button id="openBackup">備份／搬資料</button>
       <button id="openAuto">⚡ 自動發帳號</button>
-      <button id="openIns">📊 成效與留言</button>
+      <button id="openIns">📊 成效與管理</button>
       <div class="ver" id="appVer"></div>
     </footer>
   </aside>
@@ -526,7 +526,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 </div></div>
 
 <div class="modal-bg" id="insModal"><div class="modal" style="width:min(760px,100%)">
-  <h3><span>📊 成效與留言</span> <button class="link" id="insClose">關閉</button></h3>
+  <h3><span>📊 成效與管理</span> <button class="link" id="insClose">關閉</button></h3>
   <div id="insBody"></div>
 </div></div>
 
@@ -1725,7 +1725,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1025e";
+const APP_VERSION = "v1025f";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
