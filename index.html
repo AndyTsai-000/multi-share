@@ -51,6 +51,8 @@ aside .new { width: 100%; }
 .group-hint { font-size: 11px; color: var(--sub); margin: -4px 6px 6px; }
 .pill.unsched { background: rgba(245, 166, 35, .18); color: #e0901a; }
 .ver { font-size: 11px; color: var(--sub); text-align: center; opacity: .7; }
+.menu-btn { display: none; white-space: nowrap; }
+.post-search { margin: 0 10px 4px; width: calc(100% - 20px); padding: 6px 10px; font-size: 14px; }
 .home-link { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .home { max-width: 760px; }
 .home-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -416,7 +418,14 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 
 @media (max-width: 760px) {
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 34vh; }
+  aside { border-right: 0; border-bottom: 1px solid var(--line); }
+  /* 手機：清單和設定按鈕收起來，按「☰ 清單」才打開（蓋住整個畫面） */
+  aside .posts, aside footer, aside .post-search { display: none !important; }
+  aside.open { position: fixed; inset: 0; z-index: 9; }
+  aside.open .posts { display: block !important; }
+  aside.open footer { display: grid !important; }
+  aside.open .post-search:not([hidden]) { display: block !important; }
+  .menu-btn { display: inline-block !important; }
   aside header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
   aside h1 { margin: 0; font-size: 17px; flex: 1; }
   aside .new { width: auto; }
@@ -442,8 +451,10 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   <aside>
     <header>
       <h1><button class="home-link" id="goHome" title="回主畫面">社群管家</button></h1>
+      <button class="menu-btn" id="menuBtn" title="貼文清單和設定">☰ 清單</button>
       <button class="primary new" id="newPost">＋ 新增貼文</button>
     </header>
+    <input class="post-search" id="postSearch" type="search" placeholder="🔎 搜尋貼文" hidden>
     <div class="posts" id="postList"></div>
     <footer>
       <button id="openTargets">管理發送對象</button>
@@ -460,6 +471,8 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 <div class="bar"><div class="inner">
   <span class="grow" id="barInfo"></span>
   <button class="link danger" id="delPost">刪除這則</button>
+  <button class="link" id="dupPost" title="複製成新的一則（文字、圖片影片、編輯設定都一起）">複製一則</button>
+  <button class="primary" id="barNext" hidden>下一步 →</button>
   <button id="lineBatch" hidden>LINE 分批</button>
   <button class="primary" id="autoSend" hidden>⚡ 自動發</button>
   <button class="primary" id="startSend">開始發送</button>
@@ -723,15 +736,21 @@ function schedulePicker(p) {
   const nowHm = localInput(now).slice(11);
   const isPast = new Date(p.time) <= now;
   const otherDay = !days.some(d => d.v === date);
-  const otherTime = !QUICK_TIMES.includes(hm);
+  const otherTime = !QUICK_TIMES.includes(hm), bs = bestSlot(), star = t => bs && +t.slice(0, 2) >= bs[0] && +t.slice(0, 2) < bs[1];
   return `
     <div class="pick-label">日期</div>
     <div class="chips">${days.map(d => `<button class="chip ${d.v === date ? 'on' : ''}" data-day="${d.v}">${d.label}<small>（${d.wk}）</small></button>`).join('')}
       <label class="chip ${otherDay ? 'on' : ''} pick-input">${otherDay ? esc(fmtTime(p.time).split(' ')[0]) : '其他日期'}<input type="date" id="pickDate" value="${date}" min="${today}"></label></div>
     <div class="pick-label">時間</div>
-    <div class="chips">${QUICK_TIMES.map(t => `<button class="chip ${t === hm ? 'on' : ''} ${date === today && t <= nowHm ? 'past' : ''}" data-hm="${t}">${t}</button>`).join('')}
+    <div class="chips">${QUICK_TIMES.map(t => `<button class="chip ${t === hm ? 'on' : ''} ${date === today && t <= nowHm ? 'past' : ''}" data-hm="${t}" ${star(t) ? 'title="成效報表：這個時段互動最多"' : ''}>${star(t) ? '⭐ ' : ''}${t}</button>`).join('')}
       <label class="chip ${otherTime ? 'on' : ''} pick-input">${otherTime ? hm : '自訂時間'}<input type="time" id="pickTime" value="${hm}"></label></div>
+    ${bs ? `<p class="hint-s" style="margin:8px 0 0">⭐ 依成效報表，你的貼文在<b>${bs[2]}</b>互動最多</p>` : ''}
     <p class="${isPast ? 'warn-line' : 'when-line'}">${isPast ? '⚠️ 這個時間已經過了，請選之後的時間' : `📅 將在 <b>${esc(fmtTime(p.time))}</b> 發出`}</p>`;
+}
+// 成效報表算出來的最佳時段（有讀過成效報表、而且明顯比較好才有）
+function bestSlot() {
+  for (const c of Object.values(S.insCache || {})) { const b = insBest(c.data?.posts || []); if (b?.slot && b.slot.v > 1.05) return INS_SLOTS.find(x => x[2] === b.slot.l); }
+  return null;
 }
 function localInput(d) {
   const p = n => String(n).padStart(2, '0');
@@ -755,8 +774,9 @@ const isScheduled = p => !!p.serverPost || (p.mode !== 'auto' && !!p.time);
 
 // ===== 左側列表 =====
 function renderList() {
-  const now = Date.now();
-  const sorted = [...S.posts].sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
+  const now = Date.now(), q = ($('#postSearch')?.value || '').trim().toLowerCase();
+  $('#postSearch').hidden = S.posts.length < 7 && !q;
+  const sorted = [...S.posts].filter(p => !q || (postSnip(p) + ' ' + p.text).toLowerCase().includes(q)).sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
   const groups = [['⏰ 已排程', p => !listStatus(p).finished && isScheduled(p)], ['⚠️ 未排程', p => !listStatus(p).finished && !isScheduled(p)], ['✅ 已完成', p => listStatus(p).finished]];
   $('#postList').innerHTML = groups.map(([title, f], gi) => {
     const items = sorted.filter(f);
@@ -768,15 +788,24 @@ function renderList() {
         <div class="when"><span>${p.time || p.serverPost ? esc(fmtTime(p.time || (serverPosts[p.serverPost]?.run_at ? new Date(serverPosts[p.serverPost].run_at).toISOString() : null))) : (p.mode === 'auto' ? '⚡ 全自動' : p.mode === 'manual' ? '📱 半自動' : '還沒選發送方式')}</span><span class="pill ${st.cls}">${st.text}</span></div>
         <div class="snip">${esc(snip)}</div></button>`;
     }).join('');
-  }).join('') || '<p class="empty" style="padding:0 8px">還沒有貼文</p>';
+  }).join('') || `<p class="empty" style="padding:0 8px">${q ? '找不到符合的貼文' : '還沒有貼文'}</p>`;
 }
+$('#postSearch').oninput = () => renderList();
+$('#menuBtn').onclick = () => { $('aside').classList.toggle('open'); $('#menuBtn').textContent = $('aside').classList.contains('open') ? '✕ 關閉' : '☰ 清單'; };
+const closeMenu = () => { $('aside').classList.remove('open'); $('#menuBtn').textContent = '☰ 清單'; };
 $('#postList').onclick = e => {
   const b = e.target.closest('.post-item'); if (!b) return;
-  S.activeId = b.dataset.id; save(); renderAll();
+  closeMenu(); S.activeId = b.dataset.id; save(); renderAll();
 };
-$('#newPost').onclick = () => newPost();
-$('#goHome').onclick = () => goHome();
+$('#newPost').onclick = () => { closeMenu(); newPost(); };
+$('#goHome').onclick = () => { closeMenu(); goHome(); };
+document.querySelectorAll('aside footer button').forEach(b => b.addEventListener('click', closeMenu));
 // extra：一開始就帶的內容（月曆、再發、九宮格用）；quiet：只建立，不切過去
+function pruneEmpty() {
+  const gone = S.posts.filter(p => p.id !== S.activeId && !hasContent(p) && !p.time && !p.serverPost && !p.label);
+  if (!gone.length) return;
+  S.posts = S.posts.filter(p => !gone.includes(p)); save();
+}
 function newPost(extra = {}, quiet = false) {
   const last = S.posts[S.posts.length - 1];
   const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], auto: last ? [...(last.auto || [])] : [], mode: null, step: 1, serverPost: null, done: {}, reminded: false, ...extra };
@@ -793,8 +822,8 @@ const MODE_INFO = {
   auto: {
     icon: '⚡', title: '全自動發送', lead: '排好時間就不用管。時間到由伺服器自動發出，電腦、手機都可以關掉。',
     where: 'Instagram 貼文、Instagram 限動、Threads（要先連結帳號）',
-    yes: ['IG 貼文最多 20 張：裁切、濾鏡、替代文字、標註人物、協作者 3 位、地點', 'IG 限動：用編好的限動畫面（文字、貼圖），發布前再確認一次', '一次發到多個帳號'],
-    no: ['不能加音樂、限動貼圖（連結、投票…）', '不能發 LINE、Facebook（平台不開放）'],
+    yes: ['IG 貼文最多 20 張：裁切、濾鏡、替代文字、標註人物、協作者 3 位、地點', 'IG 限動：用編好的限動畫面（文字、貼圖、音樂），發布前再確認一次', '影片可以加音樂、字幕（直接做進影片裡）', '一次發到多個帳號'],
+    no: ['不能用 IG 音樂庫的歌、限動互動貼圖（連結、投票…）', '不能發 LINE、Facebook（平台不開放）'],
   },
   manual: {
     icon: '📱', title: '半自動發送', lead: '網站幫你準備好文字和圖片，打開 App 貼上、按發送就好。',
@@ -863,7 +892,7 @@ function settingsHtml(p) {
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
-  return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
+  return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
 }
 function renderEditor() {
   const p = active(), ed = $('#editor');
@@ -1144,7 +1173,9 @@ async function addFiles(p, files, extra) {
 
 function renderBar() {
   const p = active(), btn = $('#startSend');
-  $('#delPost').hidden = !p;
+  $('#delPost').hidden = !p; $('#dupPost').hidden = !p;
+  $('#barNext').hidden = !p || p.step !== 1 || !!p.serverPost;
+  if (p) $('#barNext').disabled = !hasContent(p);
   if (!p) { btn.hidden = true; $('#autoSend').hidden = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
   const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
   const empty = !fullText(p) && !p.media.length;
@@ -1162,6 +1193,8 @@ function renderBar() {
   btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
   $('#barInfo').textContent = p.serverPost ? '' : p.step === 1 ? (empty ? '① 先輸入文字或加入圖片影片' : '① 內容好了，按「下一步」') : p.step === 2 ? '② 選全自動或半自動' : !stepSelCount(p) ? '③ 選要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}` : '';
 }
+$('#barNext').onclick = () => active() && goStep(active(), 2);
+$('#dupPost').onclick = () => active() && dupPost(active(), '📄 複本');
 $('#delPost').onclick = async () => {
   const p = active(); if (!p) return;
   const auto = willAutoSend(p);
@@ -1725,7 +1758,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1025f";
+const APP_VERSION = "v1026a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1743,7 +1776,7 @@ async function apiCall(path, opts = {}) {
 }
 async function loadAccounts() {
   if (!session) { autoAccounts = []; return; }
-  try { autoAccounts = (await apiCall('/api/me')).accounts; } catch { autoAccounts = []; }
+  try { autoAccounts = (await apiCall('/api/me')).accounts || []; } catch { autoAccounts = []; }
 }
 function autoOptions() {
   return autoAccounts.flatMap(acc => AUTO_KINDS.filter(k => k.platform === acc.platform)
@@ -5020,7 +5053,7 @@ async function insRepost(x, btn) {
   } catch (e) { alert('再發失敗：' + e.message); btn.disabled = false; btn.textContent = '🔁 再發一次'; }
 }
 // 自己這邊的貼文再發一次（已完成的貼文）：文字、圖片影片、編輯設定都複製
-async function dupPost(src) {
+async function dupPost(src, label = '🔁 再發') {
   const map = {}, media = [];
   for (const m of src.media) {
     const b = await mediaBlob(m); if (!b) continue;
@@ -5032,7 +5065,7 @@ async function dupPost(src) {
   }
   const remap = o => o && JSON.parse(Object.entries(map).reduce((s, [a, b]) => s.split(a).join(b), JSON.stringify(o)));
   const p = newPost({ text: src.text, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
-    postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label: '🔁 再發' });
+    postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label });
   toast('已經複製成新貼文，改一下再排程');
   return p;
 }
@@ -5102,7 +5135,7 @@ function checkDue() {
   startSend(due);
 }
 
-function renderAll() { renderList(); renderEditor(); }
+function renderAll() { pruneEmpty(); renderList(); renderEditor(); }
 
 // ===== 上一頁：每換一個畫面（主畫面、哪一則貼文、第幾步、彈出視窗）就記一筆瀏覽紀錄 =====
 // 按上一頁時：有彈出視窗就先關掉，不然回到上一個畫面；不會直接離開網站
