@@ -402,6 +402,10 @@ main { overflow: auto; min-height: 0; }
 .sub-line input { padding: 5px 8px; font-size: 14px; }
 .sub-prev { position: absolute; left: 6%; right: 6%; text-align: center; pointer-events: none; font-weight: 700; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; font-size: 15px; line-height: 1.3; }
 .pe-vbox { position: relative; }
+.clr-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.clr-row input { width: auto; flex: none; }
+.clr-row .snip { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+button.danger-btn { background: var(--danger); border-color: var(--danger); }
 .tag-set { padding: 10px 0; border-top: 1px solid var(--line); }
 .tag-set:first-child { border-top: 0; }
 .tag-set .tags { font-size: 13px; color: var(--soft-ink); word-break: break-word; margin: 4px 0 6px; }
@@ -524,6 +528,11 @@ main { overflow: auto; min-height: 0; }
 <div class="modal-bg" id="insModal"><div class="modal" style="width:min(760px,100%)">
   <h3><span>📊 成效與留言</span> <button class="link" id="insClose">關閉</button></h3>
   <div id="insBody"></div>
+</div></div>
+
+<div class="modal-bg" id="clrModal"><div class="modal">
+  <h3>🗑 清除網站裡的貼文 <button class="link" data-close>關閉</button></h3>
+  <div id="clrBody"></div>
 </div></div>
 
 <div class="modal-bg" id="tagModal"><div class="modal">
@@ -1045,7 +1054,7 @@ function renderHome() {
   $('#editor').innerHTML = `<div class="home">
     <div class="home-head"><h2>貼文總覽</h2><button class="primary" id="homeNew">＋ 新增貼文</button></div>
     <div class="home-tabs"><button class="chip ${cal ? '' : 'on'}" data-hview="list">📋 清單</button><button class="chip ${cal ? 'on' : ''}" data-hview="cal">📅 月曆</button>
-      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button></div>
+      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 管理已發佈</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🗑 清除網站貼文</button></div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
       <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
     ${cal ? calHtml() : `
@@ -1061,6 +1070,7 @@ function renderHome() {
   ed.querySelectorAll('[data-home]').forEach(b => b.onclick = () => { S.activeId = b.dataset.home; save(); renderAll(); });
   ed.querySelectorAll('[data-hview]').forEach(b => b.onclick = () => { S.homeView = b.dataset.hview; save(); renderHome(); });
   ed.querySelectorAll('[data-hins]').forEach(b => b.onclick = () => openIns(b.dataset.hins));
+  $('#homeClear').onclick = openClear;
   ed.querySelectorAll('[data-homedup]').forEach(b => b.onclick = () => dupPost(S.posts.find(x => x.id === b.dataset.homedup)));
   ed.querySelectorAll('[data-holnew]').forEach(b => b.onclick = () => {
     const t = new Date(`${b.dataset.holnew}T10:00`);
@@ -1152,14 +1162,72 @@ function renderBar() {
   btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
   $('#barInfo').textContent = p.serverPost ? '' : p.step === 1 ? (empty ? '① 先輸入文字或加入圖片影片' : '① 內容好了，按「下一步」') : p.step === 2 ? '② 選全自動或半自動' : !stepSelCount(p) ? '③ 選要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}` : '';
 }
-$('#delPost').onclick = () => {
+$('#delPost').onclick = async () => {
   const p = active(); if (!p) return;
-  if (!confirm('確定刪除這則貼文？')) return;
-  p.media.forEach(dropMedia);
-  S.posts = S.posts.filter(x => x !== p);
-  S.activeId = null;
-  save(); renderAll();
+  const auto = willAutoSend(p);
+  if (!confirm(auto ? '確定刪除這則貼文？\n\n它已經排好全自動發送，刪除時會一起取消，不會發出去。' : '確定刪除這則貼文？')) return;
+  const r = await deletePosts([p]);
+  if (r.failed.length) alert('⚠️ 沒有刪除\n\n全自動排程取消失敗（' + r.failed[0].err + '），為了避免時間到還是發出去，先保留這則。請檢查網路後再試一次。');
 };
+// 全自動已經送到伺服器、還沒開始發：刪掉前要先取消，不然時間到還是會發出去
+function willAutoSend(p) {
+  if (!p.serverPost) return false;
+  const sp = serverPosts[p.serverPost], st = sp?.status || p.serverStatus;
+  if (st) return st === 'scheduled' || (st === 'preparing' && (sp?.run_at || 0) > Date.now());
+  return !p.time || new Date(p.time) > new Date();
+}
+async function deletePosts(list) {
+  const failed = [], done = [];
+  for (const p of list) {
+    if (willAutoSend(p)) {
+      try { await apiCall('/api/posts/' + p.serverPost, { method: 'DELETE' }); }
+      catch (e) { if (!/已經開始發送|找不到/.test(e.message)) { failed.push({ p, err: e.message }); continue; } }
+    }
+    p.media.forEach(dropMedia);
+    if (dbOk) DB.del('kv', 'storyOut:' + p.id).catch(() => {});
+    done.push(p);
+  }
+  S.posts = S.posts.filter(x => !done.includes(x));
+  if (!S.posts.some(x => x.id === S.activeId)) S.activeId = null;
+  save(); renderAll();
+  if (done.length) logRemote('trace', `刪除貼文 ${done.length} 則${failed.length ? `，${failed.length} 則取消失敗` : ''}`);
+  return { done, failed };
+}
+
+// ===== 清除貼文：一次勾很多則刪掉（已完成的、沒內容的、測試用的）=====
+let clrSel = null;   // Set(貼文 id)
+function openClear() { clrSel = new Set(); $('#clrModal').classList.add('open'); renderClear(); }
+function renderClear() {
+  const groups = [['⏰ 已排程', p => !listStatus(p).finished && isScheduled(p)], ['⚠️ 未排程', p => !listStatus(p).finished && !isScheduled(p)], ['✅ 已完成', p => listStatus(p).finished]];
+  const quick = [['done', '已完成的', p => listStatus(p).finished], ['empty', '沒有內容的', p => !hasContent(p)], ['un', '未排程的', p => !listStatus(p).finished && !isScheduled(p)], ['all', '全部', () => true]];
+  const n = clrSel.size, autoN = S.posts.filter(p => clrSel.has(p.id) && willAutoSend(p)).length;
+  $('#clrBody').innerHTML = !S.posts.length ? '<p class="empty" style="margin-top:0">沒有貼文。</p>' : `
+    <div class="chips" style="margin-bottom:6px"><span class="hint-s" style="align-self:center">一次勾選：</span>${quick.map(([k, l, f]) => { const c = S.posts.filter(f).length; return `<button class="chip cat" data-clrq="${k}" ${c ? '' : 'disabled'}>${l}（${c}）</button>`; }).join('')}
+      ${n ? '<button class="chip cat" data-clrq="none">清除勾選</button>' : ''}</div>
+    ${groups.map(([title, f]) => { const ps = S.posts.filter(f); return ps.length ? `<div class="pick-label">${title} ${ps.length}</div>${ps.map(p => `<label class="clr-row"><input type="checkbox" data-clr="${p.id}" ${clrSel.has(p.id) ? 'checked' : ''}>
+      <span class="snip">${esc(postSnip(p))}</span><span class="pill ${listStatus(p).cls}">${listStatus(p).text}</span></label>`).join('')}` : ''; }).join('')}
+    ${autoN ? `<p class="phone-note">⚡ 勾選的有 <b>${autoN} 則已經排好全自動發送</b>，刪除時會一起取消，不會發出去。</p>` : ''}
+    <p class="hint-s">只刪除這個網站裡的貼文和檔案；已經發到 IG、Threads、FB、LINE 上的貼文不會被刪掉。</p>
+    <div class="send"><div class="nav"><button class="link" data-close2>關閉</button><button class="primary danger-btn" id="clrGo" ${n ? '' : 'disabled'}>🗑 刪除勾選的 ${n} 則</button></div></div>`;
+  const box = $('#clrBody');
+  box.querySelectorAll('[data-clr]').forEach(c => c.onchange = () => { c.checked ? clrSel.add(c.dataset.clr) : clrSel.delete(c.dataset.clr); renderClear(); });
+  box.querySelectorAll('[data-clrq]').forEach(b => b.onclick = () => {
+    const q = quick.find(x => x[0] === b.dataset.clrq);
+    if (!q) clrSel.clear(); else S.posts.filter(q[2]).forEach(p => clrSel.add(p.id));
+    renderClear();
+  });
+  if (box.querySelector('[data-close2]')) box.querySelector('[data-close2]').onclick = () => $('#clrModal').classList.remove('open');
+  if ($('#clrGo')) $('#clrGo').onclick = async () => {
+    const list = S.posts.filter(p => clrSel.has(p.id));
+    if (!confirm(`確定刪除這 ${list.length} 則貼文？刪掉就救不回來。${autoN ? `\n\n其中 ${autoN} 則已排好的全自動發送會一起取消。` : ''}`)) return;
+    $('#clrGo').disabled = true; $('#clrGo').textContent = '刪除中⋯';
+    const r = await deletePosts(list);
+    clrSel = new Set(r.failed.map(x => x.p.id));
+    renderClear();
+    if (r.failed.length) alert(`已刪除 ${r.done.length} 則。\n\n⚠️ 有 ${r.failed.length} 則全自動排程取消失敗（${r.failed[0].err}），為了避免時間到還是發出去，先保留。請檢查網路後再試一次。`);
+    else { $('#clrModal').classList.remove('open'); toast(`已刪除 ${r.done.length} 則貼文`); }
+  };
+}
 
 // ===== 行事曆提醒（.ics）=====
 function downloadIcs(p) {
@@ -1657,7 +1725,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1025a";
+const APP_VERSION = "v1025c";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4806,12 +4874,12 @@ $('#openIns').onclick = () => openIns();
 async function insLoad(force) {
   const c = insCtx; if (!c?.acc) return;
   const tab = c.tab, acc = c.acc;
-  const cached = tab === 'ins' ? S.insCache?.[acc] : cmCache[acc];
+  const cached = tab !== 'cm' ? S.insCache?.[acc] : cmCache[acc];
   if (cached && !force && Date.now() - cached.at < 10 * 60e3) return;
   c.busy = true; c.err = ''; renderIns();
   try {
-    const data = await apiCall(`/api/${tab === 'ins' ? 'insights' : 'comments'}?account=${encodeURIComponent(acc)}`);
-    if (tab === 'ins') { (S.insCache ||= {})[acc] = { at: Date.now(), data }; save(); } else cmCache[acc] = { at: Date.now(), data };
+    const data = await apiCall(`/api/${tab !== 'cm' ? 'insights' : 'comments'}?account=${encodeURIComponent(acc)}`);
+    if (tab !== 'cm') { (S.insCache ||= {})[acc] = { at: Date.now(), data }; save(); } else cmCache[acc] = { at: Date.now(), data };
     if (insCtx === c && c.acc === acc) c.need = !!data.needScope;
   } catch (e) {
     if (insCtx === c) { c.err = e.message; c.need = e.need === 'scope'; }
@@ -4841,13 +4909,13 @@ function renderIns() {
   let body;
   if (!session || !accs.length) body = `<p class="empty" style="margin-top:0">要先連結 Instagram（創作者或商業帳號）或 Threads 帳號，才看得到成效和留言。</p><button class="primary" id="insLink">連結帳號</button>`;
   else {
-    const need = c.need ? `<div class="need-scope">🔓 <b>要先開啟權限</b>，才看得到${c.tab === 'ins' ? '觸及、觀看、收藏這些數字' : '留言、直接回覆'}。按下面的按鈕會跳到 ${name[acc.platform]} 重新授權一次（已經排好的貼文不受影響）。
+    const need = c.need ? `<div class="need-scope">🔓 <b>要先開啟權限</b>，才看得到${c.tab === 'ins' ? '觸及、觀看、收藏這些數字' : c.tab === 'mg' ? '刪除 Threads 貼文' : '留言、直接回覆'}。按下面的按鈕會跳到 ${name[acc.platform]} 重新授權一次（已經排好的貼文不受影響）。
       <div style="margin-top:8px"><button class="primary" data-more="${acc.platform}">開啟成效和留言</button></div>
       <p class="hint-s" style="margin:6px 0 0">如果 ${name[acc.platform]} 說「權限無效」，代表 Meta 應用程式還沒加這些權限，要先到 Meta 開發者後台加上。</p></div>` : '';
     body = `<div class="chips" style="margin-bottom:10px">${accs.map(a => `<button class="chip ${a.id === c.acc ? 'on' : ''}" data-insacc="${a.id}"><span class="dot" style="background:${a.platform === 'ig' ? '#d6249f' : '#111827'}"></span>${name[a.platform]} @${esc(a.username)}</button>`).join('')}</div>
-      ${need}${c.busy ? '<div class="ai-wait">讀取中⋯</div>' : c.err && !c.need ? `<p class="warn-line">讀不到：${esc(c.err)}</p>` : c.tab === 'ins' ? insHtml(acc) : cmHtml(acc)}`;
+      ${need}${c.busy ? '<div class="ai-wait">讀取中⋯</div>' : c.err && !c.need ? `<p class="warn-line">讀不到：${esc(c.err)}</p>` : c.tab === 'ins' ? insHtml(acc) : c.tab === 'mg' ? mgHtml(acc) : cmHtml(acc)}`;
   }
-  $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button>
+  $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button><button class="chip ${c.tab === 'mg' ? 'on' : ''}" data-instab="mg">🗂 管理已發佈</button>
     <span style="flex:1"></span>${acc && !c.busy ? '<button class="link" id="insRefresh">🔄 重新整理</button>' : ''}</div>${body}`;
   const box = $('#insBody');
   box.querySelectorAll('[data-instab]').forEach(b => b.onclick = () => { c.tab = b.dataset.instab; c.err = ''; c.need = false; renderIns(); insLoad(); });
@@ -4858,7 +4926,7 @@ function renderIns() {
   });
   if ($('#insLink')) $('#insLink').onclick = () => { closeIns(); openAuto(); };
   if ($('#insRefresh')) $('#insRefresh').onclick = () => insLoad(true);
-  if (c.tab === 'ins') insBind(acc); else cmBind(acc);
+  if (c.tab === 'ins') insBind(acc); else if (c.tab === 'mg') mgBind(acc); else cmBind(acc);
 }
 function insHtml(acc) {
   const c = insCtx, d = S.insCache?.[acc.id]?.data;
@@ -4891,6 +4959,48 @@ function insBind(acc) {
   const box = $('#insBody'), c = insCtx;
   box.querySelectorAll('[data-inssort]').forEach(b => b.onclick = () => { c.sort = b.dataset.inssort; renderIns(); });
   box.querySelectorAll('[data-repost]').forEach(b => b.onclick = () => insRepost(S.insCache[acc.id].data.posts.find(x => x.id === b.dataset.repost), b));
+}
+// 管理已發佈的貼文：Threads 可以直接刪；IG 只能跳到 IG 刪（IG 不開放這種連結方式刪除）
+function mgHtml(acc) {
+  const d = S.insCache?.[acc.id]?.data;
+  if (!d) return '';
+  const ps = [...(d.posts || [])].sort((a, b) => b.time - a.time), ig = acc.platform === 'ig', igNo = ig && S.igNoDelete;
+  if (!ps.length) return '<p class="empty">這個帳號還沒有貼文。</p>';
+  return `<p class="hint-s" style="margin-top:0">${ig
+    ? (igNo ? '📱 Instagram 不開放用網站刪除貼文。按「到 IG 刪除」會打開那則貼文，在 IG 裡按右上角「⋯」→「刪除」。' : '按「🗑 刪除」試試看；Instagram 不讓刪的話，會改成打開那則貼文讓你在 IG 裡刪。')
+    : '按「🗑 刪除」會直接從 Threads 刪掉，刪了就救不回來（Threads 規定每天最多刪 100 則）。'}</p>
+    ${ps.map(x => `<div class="ins-post">
+      ${x.thumb ? `<img class="ins-thumb" src="${esc(x.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="ins-thumb">${x.kind === 'text' ? '💬' : '🖼️'}</div>`}
+      <div style="min-width:0">
+        <span class="hint-s">${new Date(x.time).toLocaleString().slice(0, -3)}</span>
+        <div class="snip">${esc(x.text || '（沒有文字）')}</div>
+        <div class="ins-acts">${x.permalink ? `<a href="${esc(x.permalink)}" target="_blank" rel="noopener">${igNo ? '📱 到 IG 刪除' : '打開'}</a>` : ''}
+          ${igNo ? '' : `<button class="link danger" data-mgdel="${x.id}" style="border:1px solid var(--line)">🗑 刪除</button>`}<button data-repost="${x.id}">🔁 再發一次</button></div>
+      </div></div>`).join('')}
+    <p class="hint-s">清單是最近的 24 則；刪掉的貼文在成效報表裡也會拿掉。</p>`;
+}
+function mgBind(acc) {
+  const box = $('#insBody'), c = insCtx, d = S.insCache?.[acc.id]?.data;
+  if (!d) return;
+  box.querySelectorAll('[data-repost]').forEach(b => b.onclick = () => insRepost(d.posts.find(x => x.id === b.dataset.repost), b));
+  box.querySelectorAll('[data-mgdel]').forEach(b => b.onclick = async () => {
+    const x = d.posts.find(y => y.id === b.dataset.mgdel);
+    if (!confirm(`確定從 ${acc.platform === 'ig' ? 'Instagram' : 'Threads'} 刪除這則貼文？\n\n「${(x.text || '（沒有文字）').slice(0, 60)}」\n\n刪了就救不回來。`)) return;
+    b.disabled = true; b.textContent = '刪除中⋯';
+    try {
+      await apiCall(`/api/published?account=${encodeURIComponent(acc.id)}&id=${encodeURIComponent(x.id)}`, { method: 'DELETE' });
+      d.posts = d.posts.filter(y => y !== x); save();
+      logRemote('trace', '刪除已發佈 ' + acc.platform);
+      toast('已刪除');
+    } catch (e) {
+      if (e.need === 'ig_app') {
+        S.igNoDelete = true; save();
+        if (confirm('Instagram 不開放用網站刪除貼文。\n\n要打開這則貼文，在 IG 裡按右上角「⋯」→「刪除」嗎？') && x.permalink) window.open(x.permalink, '_blank', 'noopener');
+      } else if (e.need === 'scope') { c.need = true; }
+      else alert('刪除失敗：' + e.message);
+    }
+    if (insCtx === c) renderIns();
+  });
 }
 async function insRepost(x, btn) {
   btn.disabled = true; btn.textContent = '下載中⋯';
