@@ -1054,7 +1054,7 @@ function renderHome() {
   $('#editor').innerHTML = `<div class="home">
     <div class="home-head"><h2>貼文總覽</h2><button class="primary" id="homeNew">＋ 新增貼文</button></div>
     <div class="home-tabs"><button class="chip ${cal ? '' : 'on'}" data-hview="list">📋 清單</button><button class="chip ${cal ? 'on' : ''}" data-hview="cal">📅 月曆</button>
-      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 管理已發佈</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🗑 清除網站貼文</button></div>
+      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 管理貼文</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🗑 清除網站貼文</button></div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
       <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
     ${cal ? calHtml() : `
@@ -1725,7 +1725,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1025d";
+const APP_VERSION = "v1025e";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4915,7 +4915,7 @@ function renderIns() {
     body = `<div class="chips" style="margin-bottom:10px">${accs.map(a => `<button class="chip ${a.id === c.acc ? 'on' : ''}" data-insacc="${a.id}"><span class="dot" style="background:${a.platform === 'ig' ? '#d6249f' : '#111827'}"></span>${name[a.platform]} @${esc(a.username)}</button>`).join('')}</div>
       ${need}${c.busy ? '<div class="ai-wait">讀取中⋯</div>' : c.err && !c.need ? `<p class="warn-line">讀不到：${esc(c.err)}</p>` : c.tab === 'ins' ? insHtml(acc) : c.tab === 'mg' ? mgHtml(acc) : cmHtml(acc)}`;
   }
-  $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button><button class="chip ${c.tab === 'mg' ? 'on' : ''}" data-instab="mg">🗂 管理已發佈</button>
+  $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button><button class="chip ${c.tab === 'mg' ? 'on' : ''}" data-instab="mg">🗂 管理貼文</button>
     <span style="flex:1"></span>${acc && !c.busy ? '<button class="link" id="insRefresh">🔄 重新整理</button>' : ''}</div>${body}`;
   const box = $('#insBody');
   box.querySelectorAll('[data-instab]').forEach(b => b.onclick = () => { c.tab = b.dataset.instab; c.err = ''; c.need = false; renderIns(); insLoad(); });
@@ -4960,7 +4960,7 @@ function insBind(acc) {
   box.querySelectorAll('[data-inssort]').forEach(b => b.onclick = () => { c.sort = b.dataset.inssort; renderIns(); });
   box.querySelectorAll('[data-repost]').forEach(b => b.onclick = () => insRepost(S.insCache[acc.id].data.posts.find(x => x.id === b.dataset.repost), b));
 }
-// 管理已發佈的貼文：Threads 可以直接刪；IG 只能跳到 IG 刪（IG 不開放這種連結方式刪除）
+// 管理貼文（已發佈的）：Threads 可以直接刪；IG 只能跳到 IG 刪（IG 不開放這種連結方式刪除）
 function mgHtml(acc) {
   const d = S.insCache?.[acc.id]?.data;
   if (!d) return '';
