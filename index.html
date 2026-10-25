@@ -1725,7 +1725,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1025c";
+const APP_VERSION = "v1025d";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5041,8 +5041,12 @@ function cmHtml(acc) {
   if (!d) return '';
   const all = d.items || [], ask = all.filter(x => ASK_RE.test(x.text)), un = all.filter(x => !x.replied);
   const list = c.filter === 'ask' ? ask : c.filter === 'un' ? un : all, quick = S.quickReplies || QUICK_DEF;
-  if (!all.length) return '<p class="empty">最近的貼文還沒有留言。</p>';
-  return `<div class="chips" style="margin-bottom:6px"><button class="chip ${c.filter === 'all' ? 'on' : ''}" data-cmf="all">全部 ${all.length}</button><button class="chip ${c.filter === 'ask' ? 'on' : ''}" data-cmf="ask">❓ 詢問 ${ask.length}</button><button class="chip ${c.filter === 'un' ? 'on' : ''}" data-cmf="un">還沒回 ${un.length}</button></div>
+  const hid = d.hidden || [], hn = hid.reduce((s, x) => s + x.count, 0);
+  // IG 說有留言、卻不給內容：應用程式還在「開發模式」，沒加成測試人員的人留的言 Meta 不給外部程式看
+  const hidHtml = hid.length ? `<div class="need-scope">💬 <b>還有 ${hn} 則留言這裡看不到</b>：Meta 規定應用程式還在「開發模式」時，只給看測試人員留的言。可以直接打開貼文到 ${acc.platform === 'ig' ? 'IG' : 'Threads'} 回覆：
+    ${hid.map(x => `<div class="hol-row"><b>${esc(x.text || '（沒有文字）')}</b><span class="pill ask">${x.count} 則</span>${x.permalink ? `<a href="${esc(x.permalink)}" target="_blank" rel="noopener" style="white-space:nowrap">打開回覆 ↗</a>` : ''}</div>`).join('')}</div>` : '';
+  if (!all.length) return hidHtml || '<p class="empty">最近的貼文還沒有留言。</p>';
+  return hidHtml + `<div class="chips" style="margin-bottom:6px"><button class="chip ${c.filter === 'all' ? 'on' : ''}" data-cmf="all">全部 ${all.length}</button><button class="chip ${c.filter === 'ask' ? 'on' : ''}" data-cmf="ask">❓ 詢問 ${ask.length}</button><button class="chip ${c.filter === 'un' ? 'on' : ''}" data-cmf="un">還沒回 ${un.length}</button></div>
     ${list.map(x => `<div class="cm-item">
       <div class="cm-who"><b>@${esc(x.username)}</b><small>${agoFmt(x.time)}</small>${ASK_RE.test(x.text) ? '<span class="pill ask">❓ 詢問</span>' : ''}${x.replied ? '<span class="pill done">已回覆</span>' : ''}</div>
       <div class="cm-text">${esc(x.text)}</div>
