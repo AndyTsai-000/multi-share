@@ -56,7 +56,7 @@ aside .new { width: 100%; }
 .home-link { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .home { max-width: 760px; }
 .home-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.home-head h2 { margin: 0; font-size: 18px; }
+.home-head h2 { margin: 0; font-size: 18px; white-space: nowrap; }
 .home-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 10px 2px; }
 .home-item:first-of-type { border-top: 0; }
 .home-line { display: flex; align-items: center; border-top: 1px solid var(--line); }
@@ -67,6 +67,25 @@ aside .new { width: 100%; }
 .home-ok { border-color: #22c55e; background: rgba(34, 197, 94, .1); }
 .se-busy { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--soft); color: var(--soft-ink); font-weight: 600; text-align: center; }
 .step-nav.bare { border-top: 0; margin-top: 0; padding-top: 0; }
+.side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
+.side-tools button { font-size: 13px; padding: 7px 4px; }
+.per-text { margin-top: 10px; }
+.per-text textarea { min-height: 90px; margin-top: 8px; }
+.per-text .chip.has::after { content: '●'; color: var(--accent); margin-left: 5px; font-size: 9px; }
+.ai-ver .ai-style { display: block; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.idea-card { display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 10px; }
+.idea-card textarea { min-height: 62px; }
+.idea-card .idea-body { flex: 1; min-width: 0; }
+.idea-card .row { justify-content: space-between; margin-top: 6px; flex-wrap: wrap; gap: 6px; }
+.idea-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bk-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 190px; overflow: auto; }
+.bk-thumb { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: var(--hint); flex: none; }
+.bk-thumb img, .bk-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bk-thumb button { position: absolute; right: 2px; top: 2px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.65); color: #fff; font-size: 11px; line-height: 20px; }
+.bk-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 10px; }
+.bk-card .bk-thumbs { margin: 8px 0; }
+.bk-card textarea { min-height: 84px; }
+.bk-plan { margin: 10px 0 0; font-size: 13px; color: var(--sub); line-height: 1.8; }
 .post-item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; border: 1px solid transparent; background: none; padding: 9px 10px; margin-bottom: 4px; border-radius: 10px; }
 .post-item:hover { background: var(--bg); border-color: transparent; }
 .post-item.active { background: var(--soft); border-color: var(--soft-line); }
@@ -424,9 +443,11 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   aside { border-right: 0; border-bottom: 1px solid var(--line); }
   /* 手機：清單和設定按鈕收起來，按「☰ 清單」才打開（蓋住整個畫面） */
-  aside .posts, aside footer, aside .post-search { display: none !important; }
+  aside .posts, aside footer, aside .post-search, aside .side-tools { display: none !important; }
   aside.open { position: fixed; inset: 0; z-index: 9; }
   aside.open .posts { display: block !important; }
+  aside.open .side-tools { display: grid !important; }
+  #homeNew { display: none; }
   aside.open footer { display: grid !important; }
   aside.open .post-search:not([hidden]) { display: block !important; }
   .menu-btn { display: inline-block !important; }
@@ -458,6 +479,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
       <button class="menu-btn" id="menuBtn" title="貼文清單和設定">☰ 清單</button>
       <button class="primary new" id="newPost">＋ 新增貼文</button>
     </header>
+    <div class="side-tools"><button id="openIdeas">💡 靈感暫存</button><button id="openBk">📦 一次排多則</button></div>
     <input class="post-search" id="postSearch" type="search" placeholder="🔎 搜尋貼文" hidden>
     <div class="posts" id="postList"></div>
     <footer>
@@ -512,6 +534,18 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 <div class="modal-bg" id="aiModal"><div class="modal">
   <h3>✨ AI 幫我寫文案 <button class="link" data-close>關閉</button></h3>
   <div id="aiBody"></div>
+</div></div>
+
+<div class="modal-bg" id="ideaModal"><div class="modal">
+  <h3>💡 靈感暫存區 <button class="link" data-close>關閉</button></h3>
+  <div id="ideaBody"></div>
+  <input type="file" id="ideaFile" multiple accept="image/*,video/*" hidden>
+</div></div>
+
+<div class="modal-bg" id="bkModal"><div class="modal" style="width:min(680px,100%)">
+  <h3>📦 一次排多則 <button class="link" data-close>關閉</button></h3>
+  <div id="bkBody"></div>
+  <input type="file" id="bkFile" multiple accept="image/*,video/*" hidden>
 </div></div>
 
 <div class="modal-bg" id="fsModal"><div class="modal" style="width:min(820px,100%)">
@@ -649,6 +683,7 @@ const PLATFORMS = [
   { id: 'x', label: 'X', color: '#0f1419', types: { x: '貼文' } },
   { id: 'other', label: '其他', color: '#64748b', types: { other: '自訂網址' } },
 ];
+const PER_TEXT = [['ig', 'Instagram'], ['threads', 'Threads'], ['fb', 'Facebook'], ['line', 'LINE'], ['x', 'X']];
 const platformOf = type => PLATFORMS.find(pl => type in pl.types);
 const platformIndex = type => PLATFORMS.findIndex(pl => type in pl.types);
 const byPlatform = list => [...list].sort((a, b) => platformIndex(a.type) - platformIndex(b.type));
@@ -769,8 +804,11 @@ function postStatus(p) {
   if (p.time && new Date(p.time) <= new Date()) return { cls: 'due', text: n ? `已發 ${n}/${ts.length}` : '時間到了' };
   return { cls: p.time || n ? '' : 'unsched', text: n ? `已發 ${n}/${ts.length}` : (p.time ? '⏰ 已排程' : '未排程') };
 }
-function fullText(p) { return [p.text.trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
-const hasContent = p => !!(fullText(p) || p.media.length);
+// pl：平台（ig、threads、fb、line、x）。那個平台有專用文字就用它，沒有就用共同的文字
+function fullText(p, pl) { return [(pl && p.texts?.[pl]?.trim()) || p.text.trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
+const ownTexts = p => PER_TEXT.filter(([id]) => p.texts?.[id]?.trim());
+const hasContent = p => !!(fullText(p) || p.media.length || ownTexts(p).length);
+const textOf = (p, type) => fullText(p, platformOf(type)?.id);
 // 純文字限動、拼貼做出來的圖只給限動用；貼文、LINE、FB 用 postMedia
 const postMedia = p => p.media.filter(m => !m.storyOnly);
 // 已排程：全自動已送到伺服器，或半自動設了時間（時間到會提醒）
@@ -778,6 +816,7 @@ const isScheduled = p => !!p.serverPost || (p.mode !== 'auto' && !!p.time);
 
 // ===== 左側列表 =====
 function renderList() {
+  $('#openIdeas').textContent = '💡 靈感暫存' + ((S.ideas || []).length ? `（${S.ideas.length}）` : '');
   const now = Date.now(), q = ($('#postSearch')?.value || '').trim().toLowerCase();
   $('#postSearch').hidden = S.posts.length < 7 && !q;
   const sorted = [...S.posts].filter(p => !q || (postSnip(p) + ' ' + p.text).toLowerCase().includes(q)).sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
@@ -815,12 +854,16 @@ async function ltDraw(m) {
   const c = document.createElement('canvas'); c.width = c.height = 96;
   const paint = (src, w, h) => { const k = 96 / Math.min(w, h); c.getContext('2d').drawImage(src, (96 - w * k) / 2, (96 - h * k) / 2, w * k, h * k); return c.toDataURL('image/jpeg', .7); };
   if (!isVideo(m)) { const bmp = await createImageBitmap(b), out = paint(bmp, bmp.width, bmp.height); bmp.close(); return out; }
+  return withVideoFrame(b, (v, w, h) => paint(v, w, h));
+}
+// 跳到影片開頭約 0.5 秒，畫面出來後交給 fn(video, 寬, 高)
+async function withVideoFrame(b, fn) {
   const u = URL.createObjectURL(b), v = document.createElement('video');
   v.muted = true; v.playsInline = true; v.preload = 'auto';
   try {
     await new Promise((ok, no) => { const t = setTimeout(() => no(new Error('timeout')), 8000); v.onloadeddata = () => { v.onseeked = () => { clearTimeout(t); ok(); }; v.currentTime = Math.min(.5, (v.duration || 0) / 2); }; v.onerror = () => { clearTimeout(t); no(new Error('video')); }; v.src = u; });
     await new Promise(r => setTimeout(r, 300));   // 跳到該秒後等畫面真的出來
-    return v.videoWidth ? paint(v, v.videoWidth, v.videoHeight) : '';
+    return v.videoWidth ? fn(v, v.videoWidth, v.videoHeight) : '';
   } finally { v.removeAttribute('src'); v.load(); URL.revokeObjectURL(u); }
 }
 $('#postSearch').oninput = () => renderList();
@@ -919,13 +962,32 @@ function settingsHtml(p) {
     if (postMedia(p).length > 20) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 20 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">🎨 編輯貼文（照片、標註、協作者、地點）${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
-    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p)].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
+    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p, 'threads')].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
     if (opts.some(isStory) && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">IG 限動要有圖片、影片，或在第 1 步做一張純文字限動</p>');
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
   return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
+}
+function perTextHtml(p) {
+  if (!p.perOpen && !ownTexts(p).length) return `<button class="link" id="perOpen" style="color:var(--accent);padding:0">✏️ 各平台用不同文字</button>`;
+  const cur = p.perTab || 'ig', v = p.texts?.[cur] || '';
+  return `<div class="hint-s" style="margin-bottom:6px">有寫的平台用專用文字；留空就用上面的文字。連結一樣接在最後面。</div>
+    <div class="chips">${PER_TEXT.map(([id, label]) => `<button class="chip ${id === cur ? 'on' : ''} ${p.texts?.[id]?.trim() ? 'has' : ''}" data-pertab="${id}">${label}</button>`).join('')}</div>
+    <textarea id="perTextArea" placeholder="${esc(PER_TEXT.find(x => x[0] === cur)[1])} 專用文字（留空＝用上面的文字）">${esc(v)}</textarea>
+    <div class="hint-s" id="perCount">${perCount(p)}</div>`;
+}
+const perCount = p => { const c = p.perTab || 'ig', n = [...(p.texts?.[c] || '')].length, max = c === 'threads' ? 500 : c === 'ig' ? 2200 : 0; return max ? `<span class="${n > max ? 'warn-line' : ''}" style="margin:0">${n}／${max} 字</span>` : ''; };
+function bindPerText(p) {
+  const box = $('#perText'); if (!box) return;
+  if ($('#perOpen')) $('#perOpen').onclick = () => { p.perOpen = true; save(); box.innerHTML = perTextHtml(p); bindPerText(p); $('#perTextArea').focus(); };
+  box.querySelectorAll('[data-pertab]').forEach(b => b.onclick = () => { p.perOpen = true; p.perTab = b.dataset.pertab; save(); box.innerHTML = perTextHtml(p); bindPerText(p); });
+  if ($('#perTextArea')) $('#perTextArea').oninput = e => {
+    const c = p.perTab || 'ig'; p.texts ||= {}; p.texts[c] = e.target.value; p.perOpen = true; save();
+    box.querySelector(`[data-pertab="${c}"]`).classList.toggle('has', !!e.target.value.trim());
+    $('#perCount').innerHTML = perCount(p); renderBar(); refreshStepper(p); renderEditorSettings(p);
+  };
 }
 function renderEditor() {
   const p = active(), ed = $('#editor');
@@ -938,8 +1000,9 @@ function renderEditor() {
   if (p.step === 1) body = `
   <div class="card">
     <h2>文字</h2>
-    <div class="text-head"><label class="field" for="text">要發的文字</label><span class="row" style="gap:6px"><button class="ai-btn" id="tagOpen"># 標籤組</button><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></span></div>
+    <div class="text-head"><label class="field" for="text">要發的文字</label><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ai-btn" id="tagOpen"># 標籤組</button><button class="ai-btn" id="aiLook" hidden>📷 AI 看圖寫</button><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></span></div>
     <textarea id="text" placeholder="要發的文字⋯">${esc(p.text)}</textarea>
+    <div class="per-text" id="perText">${perTextHtml(p)}</div>
     <label class="field" for="link" style="margin-top:12px">連結（會接在文字最後面）</label>
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
   </div>
@@ -963,6 +1026,7 @@ function renderEditor() {
   <div class="card"><h2>⚡ 自動發狀態</h2><div id="autoStatus">${autoStatusHtml(p)}</div></div>
   <div class="card"><h2>內容</h2>
     ${fullText(p) ? `<div class="preview" style="margin:0">${esc(fullText(p))}</div>` : ''}
+    ${ownTexts(p).map(([id, label]) => `<p class="hint-s" style="margin:8px 0 2px">${label} 專用文字</p><div class="preview" style="margin:0">${esc(p.texts[id])}</div>`).join('')}
     ${p.media.length ? `<p class="hint-s" style="margin:8px 0 0">${esc(contentSummary(p))}</p>` : ''}</div>`;
   else body = `
   <div class="card">
@@ -1033,6 +1097,8 @@ function renderEditor() {
     renderThumbs();
     $('#aiOpen').onclick = () => openAi(p);
     $('#tagOpen').onclick = () => openTags(p);
+    $('#aiLook').onclick = () => openAi(p, true);
+    bindPerText(p);
     $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     const drop = $('#drop'), file = $('#file');
@@ -1114,7 +1180,7 @@ function renderHome() {
   if (lrDone) { lr.title = '✅ 已發布'; lr.text = lr.text.replace(/^.*?(會自動發到|會發到)：/, '已經發到：'); }
   const cal = S.homeView === 'cal', hols = upcomingHolidays();
   $('#editor').innerHTML = `<div class="home">
-    <div class="home-head"><h2>貼文總覽</h2><button class="primary" id="homeNew">＋ 新增貼文</button></div>
+    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="homeIdeas">💡 靈感${(S.ideas || []).length ? `（${S.ideas.length}）` : ''}</button><button id="homeBk">📦 一次排多則</button><button class="primary" id="homeNew">＋ 新增貼文</button></span></div>
     <div class="home-tabs"><button class="chip ${cal ? '' : 'on'}" data-hview="list">📋 清單</button><button class="chip ${cal ? 'on' : ''}" data-hview="cal">📅 月曆</button>
       <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 管理貼文</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🗑 清除網站貼文</button></div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
@@ -1127,6 +1193,8 @@ function renderHome() {
     ${recent.length ? `<div class="card"><h2>✅ 最近發布 <small>最近 ${recent.length} 則</small></h2>${recent.map(p => item(p, true)).join('')}</div>` : ''}`}
   </div>`;
   $('#homeNew').onclick = () => newPost();
+  $('#homeIdeas').onclick = openIdeas;
+  $('#homeBk').onclick = openBk;
   if ($('#homeOkClose')) $('#homeOkClose').onclick = () => { S.lastResult = null; save(); renderHome(); };
   const ed = $('#editor');
   ed.querySelectorAll('[data-home]').forEach(b => b.onclick = () => { S.activeId = b.dataset.home; save(); renderAll(); });
@@ -1171,6 +1239,7 @@ function bindSettings(p) {
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
+  if ($('#aiLook')) $('#aiLook').hidden = !aiCover(p);
   box.innerHTML = p.media.map((m, i) => `<div class="thumb" data-i="${i}">
     <span class="tag">${m.storyOnly ? (m.textOnly ? '純文字限動' : '限動拼貼') : isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
     <button class="x" data-i="${i}" title="移除">✕</button></div>`).join('');
@@ -1211,7 +1280,7 @@ function renderBar() {
   if (p) $('#barNext').disabled = !hasContent(p);
   if (!p) { btn.hidden = true; $('#autoSend').hidden = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
   const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
-  const empty = !fullText(p) && !p.media.length;
+  const empty = !hasContent(p);
   const lineLeft = lineTargets(p).filter(t => !p.done?.[t.id]).length;
   $('#lineBatch').hidden = !(lineLeft >= 2 && !empty);
   $('#lineBatch').textContent = `LINE 分批（${lineLeft}）`;
@@ -1506,7 +1575,7 @@ function bookmarkletHref() { return 'javascript:' + encodeURIComponent(`(${fbImp
 // ===== 備份／搬資料 =====
 $('#openBackup').onclick = () => $('#backupModal').classList.add('open');
 $('#exportBtn').onclick = () => {
-  const data = { app: 'multi-share', version: 1, targets: S.targets, posts: S.posts.map(p => ({ ...p, media: [] })) };
+  const data = { app: 'multi-share', version: 1, targets: S.targets, posts: S.posts.map(p => ({ ...p, media: [] })), ideas: (S.ideas || []).map(x => ({ ...x, media: [] })) };
   const d = new Date(), pad = n => String(n).padStart(2, '0');
   saveFile(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `社群管家備份-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`);
 };
@@ -1524,9 +1593,10 @@ $('#importFile').onchange = async e => {
     }
     for (const p of data.posts || []) {
       if (S.posts.some(x => x.id === p.id)) continue;
-      S.posts.push({ id: p.id || uid(), text: String(p.text || ''), link: String(p.link || ''), media: [], time: p.time || null,
+      S.posts.push({ id: p.id || uid(), text: String(p.text || ''), ...(p.texts ? { texts: p.texts } : {}), link: String(p.link || ''), media: [], time: p.time || null,
         targets: (p.targets || []).filter(id => S.targets.some(t => t.id === id)), done: p.done || {}, reminded: !!p.reminded }); np++;
     }
+    for (const x of data.ideas || []) { S.ideas ||= []; if (!S.ideas.some(y => y.id === x.id)) S.ideas.push({ id: x.id || uid(), text: String(x.text || ''), media: [], at: x.at || Date.now() }); }
     if (!active()) S.activeId = S.posts[S.posts.length - 1]?.id || null;
     save(); renderAll();
     $('#backupModal').classList.remove('open');
@@ -1571,8 +1641,8 @@ function prepareShare(p, story) {
   if (!shareCache[key]) { shareCache[key] = { files: null }; mediaFiles(p, story).then(f => shareCache[key].files = f); }
   return shareCache[key];
 }
-async function shareMedia(p, withText = true, story = false) {
-  const files = prepareShare(p, story).files, text = fullText(p);
+async function shareMedia(p, withText = true, story = false, type = '') {
+  const files = prepareShare(p, story).files, text = type ? textOf(p, type) : fullText(p);
   if (!files) { toast('檔案準備中，請再按一次'); return; }
   const data = files.length ? { files } : {};
   if (withText && text) data.text = text;
@@ -1606,7 +1676,7 @@ function renderSend() {
   }
   const t = list[i], ty = TYPES[t.type];
   const tMedia = /story$/.test(t.type) ? p.media : postMedia(p);
-  const text = fullText(p), hasMedia = tMedia.length > 0;
+  const text = textOf(p, t.type), hasMedia = tMedia.length > 0;
   const url = ty.open(text, p.link.trim(), t);
   const shareOk = IS_MOBILE && hasMedia && typeof navigator.share === 'function';
   const isStoryT = /story$/.test(t.type);
@@ -1644,7 +1714,7 @@ function renderSend() {
   $('#sStop').onclick = closeSend;
 }
 async function doAct(act, t, btn) {
-  const p = send.post, ty = TYPES[t.type], text = fullText(p);
+  const p = send.post, ty = TYPES[t.type], text = textOf(p, t.type);
   try {
     if (act === 'open') {
       const url = ty.open(text, p.link.trim(), t);
@@ -1658,7 +1728,7 @@ async function doAct(act, t, btn) {
       await navigator.clipboard.writeText(text);
       toast('文字已複製');
     } else if (act === 'share') {
-      await shareMedia(p, t.type !== 'ig' && t.type !== 'igstory', /story$/.test(t.type));
+      await shareMedia(p, t.type !== 'ig' && t.type !== 'igstory', /story$/.test(t.type), t.type);
       if (text) toast('文字也複製好了，需要時長按貼上');
     } else if (act === 'copyimg') {
       await copyImage(postMedia(p).find(m => !isVideo(m)));
@@ -1756,10 +1826,10 @@ function renderBatch() {
   });
   box.querySelector('[data-b]').onclick = async ev => {
     try {
-      if (ev.currentTarget.dataset.b === 'share') await shareMedia(p);
+      if (ev.currentTarget.dataset.b === 'share') await shareMedia(p, true, false, 'line');
       else {
-        const copy = fullText(p) ? navigator.clipboard.writeText(fullText(p)).catch(() => {}) : null;
-        window.open(TYPES.line.open(fullText(p), p.link.trim()), '_blank');
+        const lt = textOf(p, 'line'), copy = lt ? navigator.clipboard.writeText(lt).catch(() => {}) : null;
+        window.open(TYPES.line.open(lt, p.link.trim()), '_blank');
         await copy;
       }
     } catch (e) { if (e?.name !== 'AbortError') toast('失敗：' + (e?.message || e)); }
@@ -1791,7 +1861,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1026b";
+const APP_VERSION = "v1101a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1879,10 +1949,9 @@ async function submitAuto(p) {
   const opts = autoSelected(p);
   logRemote('trace', `按自動發 對象=${opts.map(o => o.label).join('+')} 檔案=${mediaInfo(p)} 時間=${p.time || '現在'}`);
   if (!opts.length) return;
-  const text = fullText(p);
   if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) { toast('IG 貼文一定要有圖片或影片'); logRemote('trace', '擋下：IG 貼文沒有圖'); return alert('⚠️ 還沒送出\n\nIG 貼文一定要有圖片或影片（純文字限動、拼貼只給限動用）'); }
   if (opts.some(isStory) && !p.media.length) { toast('IG 限動要有圖片或影片'); return alert('⚠️ 還沒送出\n\nIG 限動要有圖片、影片，或先做一張純文字限動'); }
-  if (opts.some(o => o.platform === 'threads') && [...text].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
+  if (opts.some(o => o.platform === 'threads') && [...fullText(p, 'threads')].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
   if (postMedia(p).length > 20) { toast('自動發最多 20 個圖片影片'); logRemote('trace', '擋下：超過 20 個'); return alert('⚠️ 還沒送出\n\n自動發貼文最多 20 個圖片影片'); }
   if (opts.some(isStory) && p.media.length > 10) { toast('限動一次最多 10 則'); return alert('⚠️ 還沒送出\n\n限動一次最多 10 則'); }
   // 有 IG 貼文：先看貼文預覽；有 IG 限動：再編輯、確認限動畫面；都確認了才送出
@@ -1907,7 +1976,8 @@ function videoType(m, blob) {
   return /quicktime/.test(m.type) ? 'video/quicktime' : 'video/mp4';
 }
 // storyBlobs：限動用的檔案（已經畫上文字貼圖），和 p.media 一一對應
-async function sendAuto(p, opts, storyBlobs, onMsg) {
+// quiet：一次排多則用，不跳回主畫面、失敗丟給呼叫的人處理
+async function sendAuto(p, opts, storyBlobs, onMsg, quiet = false) {
   const text = fullText(p), late = p.time && new Date(p.time) < Date.now(), when = autoWhen(p);
   const btn = $('#autoSend');
   btn.disabled = true;
@@ -1932,14 +2002,16 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
     }
     btn.textContent = '送出中⋯'; onMsg?.('送出中⋯');
     const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
+    const ownText = o => !isStory(o) && p.texts?.[o.platform]?.trim() ? { text: fullText(p, o.platform) } : {};
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
-      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ig: { ...igPayload(p), ...peIgExtra(p) } } : { account: o.account, kind: o.kind });
+      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...ownText(o), ig: { ...igPayload(p), ...peIgExtra(p) } } : { account: o.account, kind: o.kind, ...ownText(o) });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
     logRemote('trace', '送出成功 ' + r.id);
     serverPosts[r.id] = { status: 'scheduled', run_at: r.run_at, targets: opts.map(o => ({ account: o.account, kind: o.kind })), jobs: [] };
     setTimeout(refreshServerPosts, 8000);
+    if (quiet) { btn.disabled = false; return true; }
     const where = opts.map(o => `${o.label} @${o.username}`).join('、');
     S.lastResult = { at: Date.now(), postId: p.id, title: when === '現在' ? '✅ 已送出' : '✅ 排程成功',
       text: when === '現在' ? `大約 1～2 分鐘內會發到：${where}` : `${fmtTime(p.time)} 會自動發到：${where}` };
@@ -1947,6 +2019,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg) {
     return true;
   } catch (e) {
     logRemote('sendAuto', e.message);
+    if (quiet) { btn.disabled = false; throw e; }
     renderAll();
     alert('⚠️ 自動發沒有送出\n\n原因：' + e.message + '\n\n請照上面的說明處理後，再按一次「排程自動發」。');
     return false;
@@ -3333,7 +3406,7 @@ async function renderPostPreview() {
   const ctx = ppCtx; if (!ctx) return;
   const { p, opts } = ctx, pm = postMedia(p), o = igOpts(p), who = ppWho(p, opts);
   ctx.i = Math.min(ctx.i, pm.length - 1);
-  const cap = fullText(p), tags = ppTags(cap), ats = ppAts(cap), len = [...cap].length;
+  const cap = fullText(p, 'ig'), tags = ppTags(cap), ats = ppAts(cap), len = [...cap].length;
   const place = (S.places || []).find(x => x.id === o.location)?.name || '';
   const collab = o.collaborators || [], tagged = Object.values(o.tags || {}).some(l => l.length);
   const r = await peRatio(p);
@@ -3420,7 +3493,8 @@ async function renderPostPreview() {
 
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
-const AI_TONES = [['warm', '輕鬆生活'], ['pro', '專業質感'], ['promo', '促銷活動']];
+const AI_TONES = [['all', '🎨 3 種風格都寫'], ['warm', '輕鬆生活'], ['pro', '專業質感'], ['promo', '促銷活動']];
+const AI_STYLE_NAMES = ['輕鬆生活', '專業質感', '促銷活動'];
 const AI_PLACES = [['ig', 'IG／Threads'], ['fb', 'Facebook'], ['line', 'LINE']];
 function aiDefaultPlace(p) {
   if (p.mode === 'auto') return 'ig';
@@ -3428,16 +3502,20 @@ function aiDefaultPlace(p) {
   return t === 'line' ? 'line' : t.startsWith('fb') ? 'fb' : 'ig';
 }
 let aiCtx = null;
-function openAi(p) {
-  p.ai ||= { topic: '', tone: 'warm', place: aiDefaultPlace(p), photo: true };
-  aiCtx = { p, versions: [], busy: false };
+// look：按「AI 看圖寫」：不用打字，直接看圖寫 3 種風格
+function openAi(p, look = false) {
+  p.ai ||= { topic: '', tone: 'all', place: aiDefaultPlace(p), photo: true };
+  if (look) { p.ai.tone = 'all'; p.ai.photo = true; }
+  aiCtx = { p, versions: [], busy: false, styles: false };
   renderAi();
   $('#aiModal').classList.add('open');
-  setTimeout(() => $('#aiTopic')?.focus(), 50);
+  if (look) aiGenerate(); else setTimeout(() => $('#aiTopic')?.focus(), 50);
 }
 const aiPhoto = p => p.media.find(m => !isVideo(m));
+// 給 AI 看的畫面：優先貼文的第一張照片，沒照片就用影片畫面
+const aiCover = p => postMedia(p).find(m => !isVideo(m)) || postMedia(p)[0] || p.media[0];
 function renderAi() {
-  const { p, versions, busy } = aiCtx, a = p.ai, ph = aiPhoto(p);
+  const { p, versions, busy, styles } = aiCtx, a = p.ai, ph = aiCover(p);
   const chips = (list, cur, key) => list.map(([v, label]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${label}</button>`).join('');
   $('#aiBody').innerHTML = `
     <label class="field" for="aiTopic">想寫什麼？隨手打幾個重點（有照片的話可以不打，AI 看圖寫）</label>
@@ -3446,12 +3524,12 @@ function renderAi() {
     <div class="chips">${chips(AI_TONES, a.tone, 'tone')}</div>
     <label class="field" style="margin-top:12px">要發在哪裡（長短和寫法會不一樣）</label>
     <div class="chips">${chips(AI_PLACES, a.place, 'place')}</div>
-    ${ph ? `<label class="row" style="margin-top:12px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="aiPhoto" style="width:auto" ${a.photo ? 'checked' : ''}> 讓 AI 看第一張照片，依照片內容來寫</label>` : ''}
+    ${ph ? `<label class="row" style="margin-top:12px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="aiPhoto" style="width:auto" ${a.photo ? 'checked' : ''}> 讓 AI 看${isVideo(ph) ? '影片畫面' : '第一張照片'}，依內容來寫</label>` : ''}
     <label class="field" for="aiBrand" style="margin-top:12px">固定放在文末的資訊（選填，例如店名、電話；不需要就留空）</label>
     <input id="aiBrand" placeholder="例如：○○工作室｜04-1234-5678｜LINE ID：abc" value="${esc(S.brand || '')}">
-    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="aiGo" ${busy ? 'disabled' : ''}>${versions.length ? '🔄 再寫 3 個' : '✨ 寫 3 個版本'}</button></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="aiGo" ${busy ? 'disabled' : ''}>${versions.length ? '🔄 再寫 3 個' : a.tone === 'all' ? '✨ 寫 3 種風格' : '✨ 寫 3 個版本'}</button></div>
     ${busy ? `<div class="ai-wait">AI 寫作中，大約 10～20 秒⋯</div>` : ''}
-    ${versions.length && !busy ? `<div class="ai-vers">${versions.map((v, i) => `<div class="ai-ver">${esc(v)}<div class="row"><button class="primary" data-use="${i}">用這個</button></div></div>`).join('')}</div>
+    ${versions.length && !busy ? `<div class="ai-vers">${versions.map((v, i) => `<div class="ai-ver">${styles && AI_STYLE_NAMES[i] ? `<span class="ai-style">${AI_STYLE_NAMES[i]}</span>` : ''}${esc(v)}<div class="row"><button class="primary" data-use="${i}">用這個</button></div></div>`).join('')}</div>
       <p class="hint-s">AI 寫的內容請看過再發，價格、日期這些資訊要再確認一次。</p>` : ''}`;
   $('#aiTopic').oninput = e => { a.topic = e.target.value; save(); };
   $('#aiBrand').oninput = e => { S.brand = e.target.value; save(); };
@@ -3460,7 +3538,8 @@ function renderAi() {
   $('#aiBody').querySelectorAll('[data-place]').forEach(b => b.onclick = () => { a.place = b.dataset.place; save(); renderAi(); });
   $('#aiGo').onclick = aiGenerate;
   $('#aiBody').querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
-    p.text = versions[+b.dataset.use]; save();
+    if (ppCtx && p.texts?.ig?.trim()) p.texts.ig = versions[+b.dataset.use]; else p.text = versions[+b.dataset.use];
+    save();
     $('#aiModal').classList.remove('open');
     renderEditor(); renderList(); renderBar();
     toast(ppCtx ? '已放進說明文字' : '已放進文字框，可以再自己修改');
@@ -3469,20 +3548,27 @@ function renderAi() {
 // 照片縮小成 768px 的 JPEG 給 AI 看（省流量、AI 也看得夠清楚）
 async function aiImage(m) {
   const blob = await mediaBlob(m);
-  return blob ? shrinkImage(blob, 768, 0.8) : '';
+  if (!blob) return '';
+  if (!isVideo(m)) return shrinkImage(blob, 768, 0.8);
+  return withVideoFrame(blob, (v, w, h) => {
+    const k = Math.min(1, 768 / Math.max(w, h)), c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.8);
+  });
 }
 async function aiGenerate() {
-  const ctx = aiCtx, { p } = ctx, a = p.ai, ph = aiPhoto(p);
+  const ctx = aiCtx, { p } = ctx, a = p.ai, ph = aiCover(p);
   const useImg = ph && a.photo;
   if (!a.topic.trim() && !useImg) return toast('先打幾個重點，或放一張照片');
   ctx.busy = true; renderAi();
   try {
     const image = useImg ? await aiImage(ph).catch(() => '') : '';
     const r = await fetch(API + '/ai/caption', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic: a.topic, tone: a.tone, place: a.place, brand: S.brand || '', draft: p.text, image }) });
+      body: JSON.stringify({ topic: a.topic, tone: a.tone, styles: a.tone === 'all', place: a.place, brand: S.brand || '', draft: p.text, image }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
-    ctx.versions = j.versions;
+    ctx.versions = j.versions; ctx.styles = a.tone === 'all';
   } catch (e) {
     toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message);
   }
@@ -4838,7 +4924,7 @@ function calWhen(p) {
   if (p.publishedAt) return new Date(p.publishedAt);
   return null;
 }
-const postSnip = p => (p.label ? p.label + '｜' : '') + (p.text.trim().split('\n')[0] || p.link || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'));
+const postSnip = p => (p.label ? p.label + '｜' : '') + (p.text.trim().split('\n')[0] || p.link || ownTexts(p).map(([id]) => p.texts[id].trim().split('\n')[0])[0] || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'));
 function calHtml() {
   const base = S.calMonth ? new Date(S.calMonth + '-01T00:00') : new Date(), y = base.getFullYear(), mo = base.getMonth();
   const first = new Date(y, mo, 1), days = new Date(y, mo + 1, 0).getDate(), weeks = Math.ceil((first.getDay() + days) / 7);
@@ -5086,6 +5172,191 @@ async function insRepost(x, btn) {
     toast('已經複製成新貼文，改一下文字再排程');
   } catch (e) { alert('再發失敗：' + e.message); btn.disabled = false; btn.textContent = '🔁 再發一次'; }
 }
+// ===== 靈感暫存區：想到就丟進來，不算貼文；S.ideas = [{ id, text, media, at }] =====
+let ideaDraft = { text: '', media: [] };
+const ideaKeep = async files => {
+  const out = [];
+  for (const f of files) {
+    if (!/^(image|video)\//.test(f.type)) { toast(`「${f.name || '檔案'}」不是圖片或影片`); continue; }
+    const m = { id: uid(), name: f.name || 'paste.png', type: f.type };
+    blobs[m.id] = f;
+    if (dbOk) await DB.put('media', m.id, f).catch(() => toast('檔案太大，瀏覽器存不下；重新整理後會不見'));
+    out.push(m);
+  }
+  return out;
+};
+function openIdeas() { closeMenu(); $('#ideaModal').classList.add('open'); renderIdeas(); setTimeout(() => $('#ideaText')?.focus(), 50); }
+function renderIdeas() {
+  const list = [...(S.ideas || [])].sort((a, b) => b.at - a.at), d = ideaDraft;
+  $('#ideaBody').innerHTML = `
+    <textarea id="ideaText" style="min-height:70px" placeholder="想到什麼先記下來，也可以直接貼上圖片⋯">${esc(d.text)}</textarea>
+    ${d.media.length ? `<div class="idea-files">${d.media.map(m => ltHtml({ media: [m] })).join('')}</div>` : ''}
+    <div class="row" style="margin-top:8px;justify-content:space-between"><button id="ideaAddFile">📎 加圖片、影片</button><button class="primary" id="ideaSave">存進暫存區</button></div>
+    ${list.length ? list.map(x => `<div class="idea-card">${ltHtml(x)}<div class="idea-body">
+      <textarea data-ideatext="${x.id}" placeholder="（只有圖片，可以補幾個字）">${esc(x.text)}</textarea>
+      <div class="row"><span class="hint-s">${new Date(x.at).getMonth() + 1}/${new Date(x.at).getDate()}${x.media.length ? `・${x.media.length} 個檔案` : ''}</span>
+      <span class="row" style="gap:8px;margin:0"><button class="link danger" data-ideadel="${x.id}">刪除</button><button class="primary" data-ideapost="${x.id}">變成貼文 →</button></span></div></div></div>`).join('')
+      : '<p class="hint-s" style="margin:14px 0 0">這裡的東西不會發出去，也不會跟草稿混在一起；有空再按「變成貼文」。</p>'}`;
+  const t = $('#ideaText');
+  t.oninput = e => { d.text = e.target.value; };
+  t.onpaste = async e => { const fs = [...(e.clipboardData?.files || [])]; if (!fs.length) return; e.preventDefault(); d.media.push(...await ideaKeep(fs)); renderIdeas(); };
+  $('#ideaAddFile').onclick = () => $('#ideaFile').click();
+  $('#ideaSave').onclick = () => {
+    if (!d.text.trim() && !d.media.length) return toast('先打幾個字或加一張圖');
+    (S.ideas ||= []).push({ id: uid(), text: d.text.trim(), media: d.media, at: Date.now() });
+    ideaDraft = { text: '', media: [] }; save(); renderIdeas(); renderList(); if (!active()) renderHome();
+    toast('已存進靈感暫存區'); $('#ideaText').focus();
+  };
+  const box = $('#ideaBody');
+  box.querySelectorAll('[data-ideatext]').forEach(a => a.oninput = () => { const x = S.ideas.find(y => y.id === a.dataset.ideatext); if (x) { x.text = a.value; save(); } });
+  box.querySelectorAll('[data-ideadel]').forEach(b => b.onclick = () => {
+    const x = S.ideas.find(y => y.id === b.dataset.ideadel);
+    if (!confirm('刪除這個靈感？')) return;
+    x.media.forEach(dropMedia); S.ideas = S.ideas.filter(y => y !== x); save(); renderIdeas(); renderList(); if (!active()) renderHome();
+  });
+  box.querySelectorAll('[data-ideapost]').forEach(b => b.onclick = () => {
+    const x = S.ideas.find(y => y.id === b.dataset.ideapost);
+    S.ideas = S.ideas.filter(y => y !== x);
+    $('#ideaModal').classList.remove('open');
+    newPost({ text: x.text, media: x.media });   // 檔案直接搬過去，不用複製
+    toast('已變成貼文，可以繼續編輯');
+  });
+}
+$('#openIdeas').onclick = openIdeas;
+$('#ideaFile').onchange = async e => { const fs = [...e.target.files]; e.target.value = ''; ideaDraft.media.push(...await ideaKeep(fs)); renderIdeas(); };
+
+// ===== 一次排多則：選一批檔案 → 分組、排時間 → 確認文字 → 建成多則貼文（全自動的直接送到伺服器）=====
+let bk = null;
+const BK_SIZES = [1, 2, 3, 4, 5, 10], BK_GAPS = [[1, '每天'], [2, '每 2 天'], [3, '每 3 天'], [7, '每週']];
+const bkOpts = () => autoOptions().filter(o => !isStory(o));
+function openBk() {
+  closeMenu();
+  if (bk) bk.files.forEach(x => URL.revokeObjectURL(x.url));
+  const start = new Date(); start.setDate(start.getDate() + 1);
+  bk = { step: 1, files: [], size: 1, date: localInput(start).slice(0, 10), hm: bestSlotTime() || '20:00', gap: 1, mode: bkOpts().length ? 'auto' : 'manual', auto: [], targets: [], common: '', ai: false, posts: [], busy: '' };
+  $('#bkModal').classList.add('open'); renderBk();
+  if (session) loadAccounts().then(() => { if (bk && bk.step === 1) { if (bkOpts().length && !bk.targets.length) bk.mode = 'auto'; renderBk(); } });
+}
+const bestSlotTime = () => { const b = bestSlot(); return b ? QUICK_TIMES.find(t => +t.slice(0, 2) >= b[0] && +t.slice(0, 2) < b[1]) : null; };
+function bkGroups() {
+  const out = [];
+  for (let i = 0, k = 0; i < bk.files.length; i += bk.size, k++) {
+    const d = new Date(`${bk.date}T${bk.hm}`); d.setDate(d.getDate() + k * bk.gap);
+    out.push({ files: bk.files.slice(i, i + bk.size), time: localInput(d) });
+  }
+  return out;
+}
+const bkThumb = x => /^video\//.test(x.file.type) ? `<video src="${x.url}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${x.url}" alt="">`;
+function renderBk() {
+  const c = bk, box = $('#bkBody');
+  const chips = (list, cur, key) => list.map(([v, l]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${l}</button>`).join('');
+  if (c.step === 1) {
+    const g = bkGroups(), past = new Date(`${c.date}T${c.hm}`) <= new Date(), opts = bkOpts();
+    const ready = c.files.length && !past && (c.mode === 'auto' ? c.auto.length : c.targets.length);
+    box.innerHTML = `
+      <button class="primary" id="bkPick">📁 選照片、影片（可以一次選很多）</button>
+      ${c.files.length ? `<div class="bk-thumbs">${c.files.map((x, i) => `<div class="bk-thumb">${bkThumb(x)}<button data-bkdel="${i}" title="移除">✕</button></div>`).join('')}</div>
+      <p class="hint-s" style="margin:6px 0 0">共 ${c.files.length} 個檔案，照檔名排序</p>` : ''}
+      <label class="field" style="margin-top:14px">每則放幾個</label>
+      <div class="chips">${chips(BK_SIZES.map(n => [n, n + ' 個']), c.size, 'bksize')}</div>
+      <label class="field" style="margin-top:14px">第一則的日期和時間</label>
+      <div class="row" style="gap:8px"><input type="date" id="bkDate" value="${c.date}" min="${localInput(new Date()).slice(0, 10)}" style="width:auto"><input type="time" id="bkTime" value="${c.hm}" style="width:auto"></div>
+      ${past ? '<p class="warn-line" style="margin:6px 0 0">⚠️ 這個時間已經過了，請選之後的時間</p>' : ''}
+      <label class="field" style="margin-top:14px">之後每隔多久發一則</label>
+      <div class="chips">${chips(BK_GAPS, c.gap, 'bkgap')}</div>
+      <label class="field" style="margin-top:14px">發到哪裡</label>
+      <div class="chips">${chips([['auto', '⚡ 全自動'], ['manual', '📱 半自動（時間到提醒）']], c.mode, 'bkmode')}</div>
+      <div class="chips" style="margin-top:8px">${c.mode === 'auto'
+        ? (opts.length ? opts.map(o => `<button class="chip ${c.auto.includes(o.key) ? 'on' : ''}" data-bkauto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('') : '<span class="hint-s">還沒連結帳號，請先到「⚡ 自動發帳號」連結，或改用半自動。</span>')
+        : (S.targets.length ? byPlatform(S.targets).map(t => `<button class="chip ${c.targets.includes(t.id) ? 'on' : ''}" data-bkt="${t.id}"><span class="dot" style="background:${TYPES[t.type].color}"></span>${esc(t.name)}<small>${TYPES[t.type].label}</small></button>`).join('') : '<span class="hint-s">還沒有發送對象，請先到「管理發送對象」新增。</span>')}</div>
+      <label class="field" for="bkCommon" style="margin-top:14px">每則都放的文字（選填）</label>
+      <textarea id="bkCommon" style="min-height:64px" placeholder="${c.ai ? '有寫的話，AI 會當作重點' : '例如固定的標籤、店名；下一步還可以每則分開改'}">${esc(c.common)}</textarea>
+      <label class="row" style="margin-top:8px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="bkAi" style="width:auto" ${c.ai ? 'checked' : ''}> ✨ 讓 AI 看圖，幫每則寫文案（每則用 1 次 AI）</label>
+      ${g.length ? `<div class="bk-plan">會排成 <b>${g.length} 則</b>：${esc(fmtTime(g[0].time))}${g.length > 1 ? ` ～ ${esc(fmtTime(g[g.length - 1].time))}` : ''}</div>` : ''}
+      <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="bkNext" ${ready ? '' : 'disabled'}>下一步：確認每則內容 →</button></div>`;
+    $('#bkPick').onclick = () => $('#bkFile').click();
+    box.querySelectorAll('[data-bkdel]').forEach(b => b.onclick = () => { const [x] = c.files.splice(+b.dataset.bkdel, 1); URL.revokeObjectURL(x.url); renderBk(); });
+    box.querySelectorAll('[data-bksize]').forEach(b => b.onclick = () => { c.size = +b.dataset.bksize; renderBk(); });
+    box.querySelectorAll('[data-bkgap]').forEach(b => b.onclick = () => { c.gap = +b.dataset.bkgap; renderBk(); });
+    box.querySelectorAll('[data-bkmode]').forEach(b => b.onclick = () => { c.mode = b.dataset.bkmode; renderBk(); });
+    box.querySelectorAll('[data-bkauto]').forEach(b => b.onclick = () => { const k = b.dataset.bkauto; c.auto = c.auto.includes(k) ? c.auto.filter(y => y !== k) : [...c.auto, k]; renderBk(); });
+    box.querySelectorAll('[data-bkt]').forEach(b => b.onclick = () => { const k = b.dataset.bkt; c.targets = c.targets.includes(k) ? c.targets.filter(y => y !== k) : [...c.targets, k]; renderBk(); });
+    $('#bkDate').onchange = e => { if (e.target.value) c.date = e.target.value; renderBk(); };
+    $('#bkTime').onchange = e => { if (e.target.value) c.hm = e.target.value; renderBk(); };
+    $('#bkCommon').oninput = e => { c.common = e.target.value; };
+    $('#bkAi').onchange = e => { c.ai = e.target.checked; renderBk(); };
+    $('#bkNext').onclick = bkToReview;
+    return;
+  }
+  const n = c.posts.length;
+  box.innerHTML = `
+    ${c.busy ? `<div class="ai-wait">${esc(c.busy)}</div>` : `<p class="hint-s" style="margin:0">每則都可以再改文字。${c.ai ? 'AI 寫的內容請看過再發，價格、日期要再確認一次。' : ''}</p>`}
+    ${c.posts.map((x, i) => `<div class="bk-card"><b>第 ${i + 1} 則</b> <span class="hint-s">${esc(fmtTime(x.time))}</span>
+      <div class="bk-thumbs">${x.files.map(f => `<div class="bk-thumb">${bkThumb(f)}</div>`).join('')}</div>
+      <textarea data-bktext="${i}" placeholder="這則的文字">${esc(x.text)}</textarea></div>`).join('')}
+    <div class="row" style="margin-top:14px;justify-content:space-between"><button class="link" id="bkBack" ${c.busy ? 'disabled' : ''}>← 上一步</button>
+      <button class="primary" id="bkGo" ${c.busy ? 'disabled' : ''}>${c.mode === 'auto' ? `⚡ 排好 ${n} 則，時間到自動發` : `✓ 排好 ${n} 則`}</button></div>`;
+  box.querySelectorAll('[data-bktext]').forEach(a => a.oninput = () => { c.posts[+a.dataset.bktext].text = a.value; });
+  $('#bkBack').onclick = () => { c.step = 1; renderBk(); };
+  $('#bkGo').onclick = bkGo;
+}
+$('#openBk').onclick = openBk;
+$('#bkFile').onchange = e => {
+  const fs = [...e.target.files].filter(f => /^(image|video)\//.test(f.type)); e.target.value = '';
+  bk.files.push(...fs.map(file => ({ file, url: URL.createObjectURL(file) })));
+  bk.files.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true }));
+  renderBk();
+};
+async function bkToReview() {
+  const c = bk;
+  c.posts = bkGroups().map(g => ({ ...g, text: c.common.trim() })); c.step = 2;
+  renderBk();
+  if (!c.ai) return;
+  // AI 一則一則寫；失敗的留空，可以自己打
+  let failed = '';
+  for (const [i, x] of c.posts.entries()) {
+    if (bk !== c || c.step !== 2) return;
+    c.busy = `AI 看圖寫文案中 ${i + 1}／${c.posts.length}⋯`; renderBk();
+    try {
+      const f = x.files.find(y => !/^video\//.test(y.file.type)) || x.files[0];
+      const image = /^video\//.test(f.file.type) ? await withVideoFrame(f.file, (v, w, h) => { const k = Math.min(1, 768 / Math.max(w, h)), cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k); cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height); return cv.toDataURL('image/jpeg', .8); }) : await shrinkImage(f.file, 768, .8);
+      const r = await fetch(API + '/ai/caption', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: c.common.trim(), tone: 'warm', place: 'ig', brand: S.brand || '', image }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || '連不上 AI');
+      if (!x.text || x.text === c.common.trim()) x.text = j.versions[0];
+    } catch (e) { failed = e.message === 'Failed to fetch' ? '連不上 AI' : e.message; if (/用完/.test(failed)) break; }
+  }
+  if (bk !== c) return;
+  c.busy = ''; renderBk();
+  if (failed) toast('有幾則 AI 沒寫出來：' + failed + '，可以自己打');
+}
+async function bkGo() {
+  const c = bk, opts = c.mode === 'auto' ? bkOpts().filter(o => c.auto.includes(o.key)) : [], n = c.posts.length;
+  if (opts.some(o => o.platform === 'threads')) { const i = c.posts.findIndex(x => [...x.text].length > 500); if (i >= 0) return alert(`第 ${i + 1} 則超過 500 字，Threads 發不出去，請先改短。`); }
+  if (c.mode === 'auto' && !confirm(`確定排好 ${n} 則，時間到自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n第一則：${fmtTime(c.posts[0].time)}\n最後一則：${fmtTime(c.posts[n - 1].time)}`)) return;
+  const failed = [];
+  for (const [i, x] of c.posts.entries()) {
+    c.busy = `處理中 ${i + 1}／${n}⋯`; renderBk();
+    const media = [];
+    for (const { file } of x.files) {
+      const m = { id: uid(), name: file.name, type: file.type }; blobs[m.id] = file;
+      if (dbOk) await DB.put('media', m.id, file).catch(() => toast('檔案太大，瀏覽器存不下；重新整理後會不見'));
+      media.push(m);
+    }
+    const p = newPost({ text: x.text.trim(), media, time: x.time, mode: c.mode, step: 3, auto: c.mode === 'auto' ? [...c.auto] : [], targets: c.mode === 'manual' ? [...c.targets] : [] }, true);
+    if (c.mode === 'auto') {
+      try { await sendAuto(p, opts, null, t => { c.busy = `第 ${i + 1}／${n} 則：${t}`; const w = $('#bkBody .ai-wait'); if (w) w.textContent = c.busy; }, true); }
+      catch (e) { failed.push(`第 ${i + 1} 則：${e.message}`); }
+    }
+  }
+  c.files.forEach(x => URL.revokeObjectURL(x.url));
+  if (bk === c) { bk = null; $('#bkModal').classList.remove('open'); }
+  S.activeId = null; save(); renderAll();
+  logRemote('trace', `一次排多則 ${n} 則，失敗 ${failed.length}`);
+  if (failed.length) alert(`⚠️ ${failed.length} 則沒有送出（已保留在左邊「未排程」，可以打開再發一次）\n\n${failed.join('\n')}`);
+  else toast(`排好 ${n} 則了`);
+}
+
 // 自己這邊的貼文再發一次（已完成的貼文）：文字、圖片影片、編輯設定都複製
 async function dupPost(src, label = '🔁 再發') {
   const map = {}, media = [];
@@ -5098,7 +5369,7 @@ async function dupPost(src, label = '🔁 再發') {
     media.push({ ...m, id });
   }
   const remap = o => o && JSON.parse(Object.entries(map).reduce((s, [a, b]) => s.split(a).join(b), JSON.stringify(o)));
-  const p = newPost({ text: src.text, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
+  const p = newPost({ text: src.text, texts: src.texts && { ...src.texts }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
     postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label });
   toast('已經複製成新貼文，改一下再排程');
   return p;
