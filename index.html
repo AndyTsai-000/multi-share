@@ -73,6 +73,8 @@ aside .new { width: 100%; }
 .aimg-res img { width: 100%; display: block; }
 .aimg-post { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--hint); font-size: 13px; line-height: 1.5; white-space: pre-wrap; max-height: 86px; overflow: hidden; color: var(--sub); }
 .aimg-wt { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; cursor: pointer; }
+.aimg-slide { border-radius: 10px; overflow: hidden; background: var(--hint); }
+.aimg-slide img { width: 100%; display: block; }
 .aimg-wt input { width: auto; margin: 0; flex: none; }
 .media-ai { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
@@ -1884,7 +1886,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1103e";
+const APP_VERSION = "v1103f";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4792,19 +4794,25 @@ function renderAimg() {
       : '<p class="warn-line" style="margin:10px 0 0">這則貼文還沒有照片，先在上面加入照片。</p>') : ''}
     ${edit ? '' : `<div class="pick-label">畫什麼</div><div class="chips"><button class="chip ${usePost ? 'on' : ''}" data-aimgsrc="post" ${post ? '' : 'disabled'}>📝 參考要發的文字</button><button class="chip ${usePost ? '' : 'on'}" data-aimgsrc="own">✏️ 自己輸入</button></div>
       ${usePost ? `<div class="aimg-post">${esc(post.length > 120 ? post.slice(0, 120) + '⋯' : post)}</div>
-        ${c.mode === 'new' ? `<label class="aimg-wt"><input type="checkbox" id="aimgWt" ${st.withText !== false ? 'checked' : ''}> ✍️ 把貼文重點（標題、優惠、日期⋯）排在圖上</label>` : ''}` : post ? '' : '<p class="hint-s" style="margin:6px 0 0">「要發的文字」還沒寫，先自己描述畫面。</p>'}`}
+        ${c.mode === 'new' ? `<label class="aimg-wt"><input type="checkbox" id="aimgWt" ${st.withText !== false ? 'checked' : ''}> ✍️ 把貼文重點（標題、優惠、日期⋯）排在圖上</label>` : ''}
+        ${aimgWantText(c) ? `<div class="pick-label">張數</div><div class="chips"><button class="chip ${st.slides !== false ? 'on' : ''}" data-aimgslides="1">📚 多張輪播（照內容分 3～6 張）</button><button class="chip ${st.slides === false ? 'on' : ''}" data-aimgslides="0">1 張</button></div>` : ''}` : post ? '' : '<p class="hint-s" style="margin:6px 0 0">「要發的文字」還沒寫，先自己描述畫面。</p>'}`}
     <label class="field" for="aimgText" style="margin-top:12px">${edit ? '想怎麼改？（選填）' : usePost ? '想補充什麼？（選填）' : '想要什麼畫面？'}</label>
     <textarea id="aimgText" style="min-height:64px" placeholder="${edit ? '例如：改成黃昏的光線、加一點秋天的感覺' : usePost ? '例如：畫面要有沙發、明亮一點' : c.mode === 'bg' ? '例如：聖誕節的溫暖客廳／秋天落葉／簡單的木紋桌面' : '例如：北歐風客廳、早晨陽光、木地板、淺灰色沙發'}">${esc(c.prompt)}</textarea>
     <div class="pick-label">風格</div><div class="chips">${chips(styles, style, 'aimgstyle')}</div>
     ${edit ? '' : `<div class="pick-label">尺寸</div><div class="chips">${chips(AIMG_RATIOS, st.ratio, 'aimgratio')}</div>`}
-    <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
-    ${c.busy ? '<div class="ai-wait">AI 畫圖中，大約 15～30 秒⋯</div>' : ''}
-    ${c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${c.comp?.[i] || u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
+    <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${aimgMulti(c) ? (c.slides ? '🔄 整組重畫' : '✨ 做輪播圖') : c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
+    ${c.busy ? `<div class="ai-wait">${aimgMulti(c) ? 'AI 整理內容、每張各畫一張圖，大約 30～60 秒⋯' : 'AI 畫圖中，大約 15～30 秒⋯'}</div>` : ''}
+    ${c.slides && !c.busy ? `<div class="aimg-res">${c.comp.map((u, i) => `<div class="aimg-slide"><img src="${u}" alt="第 ${i + 1} 張"></div>`).join('')}</div>
+      <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張</small></label>
+      <textarea id="aimgSText" style="min-height:150px">${esc(c.sText)}</textarea>
+      <p class="hint-s" style="margin:6px 0 0">貼文沒寫到的內容（例如「3 個方法」是哪 3 個）是 AI 補寫的，加入前請確認正確。</p>
+      <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="primary" id="aimgUse">加入 ${c.comp.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}</button></div>`
+    : c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${c.comp?.[i] || u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
       <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px">
         ${c.comp ? '<button id="aimgEdit">✏️ 改字／換字體</button>' : ''}
         ${c.mode === 'bg' && !c.comp ? '<button class="primary" id="aimgUse">用這張做文字卡片 →</button>' : `<button class="primary" id="aimgUse">加進這則貼文${c.ratio === '9:16' ? '（限動用）' : ''}</button>`}</div>` : ''}`;
   const box = $('#aimgBody');
-  box.querySelectorAll('[data-aimgmode]').forEach(b => b.onclick = () => { c.mode = st.mode = b.dataset.aimgmode; c.images = []; save(); renderAimg(); });
+  box.querySelectorAll('[data-aimgmode]').forEach(b => b.onclick = () => { c.mode = st.mode = b.dataset.aimgmode; c.images = []; c.slides = null; save(); renderAimg(); });
   box.querySelectorAll('[data-aimgstyle]').forEach(b => b.onclick = () => { st[edit ? 'editStyle' : 'style'] = b.dataset.aimgstyle; save(); renderAimg(); });
   box.querySelectorAll('[data-aimgratio]').forEach(b => b.onclick = () => { st.ratio = b.dataset.aimgratio; save(); renderAimg(); });
   box.querySelectorAll('[data-aimgph]').forEach(async b => {
@@ -4817,7 +4825,9 @@ function renderAimg() {
   $('#aimgGo').onclick = aimgGenerate;
   if ($('#aimgUse')) $('#aimgUse').onclick = () => aimgUse(false);
   if ($('#aimgEdit')) $('#aimgEdit').onclick = () => aimgUse(true);
-  if ($('#aimgWt')) $('#aimgWt').onchange = e => { st.withText = e.target.checked; save(); };
+  if ($('#aimgWt')) $('#aimgWt').onchange = e => { st.withText = e.target.checked; save(); renderAimg(); };
+  box.querySelectorAll('[data-aimgslides]').forEach(b => b.onclick = () => { st.slides = b.dataset.aimgslides === '1'; save(); renderAimg(); });
+  if ($('#aimgSText')) $('#aimgSText').oninput = e => { c.sText = e.target.value; clearTimeout(c.sTimer); c.sTimer = setTimeout(() => aimgRecompose(c), 400); };
 }
 async function aimgGenerate() {
   const c = aimg, st = S.aimg, edit = c.mode === 'edit';
@@ -4832,11 +4842,21 @@ async function aimgGenerate() {
       image = await shrinkImage(blob, 1024, 0.88);
     }
     const r = await fetch(API + '/ai/image', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, post: aimgUsePost(c) ? c.p.text.trim().slice(0, 1500) : '', withText: aimgWantText(c), style: edit ? st.editStyle : st.style, ratio, image }) });
+      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, post: aimgUsePost(c) ? c.p.text.trim().slice(0, 1500) : '', withText: aimgWantText(c), slides: aimgMulti(c), style: edit ? st.editStyle : st.style, ratio, image }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
     if (aimg !== c) return;
-    c.images = j.images; c.pick = 0; c.ratio = ratio; c.comp = null;
+    c.comp?.forEach(u => URL.revokeObjectURL(u));
+    c.pick = 0; c.ratio = ratio; c.comp = null; c.slides = null;
+    if (j.slides) {   // 輪播：每張一張圖，字可以改
+      c.slides = j.slides; c.images = j.slides.map(x => x.image);
+      c.sText = j.slides.map(x => `${x.title}${x.body ? '\n' + x.body : ''}`).join('\n\n');
+      await aimgRecompose(c, true);
+      if (aimg !== c) return;
+      logRemote('trace', `AI 輪播 ${ratio} ${j.slides.length} 張`);
+      c.busy = false; return renderAimg();
+    }
+    c.images = j.images;
     c.card = aimgWantText(c) && j.card ? j.card : null;
     if (c.card) c.comp = await Promise.all(j.images.map(u => aimgCompose(u, c.card, ratio)));   // AI 畫中文會錯，字由網頁排上去
     if (aimg !== c) return;
@@ -4845,15 +4865,27 @@ async function aimgGenerate() {
   if (aimg !== c) return;
   c.busy = false; renderAimg();
 }
+const aimgMulti = c => aimgWantText(c) && S.aimg.slides !== false;
+// 依「圖上的字」重新排每一張（圖不夠就輪流用）
+async function aimgRecompose(c, quiet) {
+  const cards = tcCards(c.sText || ''), run = c.sRun = (c.sRun || 0) + 1;
+  const urls = await Promise.all(cards.map((card, i) => aimgCompose(c.images[i % c.images.length], card, c.ratio, i, cards.length)));
+  if (c.sRun !== run || aimg !== c) return urls.forEach(u => URL.revokeObjectURL(u));
+  c.comp?.forEach(u => URL.revokeObjectURL(u)); c.comp = urls;
+  if (quiet) return;
+  const box = $('#aimgBody .aimg-res'); if (box) box.innerHTML = urls.map((u, i) => `<div class="aimg-slide"><img src="${u}" alt="第 ${i + 1} 張"></div>`).join('');
+  const use = $('#aimgUse'); if (use) { use.textContent = `加入 ${urls.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}`; use.disabled = !urls.length; }
+}
 const aimgWantText = c => aimgUsePost(c) && (c.mode === 'bg' || S.aimg.withText !== false);
-async function aimgCompose(url, card, ratio) {
+async function aimgCompose(url, card, ratio, i = 0, n = 1) {
   seLinkFonts();
   const bmp = await createImageBitmap(await (await fetch(url)).blob());
-  const out = await tcDraw(card, 0, 1, bmp, { theme: 'photo', ratio: TC_RATIOS.some(r => r[0] === ratio) ? ratio : '4:5', font: tcSet().font });
+  const out = await tcDraw(card, i, n, bmp, { theme: 'photo', ratio: TC_RATIOS.some(r => r[0] === ratio) ? ratio : '4:5', font: tcSet().font });
   bmp.close(); return URL.createObjectURL(out);
 }
 async function aimgUse(edit) {
-  const c = aimg, url = c.images[c.pick]; if (!url) return;
+  const c = aimg; if (c.slides) return aimgUseSlides(c);
+  const url = c.images[c.pick]; if (!url) return;
   const raw = await (await fetch(url)).blob(), p = c.p, story = c.ratio === '9:16', ratio = ['1:1', '4:5', '9:16'].includes(c.ratio) ? c.ratio : '4:5';
   const comp = c.comp && !edit ? await (await fetch(c.comp[c.pick])).blob() : null;   // 關視窗會釋放預覽網址，先拿
   closeAimg();
@@ -4863,6 +4895,17 @@ async function aimgUse(edit) {
   await addFiles(p, [new File([blob], `AI製圖.${ext}`, { type: blob.type || 'image/jpeg' })], story ? { storyOnly: true, aiImg: true } : {});
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
   toast(story ? '已加入（限動用）' : '已加入這則貼文');
+}
+async function aimgUseSlides(c) {
+  clearTimeout(c.sTimer); await aimgRecompose(c, true);   // 剛改完字：先排好再加
+  if (aimg !== c || !c.comp.length) return;
+  const p = c.p, story = c.ratio === '9:16';
+  const files = await Promise.all(c.comp.map(async (u, i) => new File([await (await fetch(u)).blob()], `AI輪播${i + 1}.jpg`, { type: 'image/jpeg' })));
+  closeAimg();
+  const before = new Set(p.media.map(m => m.id));
+  await addFiles(p, files, story ? { storyOnly: true, aiImg: true } : {});
+  if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
+  toast(`已加入 ${files.length} 張${story ? '（限動用）' : ''}`);
 }
 $('#aimgClose').onclick = closeAimg;
 
