@@ -390,6 +390,12 @@ main { overflow: auto; min-height: 0; }
 .ins-post .snip { font-size: 14px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 .ins-nums { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--sub); margin-top: 4px; }
 .ins-nums b { color: var(--ink); font-weight: 600; }
+.ins-post.pick { grid-template-columns: 22px 56px 1fr; cursor: pointer; }
+.ins-post.pick > input { width: 18px; height: 18px; margin: 19px 0 0; }
+.ins-post.pick.on { background: var(--soft); }
+.mg-bar { position: sticky; top: -1px; z-index: 2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; background: var(--card); border-bottom: 1px solid var(--line); }
+.mg-bar label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.mg-bar input { width: 18px; height: 18px; }
 .ins-acts { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
 .ins-acts button, .ins-acts a { font-size: 13px; padding: 3px 10px; border-radius: 99px; }
 .ins-acts a { border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
@@ -1861,7 +1867,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1101a";
+const APP_VERSION = "v1103a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5121,39 +5127,63 @@ function mgHtml(acc) {
   if (!ps.length) return '<p class="empty">這個帳號還沒有貼文。</p>';
   return `<p class="hint-s" style="margin-top:0">${ig
     ? (igNo ? '📱 Instagram 不開放用網站刪除貼文。按「到 IG 刪除」會打開那則貼文，在 IG 裡按右上角「⋯」→「刪除」。' : '按「🗑 刪除」試試看；Instagram 不讓刪的話，會改成打開那則貼文讓你在 IG 裡刪。')
-    : '按「🗑 刪除」會直接從 Threads 刪掉，刪了就救不回來（Threads 規定每天最多刪 100 則）。'}</p>
-    ${ps.map(x => `<div class="ins-post">
+    : '勾選要刪的貼文，再按「🗑 刪除勾選的」，會直接從 Threads 刪掉，刪了就救不回來（Threads 規定每天最多刪 100 則）。'}</p>
+    ${igNo ? '' : (() => { const sel = mgSel(acc), n = ps.filter(x => sel.has(x.id)).length, all = n === ps.length;
+      return `<div class="mg-bar"><label><input type="checkbox" id="mgAll" ${all ? 'checked' : ''}>${all ? '取消全選' : '全選'}</label>
+        <span class="hint-s grow" id="mgN">已選 ${n} 則</span>
+        ${n ? '<button class="link" id="mgNone">取消勾選</button>' : ''}<button class="danger" id="mgDel" ${n ? '' : 'disabled'}>🗑 刪除勾選的（${n}）</button></div>`; })()}
+    ${ps.map(x => `<div class="ins-post ${igNo ? '' : `pick ${mgSel(acc).has(x.id) ? 'on' : ''}`}" ${igNo ? '' : `data-mgpick="${x.id}"`}>
+      ${igNo ? '' : `<input type="checkbox" data-mgchk="${x.id}" ${mgSel(acc).has(x.id) ? 'checked' : ''} aria-label="勾選這則">`}
       ${x.thumb ? `<img class="ins-thumb" src="${esc(x.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="ins-thumb">${x.kind === 'text' ? '💬' : '🖼️'}</div>`}
       <div style="min-width:0">
         <span class="hint-s">${new Date(x.time).toLocaleString().slice(0, -3)}</span>
         <div class="snip">${esc(x.text || '（沒有文字）')}</div>
         <div class="ins-acts">${x.permalink ? `<a href="${esc(x.permalink)}" target="_blank" rel="noopener">${igNo ? '📱 到 IG 刪除' : '打開'}</a>` : ''}
-          ${igNo ? '' : `<button class="link danger" data-mgdel="${x.id}" style="border:1px solid var(--line)">🗑 刪除</button>`}<button data-repost="${x.id}">🔁 再發一次</button></div>
+          <button data-repost="${x.id}">🔁 再發一次</button></div>
       </div></div>`).join('')}
     <p class="hint-s">清單是最近的 24 則；刪掉的貼文在成效報表裡也會拿掉。</p>`;
 }
+// 勾選的已發佈貼文（每個帳號分開記，關掉視窗就清掉）
+const mgSel = acc => ((insCtx.mgSel ||= {})[acc.id] ||= new Set());
 function mgBind(acc) {
   const box = $('#insBody'), c = insCtx, d = S.insCache?.[acc.id]?.data;
   if (!d) return;
-  box.querySelectorAll('[data-repost]').forEach(b => b.onclick = () => insRepost(d.posts.find(x => x.id === b.dataset.repost), b));
-  box.querySelectorAll('[data-mgdel]').forEach(b => b.onclick = async () => {
-    const x = d.posts.find(y => y.id === b.dataset.mgdel);
-    if (!confirm(`確定從 ${acc.platform === 'ig' ? 'Instagram' : 'Threads'} 刪除這則貼文？\n\n「${(x.text || '（沒有文字）').slice(0, 60)}」\n\n刪了就救不回來。`)) return;
-    b.disabled = true; b.textContent = '刪除中⋯';
-    try {
-      await apiCall(`/api/published?account=${encodeURIComponent(acc.id)}&id=${encodeURIComponent(x.id)}`, { method: 'DELETE' });
-      d.posts = d.posts.filter(y => y !== x); save();
-      logRemote('trace', '刪除已發佈 ' + acc.platform);
-      toast('已刪除');
-    } catch (e) {
-      if (e.need === 'ig_app') {
-        S.igNoDelete = true; save();
-        if (confirm('Instagram 不開放用網站刪除貼文。\n\n要打開這則貼文，在 IG 裡按右上角「⋯」→「刪除」嗎？') && x.permalink) window.open(x.permalink, '_blank', 'noopener');
-      } else if (e.need === 'scope') { c.need = true; }
-      else alert('刪除失敗：' + e.message);
-    }
-    if (insCtx === c) renderIns();
+  box.querySelectorAll('[data-repost]').forEach(b => b.onclick = e => { e.stopPropagation(); insRepost(d.posts.find(x => x.id === b.dataset.repost), b); });
+  box.querySelectorAll('.ins-acts a').forEach(a => a.addEventListener('click', e => e.stopPropagation()));
+  const sel = mgSel(acc), keepScroll = () => { const m = box.closest('.modal'), t = [box.scrollTop, m.scrollTop]; renderIns(); box.scrollTop = t[0]; m.scrollTop = t[1]; };
+  // 點整列或勾選框都可以勾／取消
+  box.querySelectorAll('[data-mgpick]').forEach(r => r.onclick = e => {
+    if (c.mgBusy) return e.preventDefault();
+    const id = r.dataset.mgpick; sel.has(id) ? sel.delete(id) : sel.add(id);
+    if (e.target.matches('input')) e.target.checked = sel.has(id);
+    keepScroll();
   });
+  if ($('#mgAll')) $('#mgAll').onchange = e => { if (e.target.checked) d.posts.forEach(x => sel.add(x.id)); else sel.clear(); keepScroll(); };
+  if ($('#mgNone')) $('#mgNone').onclick = () => { sel.clear(); keepScroll(); };
+  if ($('#mgDel')) $('#mgDel').onclick = async () => {
+    const list = d.posts.filter(x => sel.has(x.id)), name = acc.platform === 'ig' ? 'Instagram' : 'Threads';
+    if (!list.length) return;
+    if (!confirm(`確定從 ${name} 刪除勾選的 ${list.length} 則貼文？\n\n${list.slice(0, 5).map(x => '・' + (x.text || '（沒有文字）').slice(0, 30)).join('\n')}${list.length > 5 ? `\n⋯還有 ${list.length - 5} 則` : ''}\n\n刪了就救不回來。`)) return;
+    c.mgBusy = true; $('#mgDel').disabled = true;
+    const failed = []; let ok = 0, stop = '';
+    for (const [i, x] of list.entries()) {
+      if ($('#mgDel')) $('#mgDel').textContent = `刪除中 ${i + 1}／${list.length}⋯`;
+      try {
+        await apiCall(`/api/published?account=${encodeURIComponent(acc.id)}&id=${encodeURIComponent(x.id)}`, { method: 'DELETE' });
+        d.posts = d.posts.filter(y => y !== x); sel.delete(x.id); ok++;
+      } catch (e) {
+        if (e.need === 'ig_app') { S.igNoDelete = true; stop = 'ig'; break; }
+        if (e.need === 'scope') { c.need = true; stop = 'scope'; break; }
+        failed.push(`・${(x.text || '（沒有文字）').slice(0, 30)}：${e.message}`);
+      }
+    }
+    c.mgBusy = false; save();
+    logRemote('trace', `批次刪除已發佈 ${acc.platform} 成功 ${ok} 失敗 ${failed.length}${stop ? ' 停在 ' + stop : ''}`);
+    if (insCtx === c) renderIns();
+    if (stop === 'ig') alert('Instagram 不開放用網站刪除貼文。\n\n清單會改成「到 IG 刪除」：按了會打開那則貼文，在 IG 裡按右上角「⋯」→「刪除」。');
+    else if (failed.length) alert(`刪掉 ${ok} 則；${failed.length} 則沒刪掉（還在清單裡、維持勾選，可以再按一次）：\n\n${failed.join('\n')}`);
+    else if (ok) toast(`已刪除 ${ok} 則`);
+  };
 }
 async function insRepost(x, btn) {
   btn.disabled = true; btn.textContent = '下載中⋯';
