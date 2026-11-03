@@ -1867,7 +1867,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1103a";
+const APP_VERSION = "v1103b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5141,7 +5141,10 @@ function mgHtml(acc) {
         <div class="ins-acts">${x.permalink ? `<a href="${esc(x.permalink)}" target="_blank" rel="noopener">${igNo ? '📱 到 IG 刪除' : '打開'}</a>` : ''}
           <button data-repost="${x.id}">🔁 再發一次</button></div>
       </div></div>`).join('')}
-    <p class="hint-s">清單是最近的 24 則；刪掉的貼文在成效報表裡也會拿掉。</p>`;
+    <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="hint-s grow" style="margin:0">已載入 ${ps.length} 則${d.total ? `（帳號共 ${d.total} 則）` : ''}${d.next ? '' : '，全部都在這裡了'}</span>
+      ${d.next ? `<button id="mgMore" ${insCtx.mgLoading ? 'disabled' : ''}>⬇️ 再載入 24 則</button><button class="primary" id="mgAllLoad" ${insCtx.mgLoading ? 'disabled' : ''}>${insCtx.mgLoading ? esc(insCtx.mgLoading) : '載入全部'}</button>` : ''}</div>
+    <p class="hint-s">刪掉的貼文在成效報表裡也會拿掉。</p>`;
 }
 // 勾選的已發佈貼文（每個帳號分開記，關掉視窗就清掉）
 const mgSel = acc => ((insCtx.mgSel ||= {})[acc.id] ||= new Set());
@@ -5160,6 +5163,23 @@ function mgBind(acc) {
   });
   if ($('#mgAll')) $('#mgAll').onchange = e => { if (e.target.checked) d.posts.forEach(x => sel.add(x.id)); else sel.clear(); keepScroll(); };
   if ($('#mgNone')) $('#mgNone').onclick = () => { sel.clear(); keepScroll(); };
+  // 載入更多（Meta 一次只給 24 則）；all：一直載到沒有為止
+  const more = async all => {
+    if (c.mgLoading) return;
+    let pages = 0;
+    try {
+      do {
+        c.mgLoading = `載入中⋯（已 ${d.posts.length} 則）`; keepScroll();
+        const r = await apiCall(`/api/insights?account=${encodeURIComponent(acc.id)}&after=${encodeURIComponent(d.next)}`);
+        const have = new Set(d.posts.map(x => x.id));
+        d.posts.push(...(r.posts || []).filter(x => !have.has(x.id))); d.next = r.next || null; pages++;
+      } while (all && d.next && insCtx === c && pages < 100);
+    } catch (e) { alert('載入失敗：' + e.message); }
+    c.mgLoading = ''; save();
+    if (insCtx === c) keepScroll();
+  };
+  if ($('#mgMore')) $('#mgMore').onclick = () => more(false);
+  if ($('#mgAllLoad')) $('#mgAllLoad').onclick = () => more(true);
   if ($('#mgDel')) $('#mgDel').onclick = async () => {
     const list = d.posts.filter(x => sel.has(x.id)), name = acc.platform === 'ig' ? 'Instagram' : 'Threads';
     if (!list.length) return;
