@@ -67,6 +67,10 @@ aside .new { width: 100%; }
 .home-ok { border-color: #22c55e; background: rgba(34, 197, 94, .1); }
 .se-busy { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--soft); color: var(--soft-ink); font-weight: 600; text-align: center; }
 .step-nav.bare { border-top: 0; margin-top: 0; padding-top: 0; }
+.aimg-res { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.aimg-res button { padding: 0; border: 3px solid transparent; border-radius: 10px; overflow: hidden; background: var(--hint); }
+.aimg-res button.on { border-color: var(--accent); }
+.aimg-res img { width: 100%; display: block; }
 .side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
 .side-tools button { font-size: 13px; padding: 7px 4px; }
 .per-text { margin-top: 10px; }
@@ -540,6 +544,11 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 <div class="modal-bg" id="aiModal"><div class="modal">
   <h3>✨ AI 幫我寫文案 <button class="link" data-close>關閉</button></h3>
   <div id="aiBody"></div>
+</div></div>
+
+<div class="modal-bg" id="aimgModal"><div class="modal" style="width:min(680px,100%)">
+  <h3>🎨 AI 製圖 <button class="link" id="aimgClose">關閉</button></h3>
+  <div id="aimgBody"></div>
 </div></div>
 
 <div class="modal-bg" id="ideaModal"><div class="modal">
@@ -1158,7 +1167,7 @@ function postCardHtml(p) {
     `<button class="ai-btn" data-ssopen ${ssPhotos(p).length ? '' : 'disabled'}>🎵 照片變影片</button><button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`)
     + `<div class="media-card-btns" style="margin-top:10px;align-items:center"><span class="hint-s">更多工具：</span>
       <button class="ai-btn" data-vcopen ${vids ? '' : 'disabled'}>✂️ 剪輯影片</button><button class="ai-btn" data-gdopen ${photos ? '' : 'disabled'}>▦ 切圖／九宮格</button>
-      <button class="ai-btn" data-tcopen>🔤 文字卡片</button><button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button></div>`;
+      <button class="ai-btn" data-aimgopen>🎨 AI 製圖</button><button class="ai-btn" data-tcopen>🔤 文字卡片</button><button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button></div>`;
 }
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
@@ -1241,13 +1250,14 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-vcopen]').forEach(x => x.onclick = () => openClip(p));
   document.querySelectorAll('#editor [data-gdopen]').forEach(x => x.onclick = () => openGd(p));
   document.querySelectorAll('#editor [data-tcopen]').forEach(x => x.onclick = () => openTc(p));
+  document.querySelectorAll('#editor [data-aimgopen]').forEach(x => x.onclick = () => openAimg(p));
   document.querySelectorAll('#editor [data-logoopen]').forEach(x => x.onclick = openLogo);
 }
 async function renderThumbs() {
   const p = active(), box = $('#thumbs'); if (!box) return;
   if ($('#aiLook')) $('#aiLook').hidden = !aiCover(p);
   box.innerHTML = p.media.map((m, i) => `<div class="thumb" data-i="${i}">
-    <span class="tag">${m.storyOnly ? (m.textOnly ? '純文字限動' : '限動拼貼') : isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
+    <span class="tag">${m.storyOnly ? (m.textOnly ? '純文字限動' : m.aiImg ? 'AI 限動' : m.card ? '文字卡片限動' : '限動拼貼') : isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
     <button class="x" data-i="${i}" title="移除">✕</button></div>`).join('');
   box.querySelectorAll('.tag').forEach(t => { if (!t.textContent) t.remove(); });
   box.querySelectorAll('.x').forEach(b => b.onclick = () => {
@@ -1867,7 +1877,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1103b";
+const APP_VERSION = "v1103c";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4638,29 +4648,30 @@ const tcSet = () => S.tcSet ||= { theme: 'cream', ratio: '4:5', font: 'sans' };
 function tcCards(text) {
   return text.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).slice(0, 10).map(s => { const [title, ...rest] = s.split('\n'); return { title: title.trim(), body: rest.join('\n').trim() }; });
 }
-function openTc(p) {
+// bg：AI 製圖畫的背景 { blob, ratio }，有的話用它當照片背景
+function openTc(p, bg = null) {
   seLinkFonts();
-  tcCtx = { p, text: p.tcText ?? (p.text.trim() ? p.text.trim().split(/\n\s*\n/).slice(0, 3).join('\n\n') : ''), urls: [], blobs: [] };
+  if (bg) Object.assign(tcSet(), { theme: 'photo', ratio: bg.ratio });
+  tcCtx = { p, bg: bg?.blob || null, text: p.tcText ?? (p.text.trim() ? p.text.trim().split(/\n\s*\n/).slice(0, 3).join('\n\n') : ''), urls: [], blobs: [] };
   $('#tcModal').classList.add('open');
   renderTc();
   setTimeout(() => $('#tcText')?.focus(), 50);
 }
 function closeTc() { if (tcCtx) tcCtx.urls.forEach(u => URL.revokeObjectURL(u)); tcCtx = null; $('#tcModal').classList.remove('open'); }
 function renderTc() {
-  const c = tcCtx, st = tcSet(), ph = aiPhoto(c.p);
+  const c = tcCtx, st = tcSet(), ph = c.bg || aiPhoto(c.p);
   if (st.theme === 'photo' && !ph) st.theme = 'cream';
   const n = tcCards(c.text).length;
   $('#tcBody').innerHTML = `
     <label class="field" for="tcText">內容 <small style="font-weight:400">每張的第一行是標題；<b>空一行</b>就是下一張（最多 10 張）</small></label>
     <textarea id="tcText" style="min-height:120px" placeholder="例如：\n週年慶開跑\n全館 85 折，到 11/30\n\n滿額再送\n買滿 3 萬送抱枕一組">${esc(c.text)}</textarea>
     <div class="pick-label">尺寸</div><div class="chips">${TC_RATIOS.map(([v, l]) => `<button class="chip ${st.ratio === v ? 'on' : ''}" data-tcratio="${v}">${l}</button>`).join('')}</div>
-    <div class="pick-label">底色</div><div class="chips">${TC_THEMES.filter(t => t[0] !== 'photo' || ph).map(([v, l, g]) => `<button class="chip ${st.theme === v ? 'on' : ''}" data-tctheme="${v}">${g ? `<span class="dot" style="background:linear-gradient(135deg,${g[0]},${g[1]})"></span>` : '🖼️'}${l}</button>`).join('')}</div>
+    <div class="pick-label">底色</div><div class="chips">${TC_THEMES.filter(t => t[0] !== 'photo' || ph).map(([v, l, g]) => `<button class="chip ${st.theme === v ? 'on' : ''}" data-tctheme="${v}">${g ? `<span class="dot" style="background:linear-gradient(135deg,${g[0]},${g[1]})"></span>` : '🖼️'}${v === 'photo' && c.bg ? 'AI 背景' : l}</button>`).join('')}</div>
     <div class="pick-label">字體</div><div class="chips">${TC_FONTS.map(id => `<button class="chip ${st.font === id ? 'on' : ''}" data-tcfont="${id}" style="font-family:${seFont(id).fam}">${seFont(id).label}</button>`).join('')}</div>
     <div class="tc-cards" id="tcCards">${n ? '' : '<p class="hint-s">打字後這裡會出現卡片</p>'}</div>
     <div class="send"><div class="nav"><button class="link" id="tcCancel">先不要</button><button class="primary" id="tcAdd" disabled>加入這則貼文（${n} 張）</button></div></div>`;
   const box = $('#tcBody');
-  let typing;
-  $('#tcText').oninput = e => { c.text = c.p.tcText = e.target.value; save(); clearTimeout(typing); typing = setTimeout(() => { $('#tcAdd').textContent = `加入這則貼文（${tcCards(c.text).length} 張）`; tcDrawAll(); }, 350); };
+  $('#tcText').oninput = e => { c.text = c.p.tcText = e.target.value; c.dirty = true; save(); clearTimeout(c.typing); c.typing = setTimeout(() => { $('#tcAdd').textContent = `加入這則貼文（${tcCards(c.text).length} 張）`; tcDrawAll(); }, 350); };
   box.querySelectorAll('[data-tcratio]').forEach(b => b.onclick = () => { st.ratio = b.dataset.tcratio; save(); renderTc(); });
   box.querySelectorAll('[data-tctheme]').forEach(b => b.onclick = () => { st.theme = b.dataset.tctheme; save(); renderTc(); });
   box.querySelectorAll('[data-tcfont]').forEach(b => b.onclick = () => { st.font = b.dataset.tcfont; save(); renderTc(); });
@@ -4709,9 +4720,11 @@ async function tcDraw(card, i, n, photo) {
 }
 async function tcDrawAll() {
   const c = tcCtx; if (!c) return;
+  c.dirty = false;
   const run = c.run = (c.run || 0) + 1, cards = tcCards(c.text);
   const add = $('#tcAdd'); if (add) add.disabled = true;
-  const ph = tcSet().theme === 'photo' && aiPhoto(c.p), photo = ph ? await createImageBitmap(await mediaBlob(ph)) : null;
+  const usePh = tcSet().theme === 'photo', ph = usePh && !c.bg && aiPhoto(c.p);
+  const photo = usePh && c.bg ? await createImageBitmap(c.bg) : ph ? await createImageBitmap(await mediaBlob(ph)) : null;
   const out = [];
   for (const [i, card] of cards.entries()) { out.push(await tcDraw(card, i, cards.length, photo)); if (tcCtx !== c || c.run !== run) return; }
   c.urls.forEach(u => URL.revokeObjectURL(u));
@@ -4719,17 +4732,110 @@ async function tcDrawAll() {
   const box = $('#tcCards'); if (!box) return;
   box.innerHTML = c.urls.map((u, i) => `<img src="${u}" alt="卡片 ${i + 1}">`).join('') || '<p class="hint-s">打字後這裡會出現卡片</p>';
   if (add) add.disabled = !out.length;
+  c.okRun = run;
 }
 async function tcAdd() {
-  const c = tcCtx; if (!c?.blobs.length) return;
+  const c = tcCtx; if (!c) return;
+  // 剛打完字還沒重畫、或正在重畫：先畫好再加，不然會加到舊的卡片
+  clearTimeout(c.typing);
+  if (c.dirty || c.okRun !== c.run) await tcDrawAll();
+  if (tcCtx !== c || !c.blobs.length) return;
   const story = tcSet().ratio === '9:16', p = c.p;
   const files = c.blobs.map((b, i) => new File([b], `文字卡片${i + 1}.jpg`, { type: 'image/jpeg' }));
   closeTc();
   const before = new Set(p.media.map(m => m.id));
-  await addFiles(p, files, story ? { storyOnly: true } : {});
+  await addFiles(p, files, story ? { storyOnly: true, card: true } : {});
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
   toast(`已加入 ${files.length} 張文字卡片${story ? '（限動用）' : ''}`);
 }
+
+// ===== AI 製圖：打字生成圖片、AI 背景＋文字卡片、照片改風格（伺服器 /ai/image，一次畫 2 張）=====
+const AIMG_MODES = [['new', '🖼️ 打字生成圖片'], ['bg', '🔤 AI 背景＋文字'], ['edit', '🎨 照片改風格']];
+const AIMG_STYLES = { new: [['photo', '寫實照片'], ['warm', '溫馨插畫'], ['water', '水彩'], ['render', '3D 渲染'], ['minimal', '極簡']],
+  edit: [['water', '水彩'], ['oil', '油畫'], ['warm', '插畫'], ['anime', '動漫'], ['film', '復古底片'], ['bw', '黑白']] };
+const AIMG_RATIOS = [['4:5', '4:5 貼文'], ['1:1', '1:1 正方形'], ['9:16', '9:16 限動']];
+const AIMG_ALL = { '1:1': 1, '4:5': 0.8, '9:16': 0.5625, '4:3': 4 / 3, '3:4': 0.75, '16:9': 16 / 9 };
+const AIMG_HINT = {
+  new: '用中文描述想要的畫面，AI 畫 2 張讓你挑。適合情境圖、節日圖；AI 畫的家具不是你們真正的產品，產品請用實拍照片。',
+  bg: 'AI 先畫一張背景，再接到「文字卡片」把標題、優惠寫上去（AI 畫的中文字常常是錯的，所以字另外加）。',
+  edit: '選一張這則貼文的照片，AI 保留構圖、換成你選的風格。細節（木紋、布料、形狀）可能會變，不建議用在產品照。',
+};
+let aimg = null;   // { p, mode, prompt, style, ratio, photo, busy, images, pick }
+const aimgPhotos = p => postMedia(p).filter(m => !isVideo(m) && !/gif/.test(m.type));
+function openAimg(p, mode = 'new') {
+  const st = S.aimg ||= { mode: 'new', style: 'photo', editStyle: 'water', ratio: '4:5' };
+  aimg = { p, mode: mode || st.mode, prompt: '', busy: false, images: [], pick: 0, photo: aimgPhotos(p)[0]?.id || null };
+  $('#aimgModal').classList.add('open'); renderAimg();
+  setTimeout(() => $('#aimgText')?.focus(), 50);
+}
+function closeAimg() { aimg = null; $('#aimgModal').classList.remove('open'); }
+function renderAimg() {
+  const c = aimg; if (!c) return;
+  const st = S.aimg, edit = c.mode === 'edit', styles = AIMG_STYLES[edit ? 'edit' : 'new'], style = edit ? st.editStyle : st.style, phs = aimgPhotos(c.p);
+  const chips = (list, cur, key) => list.map(([v, l]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${l}</button>`).join('');
+  const can = !c.busy && (edit ? !!c.photo : !!c.prompt.trim());
+  $('#aimgBody').innerHTML = `
+    <div class="chips">${chips(AIMG_MODES, c.mode, 'aimgmode')}</div>
+    <p class="hint-s" style="margin:10px 0 0">${AIMG_HINT[c.mode]}</p>
+    ${edit ? (phs.length ? `<div class="pick-label">要改哪一張</div><div class="ss-thumbs">${phs.map(m => `<button data-aimgph="${m.id}" class="${m.id === c.photo ? '' : 'off'}"><img alt=""></button>`).join('')}</div>`
+      : '<p class="warn-line" style="margin:10px 0 0">這則貼文還沒有照片，先在上面加入照片。</p>') : ''}
+    <label class="field" for="aimgText" style="margin-top:12px">${edit ? '想怎麼改？（選填）' : '想要什麼畫面？'}</label>
+    <textarea id="aimgText" style="min-height:64px" placeholder="${edit ? '例如：改成黃昏的光線、加一點秋天的感覺' : c.mode === 'bg' ? '例如：聖誕節的溫暖客廳／秋天落葉／簡單的木紋桌面' : '例如：北歐風客廳、早晨陽光、木地板、淺灰色沙發'}">${esc(c.prompt)}</textarea>
+    <div class="pick-label">風格</div><div class="chips">${chips(styles, style, 'aimgstyle')}</div>
+    ${edit ? '' : `<div class="pick-label">尺寸</div><div class="chips">${chips(AIMG_RATIOS, st.ratio, 'aimgratio')}</div>`}
+    <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
+    ${c.busy ? '<div class="ai-wait">AI 畫圖中，大約 15～30 秒⋯</div>' : ''}
+    ${c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
+      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px">
+        ${c.mode === 'bg' ? '<button class="primary" id="aimgUse">用這張做文字卡片 →</button>' : `<button class="primary" id="aimgUse">加進這則貼文${c.ratio === '9:16' ? '（限動用）' : ''}</button>`}</div>` : ''}`;
+  const box = $('#aimgBody');
+  box.querySelectorAll('[data-aimgmode]').forEach(b => b.onclick = () => { c.mode = st.mode = b.dataset.aimgmode; c.images = []; save(); renderAimg(); });
+  box.querySelectorAll('[data-aimgstyle]').forEach(b => b.onclick = () => { st[edit ? 'editStyle' : 'style'] = b.dataset.aimgstyle; save(); renderAimg(); });
+  box.querySelectorAll('[data-aimgratio]').forEach(b => b.onclick = () => { st.ratio = b.dataset.aimgratio; save(); renderAimg(); });
+  box.querySelectorAll('[data-aimgph]').forEach(async b => {
+    b.onclick = () => { c.photo = b.dataset.aimgph; renderAimg(); };
+    const u = await mediaUrl(c.p.media.find(m => m.id === b.dataset.aimgph)); const im = b.querySelector('img'); if (im && u) im.src = u;
+  });
+  box.querySelectorAll('[data-aimgpick]').forEach(b => b.onclick = () => { c.pick = +b.dataset.aimgpick; box.querySelectorAll('[data-aimgpick]').forEach(x => x.classList.toggle('on', x === b)); });
+  $('#aimgText').oninput = e => { c.prompt = e.target.value; $('#aimgGo').disabled = c.busy || (edit ? !c.photo : !c.prompt.trim()); };
+  $('#aimgGo').onclick = aimgGenerate;
+  if ($('#aimgUse')) $('#aimgUse').onclick = aimgUse;
+}
+async function aimgGenerate() {
+  const c = aimg, st = S.aimg, edit = c.mode === 'edit';
+  c.busy = true; renderAimg();
+  try {
+    let image = '', ratio = st.ratio;
+    if (edit) {
+      const blob = await mediaBlob(c.p.media.find(m => m.id === c.photo));
+      if (!blob) throw new Error('找不到這張照片，請重新加入');
+      const bmp = await createImageBitmap(blob), r = bmp.width / bmp.height; bmp.close();
+      ratio = Object.entries(AIMG_ALL).sort((a, b) => Math.abs(Math.log(a[1] / r)) - Math.abs(Math.log(b[1] / r)))[0][0];   // 照原照片的比例
+      image = await shrinkImage(blob, 1024, 0.88);
+    }
+    const r = await fetch(API + '/ai/image', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, style: edit ? st.editStyle : st.style, ratio, image }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
+    if (aimg !== c) return;
+    c.images = j.images; c.pick = 0; c.ratio = ratio;
+    logRemote('trace', `AI 製圖 ${c.mode} ${ratio} ${j.images.length} 張`);
+  } catch (e) { toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message); }
+  if (aimg !== c) return;
+  c.busy = false; renderAimg();
+}
+async function aimgUse() {
+  const c = aimg, url = c.images[c.pick]; if (!url) return;
+  const blob = await (await fetch(url)).blob(), ext = blob.type.split('/')[1] === 'png' ? 'png' : 'jpg';
+  const p = c.p, story = c.ratio === '9:16';
+  closeAimg();
+  if (c.mode === 'bg') return openTc(p, { blob, ratio: ['1:1', '4:5', '9:16'].includes(c.ratio) ? c.ratio : '4:5' });
+  const before = new Set(p.media.map(m => m.id));
+  await addFiles(p, [new File([blob], `AI製圖.${ext}`, { type: blob.type || 'image/jpeg' })], story ? { storyOnly: true, aiImg: true } : {});
+  if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
+  toast(story ? '已加入（限動用）' : '已加入這則貼文');
+}
+$('#aimgClose').onclick = closeAimg;
 
 // ===== 切圖：一張照片切成「無縫輪播」或「IG 九宮格」=====
 // 無縫輪播：切成 2～5 張 4:5，左右滑接起來是一張。九宮格：IG 個人頁的格子是 3:4，每張做成 4:5、中間 3:4 剛好接成一張大圖
@@ -5514,6 +5620,7 @@ function navCloseModal(el) {
     else if (el.id === 'postPrevModal') closePostPreview();
     else if (el.id === 'insModal') closeIns();
     else if (el.id === 'tcModal') closeTc();
+    else if (el.id === 'aimgModal') closeAimg();
     else if (el.id === 'gdModal') closeGd();
     else if (el.id === 'vcModal') closeClip();
     else { const b = el.querySelector('[data-close]'); b ? b.click() : el.classList.remove('open'); }
