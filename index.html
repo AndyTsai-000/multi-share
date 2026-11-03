@@ -72,6 +72,8 @@ aside .new { width: 100%; }
 .aimg-res button.on { border-color: var(--accent); }
 .aimg-res img { width: 100%; display: block; }
 .aimg-post { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--hint); font-size: 13px; line-height: 1.5; white-space: pre-wrap; max-height: 86px; overflow: hidden; color: var(--sub); }
+.aimg-wt { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; cursor: pointer; }
+.aimg-wt input { width: auto; margin: 0; flex: none; }
 .media-ai { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
 .side-tools button { font-size: 13px; padding: 7px 4px; }
@@ -1882,7 +1884,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1103d";
+const APP_VERSION = "v1103e";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4657,6 +4659,7 @@ function tcCards(text) {
 function openTc(p, bg = null) {
   seLinkFonts();
   if (bg) Object.assign(tcSet(), { theme: 'photo', ratio: bg.ratio });
+  if (bg?.text) p.tcText = bg.text;
   tcCtx = { p, bg: bg?.blob || null, text: p.tcText ?? (p.text.trim() ? p.text.trim().split(/\n\s*\n/).slice(0, 3).join('\n\n') : ''), urls: [], blobs: [] };
   $('#tcModal').classList.add('open');
   renderTc();
@@ -4685,8 +4688,8 @@ function renderTc() {
   tcDrawAll();
 }
 $('#tcClose').onclick = closeTc;
-async function tcDraw(card, i, n, photo) {
-  const st = tcSet(), [, , W, H] = TC_RATIOS.find(r => r[0] === st.ratio) || TC_RATIOS[0];
+async function tcDraw(card, i, n, photo, st = tcSet()) {
+  const [, , W, H] = TC_RATIOS.find(r => r[0] === st.ratio) || TC_RATIOS[0];
   const t = TC_THEMES.find(x => x[0] === st.theme) || TC_THEMES[0], f = seFont(st.font), fam = `${f.fam}, ${STORY_FONT}`;
   await document.fonts?.load?.(`${f.w} 60px ${f.fam}`, card.title + card.body).catch(() => {});
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -4775,7 +4778,7 @@ function openAimg(p, mode = 'new') {
 }
 const aimgUsePost = c => c.mode !== 'edit' && c.src === 'post' && !!c.p.text.trim();
 const aimgCan = c => !c.busy && (c.mode === 'edit' ? !!c.photo : aimgUsePost(c) || !!c.prompt.trim());
-function closeAimg() { aimg = null; $('#aimgModal').classList.remove('open'); }
+function closeAimg() { aimg?.comp?.forEach(u => URL.revokeObjectURL(u)); aimg = null; $('#aimgModal').classList.remove('open'); }
 function renderAimg() {
   const c = aimg; if (!c) return;
   const st = S.aimg, edit = c.mode === 'edit', styles = AIMG_STYLES[edit ? 'edit' : 'new'], style = edit ? st.editStyle : st.style, phs = aimgPhotos(c.p);
@@ -4788,16 +4791,18 @@ function renderAimg() {
     ${edit ? (phs.length ? `<div class="pick-label">要改哪一張</div><div class="ss-thumbs">${phs.map(m => `<button data-aimgph="${m.id}" class="${m.id === c.photo ? '' : 'off'}"><img alt=""></button>`).join('')}</div>`
       : '<p class="warn-line" style="margin:10px 0 0">這則貼文還沒有照片，先在上面加入照片。</p>') : ''}
     ${edit ? '' : `<div class="pick-label">畫什麼</div><div class="chips"><button class="chip ${usePost ? 'on' : ''}" data-aimgsrc="post" ${post ? '' : 'disabled'}>📝 參考要發的文字</button><button class="chip ${usePost ? '' : 'on'}" data-aimgsrc="own">✏️ 自己輸入</button></div>
-      ${usePost ? `<div class="aimg-post">${esc(post.length > 120 ? post.slice(0, 120) + '⋯' : post)}</div>` : post ? '' : '<p class="hint-s" style="margin:6px 0 0">「要發的文字」還沒寫，先自己描述畫面。</p>'}`}
+      ${usePost ? `<div class="aimg-post">${esc(post.length > 120 ? post.slice(0, 120) + '⋯' : post)}</div>
+        ${c.mode === 'new' ? `<label class="aimg-wt"><input type="checkbox" id="aimgWt" ${st.withText !== false ? 'checked' : ''}> ✍️ 把貼文重點（標題、優惠、日期⋯）排在圖上</label>` : ''}` : post ? '' : '<p class="hint-s" style="margin:6px 0 0">「要發的文字」還沒寫，先自己描述畫面。</p>'}`}
     <label class="field" for="aimgText" style="margin-top:12px">${edit ? '想怎麼改？（選填）' : usePost ? '想補充什麼？（選填）' : '想要什麼畫面？'}</label>
     <textarea id="aimgText" style="min-height:64px" placeholder="${edit ? '例如：改成黃昏的光線、加一點秋天的感覺' : usePost ? '例如：畫面要有沙發、明亮一點' : c.mode === 'bg' ? '例如：聖誕節的溫暖客廳／秋天落葉／簡單的木紋桌面' : '例如：北歐風客廳、早晨陽光、木地板、淺灰色沙發'}">${esc(c.prompt)}</textarea>
     <div class="pick-label">風格</div><div class="chips">${chips(styles, style, 'aimgstyle')}</div>
     ${edit ? '' : `<div class="pick-label">尺寸</div><div class="chips">${chips(AIMG_RATIOS, st.ratio, 'aimgratio')}</div>`}
     <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
     ${c.busy ? '<div class="ai-wait">AI 畫圖中，大約 15～30 秒⋯</div>' : ''}
-    ${c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
+    ${c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${c.comp?.[i] || u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
       <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px">
-        ${c.mode === 'bg' ? '<button class="primary" id="aimgUse">用這張做文字卡片 →</button>' : `<button class="primary" id="aimgUse">加進這則貼文${c.ratio === '9:16' ? '（限動用）' : ''}</button>`}</div>` : ''}`;
+        ${c.comp ? '<button id="aimgEdit">✏️ 改字／換字體</button>' : ''}
+        ${c.mode === 'bg' && !c.comp ? '<button class="primary" id="aimgUse">用這張做文字卡片 →</button>' : `<button class="primary" id="aimgUse">加進這則貼文${c.ratio === '9:16' ? '（限動用）' : ''}</button>`}</div>` : ''}`;
   const box = $('#aimgBody');
   box.querySelectorAll('[data-aimgmode]').forEach(b => b.onclick = () => { c.mode = st.mode = b.dataset.aimgmode; c.images = []; save(); renderAimg(); });
   box.querySelectorAll('[data-aimgstyle]').forEach(b => b.onclick = () => { st[edit ? 'editStyle' : 'style'] = b.dataset.aimgstyle; save(); renderAimg(); });
@@ -4810,7 +4815,9 @@ function renderAimg() {
   box.querySelectorAll('[data-aimgsrc]').forEach(b => b.onclick = () => { c.src = b.dataset.aimgsrc; renderAimg(); $('#aimgText').focus(); });
   $('#aimgText').oninput = e => { c.prompt = e.target.value; $('#aimgGo').disabled = !aimgCan(c); };
   $('#aimgGo').onclick = aimgGenerate;
-  if ($('#aimgUse')) $('#aimgUse').onclick = aimgUse;
+  if ($('#aimgUse')) $('#aimgUse').onclick = () => aimgUse(false);
+  if ($('#aimgEdit')) $('#aimgEdit').onclick = () => aimgUse(true);
+  if ($('#aimgWt')) $('#aimgWt').onchange = e => { st.withText = e.target.checked; save(); };
 }
 async function aimgGenerate() {
   const c = aimg, st = S.aimg, edit = c.mode === 'edit';
@@ -4825,22 +4832,33 @@ async function aimgGenerate() {
       image = await shrinkImage(blob, 1024, 0.88);
     }
     const r = await fetch(API + '/ai/image', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, post: aimgUsePost(c) ? c.p.text.trim().slice(0, 1500) : '', style: edit ? st.editStyle : st.style, ratio, image }) });
+      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, post: aimgUsePost(c) ? c.p.text.trim().slice(0, 1500) : '', withText: aimgWantText(c), style: edit ? st.editStyle : st.style, ratio, image }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
     if (aimg !== c) return;
-    c.images = j.images; c.pick = 0; c.ratio = ratio;
+    c.images = j.images; c.pick = 0; c.ratio = ratio; c.comp = null;
+    c.card = aimgWantText(c) && j.card ? j.card : null;
+    if (c.card) c.comp = await Promise.all(j.images.map(u => aimgCompose(u, c.card, ratio)));   // AI 畫中文會錯，字由網頁排上去
+    if (aimg !== c) return;
     logRemote('trace', `AI 製圖 ${c.mode} ${ratio} ${j.images.length} 張`);
   } catch (e) { toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message); }
   if (aimg !== c) return;
   c.busy = false; renderAimg();
 }
-async function aimgUse() {
+const aimgWantText = c => aimgUsePost(c) && (c.mode === 'bg' || S.aimg.withText !== false);
+async function aimgCompose(url, card, ratio) {
+  seLinkFonts();
+  const bmp = await createImageBitmap(await (await fetch(url)).blob());
+  const out = await tcDraw(card, 0, 1, bmp, { theme: 'photo', ratio: TC_RATIOS.some(r => r[0] === ratio) ? ratio : '4:5', font: tcSet().font });
+  bmp.close(); return URL.createObjectURL(out);
+}
+async function aimgUse(edit) {
   const c = aimg, url = c.images[c.pick]; if (!url) return;
-  const blob = await (await fetch(url)).blob(), ext = blob.type.split('/')[1] === 'png' ? 'png' : 'jpg';
-  const p = c.p, story = c.ratio === '9:16';
+  const raw = await (await fetch(url)).blob(), p = c.p, story = c.ratio === '9:16', ratio = ['1:1', '4:5', '9:16'].includes(c.ratio) ? c.ratio : '4:5';
+  const comp = c.comp && !edit ? await (await fetch(c.comp[c.pick])).blob() : null;   // 關視窗會釋放預覽網址，先拿
   closeAimg();
-  if (c.mode === 'bg') return openTc(p, { blob, ratio: ['1:1', '4:5', '9:16'].includes(c.ratio) ? c.ratio : '4:5' });
+  if (edit || (c.mode === 'bg' && !c.comp)) return openTc(p, { blob: raw, ratio, text: c.card ? `${c.card.title}${c.card.body ? '\n' + c.card.body : ''}` : null });
+  const blob = comp || raw, ext = blob.type.split('/')[1] === 'png' ? 'png' : 'jpg';
   const before = new Set(p.media.map(m => m.id));
   await addFiles(p, [new File([blob], `AI製圖.${ext}`, { type: blob.type || 'image/jpeg' })], story ? { storyOnly: true, aiImg: true } : {});
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
