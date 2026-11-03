@@ -76,6 +76,10 @@ aside .new { width: 100%; }
 .aimg-slide { border-radius: 10px; overflow: hidden; background: var(--hint); }
 .aimg-slide img { width: 100%; display: block; }
 .aimg-wt input { width: auto; margin: 0; flex: none; }
+.media-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.media-tools:empty { display: none; }
+.card h2 { flex-wrap: wrap; }
+.text-head .field { white-space: nowrap; }
 .media-ai { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
 .side-tools button { font-size: 13px; padding: 7px 4px; }
@@ -1028,13 +1032,15 @@ function renderEditor() {
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
   </div>
   <div class="card" id="aimgCard">
-    <h2>AI 製圖 <small>沒有合適的圖時用；參考上面要發的文字，或自己描述</small></h2>
-    <div class="media-ai">${AIMG_MODES.map(([v, l]) => `<button class="ai-btn" data-aimgopen="${v}">${l}</button>`).join('')}</div>
+    <h2>製作圖片 <small>沒有合適的圖時用；AI 可以參考上面要發的文字</small></h2>
+    <div class="media-ai">${AIMG_MODES.map(([v, l]) => `<button class="ai-btn" data-aimgopen="${v}">${l}</button>`).join('')}<button class="ai-btn" data-tcopen>📝 文字卡片</button></div>
   </div>
   <div class="card">
     <h2>圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small></h2>
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
-    <input type="file" id="file" multiple accept="image/*,video/*" hidden>    <div class="thumbs" id="thumbs"></div>
+    <input type="file" id="file" multiple accept="image/*,video/*" hidden>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="media-tools" id="mediaTools">${mediaToolsHtml(p)}</div>
   </div>
   <div class="card" id="postCard">${postCardHtml(p)}</div>
   <div class="card" id="storyCard">${storyCardHtml(p)}</div>
@@ -1161,6 +1167,7 @@ function refreshStepper(p) {
   $('#editor .stepper').querySelectorAll('[data-step]').forEach(x => x.onclick = () => !p.serverPost && goStep(p, +x.dataset.step));
   const sc = $('#storyCard'), pc = $('#postCard');
   if (pc) pc.innerHTML = postCardHtml(p);
+  if ($('#mediaTools')) $('#mediaTools').innerHTML = mediaToolsHtml(p);
   if (sc) { sc.innerHTML = storyCardHtml(p); bindSettings(p); }
 }
 // 第 1 步的限動卡片：有圖片影片才能編輯限動畫面
@@ -1169,14 +1176,18 @@ function mediaCardHtml(title, sub, desc, buttons) {
     <div class="media-card-row"><span class="hint-s">${desc}</span><span class="media-card-btns">${buttons}</span></div>`;
 }
 function postCardHtml(p) {
-  const has = postMedia(p).length, done = p.postEdit?.done, vids = postMedia(p).some(isVideo), photos = postMedia(p).some(m => !isVideo(m));
+  const has = postMedia(p).length, done = p.postEdit?.done;
   return mediaCardHtml('貼文畫面', '要發 IG 貼文才需要',
-    !has ? '先在上面加入照片或影片，就可以預覽和編輯貼文；也可以用下面的「文字卡片」做圖。'
+    !has ? '先在上面加入照片或影片，就可以預覽和編輯貼文。'
       : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '裁切比例、濾鏡、排序、標註人物；影片可以加音樂、自動字幕（在「編輯貼文」裡）',
-    `<button class="ai-btn" data-ssopen ${ssPhotos(p).length ? '' : 'disabled'}>🎵 照片變影片</button><button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`)
-    + `<div class="media-card-btns" style="margin-top:10px;align-items:center"><span class="hint-s">更多工具：</span>
-      <button class="ai-btn" data-vcopen ${vids ? '' : 'disabled'}>✂️ 剪輯影片</button><button class="ai-btn" data-gdopen ${photos ? '' : 'disabled'}>▦ 切圖／九宮格</button>
-      <button class="ai-btn" data-tcopen>🔤 文字卡片</button><button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button></div>`;
+    `<button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`)
+;
+}
+// 加進來的照片影片可以再處理：只顯示用得到的
+function mediaToolsHtml(p) {
+  const ms = postMedia(p); if (!ms.length) return '';
+  const vids = ms.some(isVideo), photos = ms.some(m => !isVideo(m));
+  return `<span class="hint-s">處理：</span>${vids ? '<button class="ai-btn" data-vcopen>✂️ 剪輯影片</button>' : ''}${photos ? '<button class="ai-btn" data-gdopen>▦ 切圖／九宮格</button>' : ''}${ssPhotos(p).length ? '<button class="ai-btn" data-ssopen>🎵 照片變影片</button>' : ''}<button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button>`;
 }
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
@@ -1246,6 +1257,7 @@ function renderEditorSettings(p) {
   const sc = $('#storyCard'), pc = $('#postCard');
   if (sc) sc.innerHTML = storyCardHtml(p);
   if (pc) pc.innerHTML = postCardHtml(p);
+  if ($('#mediaTools')) $('#mediaTools').innerHTML = mediaToolsHtml(p);
   if (!card && !sc && !pc) return;
   bindSettings(p);
 }
@@ -1886,7 +1898,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1103f";
+const APP_VERSION = "v1103g";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
