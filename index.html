@@ -71,6 +71,9 @@ aside .new { width: 100%; }
 .aimg-res button { padding: 0; border: 3px solid transparent; border-radius: 10px; overflow: hidden; background: var(--hint); }
 .aimg-res button.on { border-color: var(--accent); }
 .aimg-res img { width: 100%; display: block; }
+.aimg-ref { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--hint); display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.aimg-ref img { width: 72px; height: 48px; object-fit: cover; border-radius: 6px; flex: none; }
+.aimg-ref small { display: block; color: var(--sub); }
 .aimg-post { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--hint); font-size: 13px; line-height: 1.5; white-space: pre-wrap; max-height: 86px; overflow: hidden; color: var(--sub); }
 .aimg-wt { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; cursor: pointer; }
 .aimg-slide { border-radius: 10px; overflow: hidden; background: var(--hint); }
@@ -1912,7 +1915,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1106a";
+const APP_VERSION = "v1106b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4788,6 +4791,7 @@ async function tcAdd() {
 
 // ===== AI 製圖：打字生成圖片、AI 背景＋文字卡片、照片改風格（伺服器 /ai/image，一次畫 2 張）=====
 const AIMG_MODES = [['new', '🖼️ 打字生成圖片'], ['bg', '🔤 AI 背景＋文字'], ['edit', '🎨 照片改風格']];
+const AIMG_REF = ['ref', '🎯 跟之前的貼文一樣'];
 const AIMG_STYLES = { new: [['photo', '寫實照片'], ['warm', '溫馨插畫'], ['water', '水彩'], ['render', '3D 渲染'], ['minimal', '極簡']],
   edit: [['water', '水彩'], ['oil', '油畫'], ['warm', '插畫'], ['anime', '動漫'], ['film', '復古底片'], ['bw', '黑白']] };
 const AIMG_RATIOS = [['4:5', '4:5 貼文'], ['1:1', '1:1 正方形'], ['9:16', '9:16 限動']];
@@ -4799,9 +4803,74 @@ const AIMG_HINT = {
 };
 let aimg = null;   // { p, mode, prompt, style, ratio, photo, busy, images, pick }
 const aimgPhotos = p => postMedia(p).filter(m => !isVideo(m) && !/gif/.test(m.type));
+// ===== 跟之前的貼文一樣：拿最近發過的圖（有連 IG 就用 IG 上的貼文，沒有就用網站裡的），AI 整理出共同的風格 =====
+// S.aimg.ref = { en（給畫圖 AI）, zh（給人看）, thumb, n, src: 'ig'|'local', key, at }
+const REF_N = 6, REF_DAYS = 3;
+const refIg = () => autoAccounts.find(a => a.platform === 'ig');
+// 網站裡其他貼文的第一張照片：發完的優先，再來是排好的，越新越前面
+function refLocal(p) {
+  const t = x => x.publishedAt || (x.time ? Date.parse(x.time) : 0);
+  return S.posts.map((x, i) => ({ x, i, m: x === p ? null : postMedia(x).find(m => !isVideo(m) && !/gif/.test(m.type)) }))
+    .filter(o => o.m)
+    .sort((a, b) => (listStatus(b.x).finished ? 1 : 0) - (listStatus(a.x).finished ? 1 : 0) || t(b.x) - t(a.x) || b.i - a.i)
+    .slice(0, REF_N).map(o => o.m);
+}
+const refAvail = p => !!S.aimg?.ref || !!refIg() || refLocal(p).length > 0;
+const refFresh = () => { const r = S.aimg?.ref; return r && Date.now() - r.at < REF_DAYS * 864e5; };
+const aimgStyle = c => { const st = S.aimg, v = c.mode === 'edit' ? st.editStyle : st.style; return v !== 'ref' ? v : refAvail(c.p) ? 'ref' : c.mode === 'edit' ? 'water' : 'photo'; };
+// 拿到要參考的圖（data URL）
+async function refImages(p) {
+  const acc = refIg();
+  if (acc) try {
+    let data = S.insCache?.[acc.id]?.at > Date.now() - 10 * 60e3 && S.insCache[acc.id].data;
+    if (!data) { data = await apiCall(`/api/insights?account=${encodeURIComponent(acc.id)}`); (S.insCache ||= {})[acc.id] = { at: Date.now(), data }; }
+    const list = (data.posts || []).filter(x => x.thumb).slice(0, REF_N);
+    const imgs = (await Promise.all(list.map(async x => {
+      const r = await fetch(API + '/api/fetch?u=' + encodeURIComponent(x.thumb), { headers: { Authorization: 'Bearer ' + session } }).catch(() => null);
+      return r?.ok ? shrinkImage(await r.blob(), 512, 0.85).catch(() => '') : '';
+    }))).filter(Boolean);
+    if (imgs.length) return { src: 'ig', key: 'ig:' + list.map(x => x.id).join(), imgs };
+  } catch {}
+  const ms = refLocal(p);
+  const imgs = (await Promise.all(ms.map(m => aiImage(m).catch(() => '')))).filter(Boolean);
+  return { src: 'local', key: 'local:' + ms.map(m => m.id).join(), imgs };
+}
+// 拼成一張：每一格是一則貼文
+async function refCollage(imgs, cell) {
+  const n = imgs.length, cols = n <= 1 ? 1 : n <= 4 ? 2 : 3, rows = Math.ceil(n / cols), cv = document.createElement('canvas');
+  cv.width = cols * cell; cv.height = rows * cell;
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+  for (let i = 0; i < n; i++) {
+    const bmp = await createImageBitmap(await (await fetch(imgs[i])).blob()), k = Math.max(cell / bmp.width, cell / bmp.height);
+    g.save(); g.beginPath(); g.rect((i % cols) * cell, Math.floor(i / cols) * cell, cell, cell); g.clip();
+    g.drawImage(bmp, (i % cols) * cell + (cell - bmp.width * k) / 2, Math.floor(i / cols) * cell + (cell - bmp.height * k) / 2, bmp.width * k, bmp.height * k);
+    g.restore(); bmp.close();
+  }
+  return cv.toDataURL('image/jpeg', 0.85);
+}
+// 有整理過、而且不舊就直接用；舊了先看參考的貼文有沒有變，有變才重新請 AI 看（算 1 次 AI）
+async function refEnsure(p, force) {
+  const st = S.aimg, old = st.ref;
+  if (!force && refFresh()) return old;
+  const got = await refImages(p);
+  if (!got.imgs.length) { if (old) return old; throw new Error('找不到之前發過的貼文圖片，請先換別的風格'); }
+  if (!force && old?.key === got.key) { old.at = Date.now(); save(); return old; }
+  const r = await fetch(API + '/ai/style', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: await refCollage(got.imgs, 384), n: got.imgs.length }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
+  st.ref = { en: j.en, zh: j.zh, thumb: await refCollage(got.imgs, 72), n: got.imgs.length, src: got.src, key: got.key, at: Date.now() };
+  save(); logRemote('trace', `參考之前貼文風格 ${got.src} ${got.imgs.length} 張`);
+  return st.ref;
+}
+function refBoxHtml(c) {
+  const r = S.aimg.ref;
+  return `<div class="aimg-ref">${r ? `<img src="${r.thumb}" alt=""><div style="flex:1"><b>${esc(r.zh || '之前貼文的風格')}</b><small>照最近 ${r.n} 則${r.src === 'ig' ? ' IG ' : ''}貼文的圖片整理</small></div><button class="link" id="aimgRefRe" ${c.busy ? 'disabled' : ''}>🔄 重新整理</button>`
+    : '<div class="hint-s" style="margin:0">畫圖前 AI 會先看你最近發過的圖片（IG 帳號或網站裡的貼文），整理出共同的色調、光線和氣氛，畫出一樣風格的圖。第一次會多用 1 次 AI。</div>'}</div>`;
+}
 function openAimg(p, mode = 'new') {
   const st = S.aimg ||= { mode: 'new', style: 'photo', editStyle: 'water', ratio: '4:5' };
   aimg = { p, mode: mode || st.mode, prompt: '', busy: false, images: [], pick: 0, photo: aimgPhotos(p)[0]?.id || null, src: p.text.trim() ? 'post' : 'own' };
+  if (!st.refInit && refAvail(p)) { st.style = st.editStyle = 'ref'; st.refInit = true; save(); }
   $('#aimgModal').classList.add('open'); renderAimg();
   setTimeout(() => $('#aimgText')?.focus(), 50);
 }
@@ -4810,7 +4879,7 @@ const aimgCan = c => !c.busy && (c.mode === 'edit' ? !!c.photo : aimgUsePost(c) 
 function closeAimg() { aimg?.comp?.forEach(u => URL.revokeObjectURL(u)); aimg = null; $('#aimgModal').classList.remove('open'); }
 function renderAimg() {
   const c = aimg; if (!c) return;
-  const st = S.aimg, edit = c.mode === 'edit', styles = AIMG_STYLES[edit ? 'edit' : 'new'], style = edit ? st.editStyle : st.style, phs = aimgPhotos(c.p);
+  const st = S.aimg, edit = c.mode === 'edit', hasRef = refAvail(c.p), styles = [...(hasRef ? [AIMG_REF] : []), ...AIMG_STYLES[edit ? 'edit' : 'new']], style = aimgStyle(c), phs = aimgPhotos(c.p);
   const chips = (list, cur, key) => list.map(([v, l]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${l}</button>`).join('');
   const post = c.p.text.trim(), usePost = !edit && c.src === 'post' && !!post;
   const can = aimgCan(c);
@@ -4826,9 +4895,10 @@ function renderAimg() {
     <label class="field" for="aimgText" style="margin-top:12px">${edit ? '想怎麼改？（選填）' : usePost ? '想補充什麼？（選填）' : '想要什麼畫面？'}</label>
     <textarea id="aimgText" style="min-height:64px" placeholder="${edit ? '例如：改成黃昏的光線、加一點秋天的感覺' : usePost ? '例如：畫面要有沙發、明亮一點' : c.mode === 'bg' ? '例如：聖誕節的溫暖客廳／秋天落葉／簡單的木紋桌面' : '例如：北歐風客廳、早晨陽光、木地板、淺灰色沙發'}">${esc(c.prompt)}</textarea>
     <div class="pick-label">風格</div><div class="chips">${chips(styles, style, 'aimgstyle')}</div>
+    ${style === 'ref' ? refBoxHtml(c) : !hasRef && !edit ? '<p class="hint-s" style="margin:6px 0 0">發過幾則有照片的貼文（或連結 IG 自動發帳號）後，這裡會多一個「🎯 跟之前的貼文一樣」，讓 AI 畫的圖跟你的貼文風格一致。</p>' : ''}
     ${edit ? '' : `<div class="pick-label">尺寸</div><div class="chips">${chips(AIMG_RATIOS, st.ratio, 'aimgratio')}</div>`}
     <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${aimgMulti(c) ? (c.slides ? '🔄 整組重畫' : '✨ 做輪播圖') : c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
-    ${c.busy ? `<div class="ai-wait">${aimgMulti(c) ? 'AI 整理內容、每張各畫一張圖，大約 30～60 秒⋯' : 'AI 畫圖中，大約 15～30 秒⋯'}</div>` : ''}
+    ${c.busy ? `<div class="ai-wait">${c.busy === 'ref' ? 'AI 先看你之前發過的圖片、整理風格⋯' : aimgMulti(c) ? 'AI 整理內容、每張各畫一張圖，大約 30～60 秒⋯' : 'AI 畫圖中，大約 15～30 秒⋯'}</div>` : ''}
     ${c.slides && !c.busy ? `<div class="aimg-res">${c.comp.map((u, i) => `<div class="aimg-slide"><img src="${u}" alt="第 ${i + 1} 張"></div>`).join('')}</div>
       <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張</small></label>
       <textarea id="aimgSText" style="min-height:150px">${esc(c.sText)}</textarea>
@@ -4850,6 +4920,11 @@ function renderAimg() {
   box.querySelectorAll('[data-aimgsrc]').forEach(b => b.onclick = () => { c.src = b.dataset.aimgsrc; renderAimg(); $('#aimgText').focus(); });
   $('#aimgText').oninput = e => { c.prompt = e.target.value; $('#aimgGo').disabled = !aimgCan(c); };
   $('#aimgGo').onclick = aimgGenerate;
+  if ($('#aimgRefRe')) $('#aimgRefRe').onclick = async () => {
+    c.busy = 'ref'; renderAimg();
+    try { await refEnsure(c.p, true); toast('已重新整理風格'); } catch (e) { toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message); }
+    if (aimg !== c) return; c.busy = false; renderAimg();
+  };
   if ($('#aimgUse')) $('#aimgUse').onclick = () => aimgUse(false);
   if ($('#aimgEdit')) $('#aimgEdit').onclick = () => aimgUse(true);
   if ($('#aimgVideo')) $('#aimgVideo').onclick = () => aimgUseSlides(c, true);
@@ -4858,9 +4933,12 @@ function renderAimg() {
   if ($('#aimgSText')) $('#aimgSText').oninput = e => { c.sText = e.target.value; clearTimeout(c.sTimer); c.sTimer = setTimeout(() => aimgRecompose(c), 400); };
 }
 async function aimgGenerate() {
-  const c = aimg, st = S.aimg, edit = c.mode === 'edit';
-  c.busy = true; renderAimg();
+  const c = aimg, st = S.aimg, edit = c.mode === 'edit', style = aimgStyle(c);
+  c.busy = style === 'ref' && !refFresh() ? 'ref' : true; renderAimg();
   try {
+    const ref = style === 'ref' ? await refEnsure(c.p) : null;
+    if (aimg !== c) return;
+    if (c.busy === 'ref') { c.busy = true; renderAimg(); }
     let image = '', ratio = st.ratio;
     if (edit) {
       const blob = await mediaBlob(c.p.media.find(m => m.id === c.photo));
@@ -4870,7 +4948,7 @@ async function aimgGenerate() {
       image = await shrinkImage(blob, 1024, 0.88);
     }
     const r = await fetch(API + '/ai/image', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, post: aimgUsePost(c) ? c.p.text.trim().slice(0, 1500) : '', withText: aimgWantText(c), slides: aimgMulti(c), style: edit ? st.editStyle : st.style, ratio, image }) });
+      body: JSON.stringify({ mode: c.mode, prompt: c.prompt, post: aimgUsePost(c) ? c.p.text.trim().slice(0, 1500) : '', withText: aimgWantText(c), slides: aimgMulti(c), style, styleRef: ref?.en || '', ratio, image }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
     if (aimg !== c) return;
