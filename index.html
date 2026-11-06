@@ -132,6 +132,7 @@ main { overflow: auto; min-height: 0; }
 .thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--hint); border: 1px solid var(--line); }
 .thumb img, .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb .tag { position: absolute; left: 5px; bottom: 5px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 4px; }
+.thumb .dl { position: absolute; right: 4px; bottom: 4px; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; line-height: 26px; font-size: 13px; }
 .thumb .x { position: absolute; right: 4px; top: 4px; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; line-height: 26px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1202,9 +1203,10 @@ function postCardHtml(p) {
 }
 // 加進來的照片影片可以再處理：只顯示用得到的
 function mediaToolsHtml(p) {
-  const ms = postMedia(p); if (!ms.length) return '';
+  const ms = postMedia(p), all = p.media.length > 1 ? `<button class="ai-btn" data-dlall>💾 全部存到電腦（${p.media.length}）</button>` : '';
+  if (!ms.length) return all ? `<span class="hint-s">處理：</span>${all}` : '';
   const vids = ms.some(isVideo), photos = ms.some(m => !isVideo(m));
-  return `<span class="hint-s">處理：</span>${vids ? '<button class="ai-btn" data-vcopen>✂️ 剪輯影片</button>' : ''}${photos ? '<button class="ai-btn" data-gdopen>▦ 切圖／九宮格</button>' : ''}${ssPhotos(p).length ? '<button class="ai-btn" data-ssopen>🎵 照片變影片</button>' : ''}<button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button>`;
+  return `<span class="hint-s">處理：</span>${vids ? '<button class="ai-btn" data-vcopen>✂️ 剪輯影片</button>' : ''}${photos ? '<button class="ai-btn" data-gdopen>▦ 切圖／九宮格</button>' : ''}${ssPhotos(p).length ? '<button class="ai-btn" data-ssopen>🎵 照片變影片</button>' : ''}<button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button>${all}`;
 }
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
@@ -1285,6 +1287,7 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
   document.querySelectorAll('#editor [data-fsopen]').forEach(x => x.onclick = () => openFileStory(p));
   document.querySelectorAll('#editor [data-ssopen]').forEach(x => x.onclick = () => openSlide(p));
+  document.querySelectorAll('#editor [data-dlall]').forEach(x => x.onclick = () => saveMedia(p.media));
   document.querySelectorAll('#editor [data-vcopen]').forEach(x => x.onclick = () => openClip(p));
   document.querySelectorAll('#editor [data-gdopen]').forEach(x => x.onclick = () => openGd(p));
   document.querySelectorAll('#editor [data-tcopen]').forEach(x => x.onclick = () => openTc(p));
@@ -1296,8 +1299,9 @@ async function renderThumbs() {
   if ($('#aiLook')) $('#aiLook').hidden = !aiCover(p);
   box.innerHTML = p.media.map((m, i) => `<div class="thumb" data-i="${i}">
     <span class="tag">${m.storyOnly ? (m.textOnly ? '純文字限動' : m.aiImg ? 'AI 限動' : m.card ? '文字卡片限動' : '限動拼貼') : isVideo(m) ? '影片' : /gif/.test(m.type) ? 'GIF' : ''}</span>
-    <button class="x" data-i="${i}" title="移除">✕</button></div>`).join('');
+    <button class="x" data-i="${i}" title="移除">✕</button><button class="dl" data-i="${i}" title="存到電腦">💾</button></div>`).join('');
   box.querySelectorAll('.tag').forEach(t => { if (!t.textContent) t.remove(); });
+  box.querySelectorAll('.dl').forEach(b => b.onclick = () => saveMedia([p.media[+b.dataset.i]]));
   box.querySelectorAll('.x').forEach(b => b.onclick = () => {
     const m = p.media[+b.dataset.i];
     p.media = p.media.filter(x => x !== m); dropMedia(m); save(); renderThumbs(); renderBar(); renderList(); renderEditorSettings(p); refreshStepper(p);
@@ -1435,6 +1439,22 @@ function downloadIcs(p) {
   saveFile(new Blob([ics], { type: 'text/calendar' }), '發文提醒.ics');
   toast('打開下載的檔案，就會加進行事曆');
 }
+// 存到電腦：檔名照原本的，補上正確的副檔名；多個檔案隔一下再下載（瀏覽器第一次會問要不要允許下載多個檔案）
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
+function fileName(name, type) {
+  const ext = EXT[type] || (type || '').split('/')[1] || 'bin', base = String(name || '檔案').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_');
+  return `${base}.${ext}`;
+}
+async function saveMany(list) {   // list = [{ blob, name }]
+  for (const [i, x] of list.entries()) { if (i) await new Promise(r => setTimeout(r, 400)); saveFile(x.blob, fileName(x.name, x.blob.type)); }
+  toast(list.length > 1 ? `已存 ${list.length} 個檔案到電腦的「下載」資料夾${'（瀏覽器問要不要允許下載多個檔案，請按允許）'}` : '已存到電腦的「下載」資料夾');
+}
+async function saveMedia(ms) {
+  const list = (await Promise.all(ms.map(async m => ({ blob: await mediaBlob(m).catch(() => null), name: m.name })))).filter(x => x.blob);
+  if (!list.length) return toast('找不到檔案，請重新加入');
+  saveMany(list);
+}
+const stamp = () => localInput(new Date()).slice(0, 10).replace(/-/g, '');
 function saveFile(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
@@ -1915,7 +1935,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1106b";
+const APP_VERSION = "v1106c";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4903,9 +4923,10 @@ function renderAimg() {
       <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張</small></label>
       <textarea id="aimgSText" style="min-height:150px">${esc(c.sText)}</textarea>
       <p class="hint-s" style="margin:6px 0 0">貼文沒寫到的內容（例如「3 個方法」是哪 3 個）是 AI 補寫的，加入前請確認正確。</p>
-      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px"><button id="aimgVideo">🎬 做成影片（Reels）</button><button class="primary" id="aimgUse">加入 ${c.comp.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}</button></div>`
+      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button id="aimgSave">💾 存到電腦</button><button id="aimgVideo">🎬 做成影片（Reels）</button><button class="primary" id="aimgUse">加入 ${c.comp.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}</button></div>`
     : c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${c.comp?.[i] || u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
-      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px">
+      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        <button id="aimgSave">💾 存到電腦</button>
         ${c.comp ? '<button id="aimgEdit">✏️ 改字／換字體</button>' : ''}
         ${c.mode === 'bg' && !c.comp ? '<button class="primary" id="aimgUse">用這張做文字卡片 →</button>' : `<button class="primary" id="aimgUse">加進這則貼文${c.ratio === '9:16' ? '（限動用）' : ''}</button>`}</div>` : ''}`;
   const box = $('#aimgBody');
@@ -4928,6 +4949,7 @@ function renderAimg() {
   if ($('#aimgUse')) $('#aimgUse').onclick = () => aimgUse(false);
   if ($('#aimgEdit')) $('#aimgEdit').onclick = () => aimgUse(true);
   if ($('#aimgVideo')) $('#aimgVideo').onclick = () => aimgUseSlides(c, true);
+  if ($('#aimgSave')) $('#aimgSave').onclick = () => aimgSave(c);
   if ($('#aimgWt')) $('#aimgWt').onchange = e => { st.withText = e.target.checked; save(); renderAimg(); };
   box.querySelectorAll('[data-aimgslides]').forEach(b => b.onclick = () => { st.slides = b.dataset.aimgslides === '1'; save(); renderAimg(); });
   if ($('#aimgSText')) $('#aimgSText').oninput = e => { c.sText = e.target.value; clearTimeout(c.sTimer); c.sTimer = setTimeout(() => aimgRecompose(c), 400); };
@@ -5001,6 +5023,14 @@ async function aimgUse(edit) {
   await addFiles(p, [new File([blob], `AI製圖.${ext}`, { type: blob.type || 'image/jpeg' })], story ? { storyOnly: true, aiImg: true } : {});
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
   toast(story ? '已加入（限動用）' : '已加入這則貼文');
+}
+// 存到電腦：輪播存整組，單張存選中的那張（有排字就存有字的）
+async function aimgSave(c) {
+  if (c.slides) { clearTimeout(c.sTimer); await aimgRecompose(c, true); }
+  if (aimg !== c) return;
+  const urls = c.slides ? c.comp : [c.comp?.[c.pick] || c.images[c.pick]], d = stamp();
+  const list = await Promise.all(urls.map(async (u, i) => ({ blob: await (await fetch(u)).blob(), name: c.slides ? `AI輪播-${d}-${i + 1}` : `AI製圖-${d}` })));
+  saveMany(list); logRemote('trace', `AI 製圖存到電腦 ${list.length} 張`);
 }
 async function aimgUseSlides(c, video) {
   clearTimeout(c.sTimer); await aimgRecompose(c, true);   // 剛改完字：先排好再加
