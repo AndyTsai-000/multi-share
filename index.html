@@ -453,6 +453,12 @@ main { overflow: auto; min-height: 0; }
 button.danger-btn { background: var(--danger); border-color: var(--danger); }
 .tag-set { padding: 10px 0; border-top: 1px solid var(--line); }
 .tag-set:first-child { border-top: 0; }
+.tpl-left:empty { display: none; }
+.tpl-left { margin-top: 6px; font-size: 13px; color: var(--soft-ink); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tpl-prev { font-size: 13px; color: var(--soft-ink); white-space: pre-line; margin: 4px 0 6px; max-height: 4.2em; overflow: hidden; }
+.ht-ai { background: var(--soft, #f6f4ff); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.ht-ai .chips { margin-top: 8px; }
+.ht-ai .chip.off { opacity: .45; text-decoration: line-through; }
 .tag-set .tags { font-size: 13px; color: var(--soft-ink); word-break: break-word; margin: 4px 0 6px; }
 .logo-prev { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .logo-prev canvas { width: 160px; border-radius: 8px; border: 1px solid var(--line); }
@@ -611,8 +617,13 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   <div id="clrBody"></div>
 </div></div>
 
+<div class="modal-bg" id="tplModal"><div class="modal">
+  <h3>📋 貼文範本 <button class="link" data-close>關閉</button></h3>
+  <div id="tplBody"></div>
+</div></div>
+
 <div class="modal-bg" id="tagModal"><div class="modal">
-  <h3># 常用標籤組 <button class="link" data-close>關閉</button></h3>
+  <h3># 標籤 <button class="link" data-close>關閉</button></h3>
   <div id="tagBody"></div>
 </div></div>
 
@@ -1025,8 +1036,9 @@ function renderEditor() {
   if (p.step === 1) body = `
   <div class="card">
     <h2>文字</h2>
-    <div class="text-head"><label class="field" for="text">要發的文字</label><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ai-btn" id="tagOpen"># 標籤組</button><button class="ai-btn" id="aiLook" hidden>📷 AI 看圖寫</button><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></span></div>
+    <div class="text-head"><label class="field" for="text">要發的文字</label><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ai-btn" id="tplOpen">📋 範本</button><button class="ai-btn" id="tagOpen"># 標籤</button><button class="ai-btn" id="aiLook" hidden>📷 AI 看圖寫</button><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></span></div>
     <textarea id="text" placeholder="要發的文字⋯">${esc(p.text)}</textarea>
+    <div class="tpl-left" id="tplLeft">${tplLeftHtml(p)}</div>
     <div class="per-text" id="perText">${perTextHtml(p)}</div>
     <label class="field" for="link" style="margin-top:12px">連結（會接在文字最後面）</label>
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
@@ -1127,9 +1139,11 @@ function renderEditor() {
     renderThumbs();
     $('#aiOpen').onclick = () => openAi(p);
     $('#tagOpen').onclick = () => openTags(p);
+    $('#tplOpen').onclick = () => openTpl(p);
+    bindTplLeft(p);
     $('#aiLook').onclick = () => openAi(p, true);
     bindPerText(p);
-    $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
+    $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); $('#tplLeft').innerHTML = tplLeftHtml(p); bindTplLeft(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     const drop = $('#drop'), file = $('#file');
     drop.onclick = () => file.click();
@@ -1898,7 +1912,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1103g";
+const APP_VERSION = "v1106a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -3805,10 +3819,11 @@ const ssSet = () => S.slideSet ||= { ratio: '9:16', per: 2.5, fx: 'zoom', fit: '
 const ssSel = () => ssPhotos(ssCtx.p).filter(m => ssCtx.sel.has(m.id) && ssCtx.items[m.id]);
 const ssSize = () => SS_RATIOS.find(r => r[0] === ssSet().ratio) || SS_RATIOS[0];
 const ssDur = () => Math.max(3, ssSel().length * ssSet().per);   // Reels 最短 3 秒
-async function openSlide(p) {
+async function openSlide(p, opts = {}) {
   const ph = ssPhotos(p);
   if (!ph.length) return toast('先加入照片');
-  ssCtx = { p, sel: new Set(ph.map(m => m.id)), items: {}, music: S.slideMusic || null, busy: '', cancel: false, play: null };
+  if (opts.text) { const st = ssSet(); st.per = Math.max(st.per, 3.5); st.fit = 'fit'; save(); }
+  ssCtx = { p, sel: new Set(opts.only || ph.map(m => m.id)), items: {}, music: S.slideMusic || null, busy: '', cancel: false, play: null };
   await logoReady();
   renderSlide();
   $('#ssModal').classList.add('open');
@@ -4818,7 +4833,7 @@ function renderAimg() {
       <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張</small></label>
       <textarea id="aimgSText" style="min-height:150px">${esc(c.sText)}</textarea>
       <p class="hint-s" style="margin:6px 0 0">貼文沒寫到的內容（例如「3 個方法」是哪 3 個）是 AI 補寫的，加入前請確認正確。</p>
-      <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="primary" id="aimgUse">加入 ${c.comp.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}</button></div>`
+      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px"><button id="aimgVideo">🎬 做成影片（Reels）</button><button class="primary" id="aimgUse">加入 ${c.comp.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}</button></div>`
     : c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${c.comp?.[i] || u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
       <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px">
         ${c.comp ? '<button id="aimgEdit">✏️ 改字／換字體</button>' : ''}
@@ -4837,6 +4852,7 @@ function renderAimg() {
   $('#aimgGo').onclick = aimgGenerate;
   if ($('#aimgUse')) $('#aimgUse').onclick = () => aimgUse(false);
   if ($('#aimgEdit')) $('#aimgEdit').onclick = () => aimgUse(true);
+  if ($('#aimgVideo')) $('#aimgVideo').onclick = () => aimgUseSlides(c, true);
   if ($('#aimgWt')) $('#aimgWt').onchange = e => { st.withText = e.target.checked; save(); renderAimg(); };
   box.querySelectorAll('[data-aimgslides]').forEach(b => b.onclick = () => { st.slides = b.dataset.aimgslides === '1'; save(); renderAimg(); });
   if ($('#aimgSText')) $('#aimgSText').oninput = e => { c.sText = e.target.value; clearTimeout(c.sTimer); c.sTimer = setTimeout(() => aimgRecompose(c), 400); };
@@ -4908,14 +4924,16 @@ async function aimgUse(edit) {
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
   toast(story ? '已加入（限動用）' : '已加入這則貼文');
 }
-async function aimgUseSlides(c) {
+async function aimgUseSlides(c, video) {
   clearTimeout(c.sTimer); await aimgRecompose(c, true);   // 剛改完字：先排好再加
   if (aimg !== c || !c.comp.length) return;
-  const p = c.p, story = c.ratio === '9:16';
+  const p = c.p, story = c.ratio === '9:16' && !video;
   const files = await Promise.all(c.comp.map(async (u, i) => new File([await (await fetch(u)).blob()], `AI輪播${i + 1}.jpg`, { type: 'image/jpeg' })));
   closeAimg();
   const before = new Set(p.media.map(m => m.id));
   await addFiles(p, files, story ? { storyOnly: true, aiImg: true } : {});
+  // 做成影片：直接打開「照片變影片」，只選這幾張；每張要留時間看字、不能裁到字
+  if (video) return openSlide(p, { only: p.media.filter(m => !before.has(m.id)).map(m => m.id), text: true });
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
   toast(`已加入 ${files.length} 張${story ? '（限動用）' : ''}`);
 }
@@ -5046,15 +5064,99 @@ async function gdMake() {
   toast(`做好 ${N} 則貼文，左邊「未排程」照「第 1、2、3⋯ 個發」的順序發`);
 }
 
+// ===== 貼文範本：常發的格式存起來，【】是要填的地方 =====
+// S.templates = [{ id, name, text }]；第一次打開放幾個常用的，之後都可以改、刪
+const TPL_DEFAULT = [
+  ['新品介紹', '✨ 新品上市｜【產品名稱】\n\n【一句話說它的特色】\n\n📌 亮點\n・【亮點 1】\n・【亮點 2】\n・【亮點 3】\n\n💰 價格：【價格】\n📍 哪裡買：【門市或網址】'],
+  ['優惠活動', '🎉 【活動名稱】開跑！\n\n📅 活動時間：【日期】\n🎁 優惠內容：【優惠】\n✅ 參加方式：【怎麼參加】\n\n數量有限，要的快來！'],
+  ['客戶案例', '💬 客戶真心話\n\n「【客戶說的話】」\n\n這次幫【客戶或地點】【做了什麼】，【成果或心得】。\n\n想要一樣的效果？私訊我們聊聊 👋'],
+  ['知識分享', '很多人問【大家常問的問題】，今天一次說清楚 👇\n\n1️⃣ 【重點 1】\n2️⃣ 【重點 2】\n3️⃣ 【重點 3】\n\n先收藏起來，下次用得到！'],
+  ['活動預告', '📣 【活動名稱】\n\n🗓 時間：【日期和時間】\n📍 地點：【地點】\n👉 報名：【報名方式】\n\n等你來！'],
+  ['節日祝福', '🎊 【節日】快樂！\n\n【想說的祝福】\n\n【店名或名字】祝大家【祝福】'],
+];
+const TPL_HOLE = /【[^【】\n]*】/g;
+let tplCtx = null;   // { p, edit: id | 'new' | null }
+const tplList = () => S.templates ||= TPL_DEFAULT.map(([name, text]) => ({ id: uid(), name, text }));
+function openTpl(p) { tplCtx = { p, edit: null }; tplList(); $('#tplModal').classList.add('open'); renderTpl(); }
+function renderTpl() {
+  const c = tplCtx, list = tplList(), ed = c.edit && (c.edit === 'new' ? { id: '', name: '', text: c.p.text } : list.find(t => t.id === c.edit));
+  $('#tplBody').innerHTML = `
+    ${list.map(t => `<div class="tag-set"><div class="row" style="gap:8px"><b style="flex:1">${esc(t.name)}</b>
+        <button class="primary" data-tpluse="${t.id}">用這個</button><button class="link" data-tpledit="${t.id}">修改</button><button class="link danger" data-tpldel="${t.id}">刪除</button></div>
+      <div class="tpl-prev">${esc(t.text)}</div></div>`).join('') || '<p class="hint-s" style="margin-top:0">還沒有範本。</p>'}
+    ${ed ? `<div class="t-form">
+      <div class="full"><label class="field">名稱</label><input id="tplName" placeholder="例如：每週新品、門市活動" value="${esc(ed.name)}"></div>
+      <div class="full"><label class="field">內容（要填的地方用【】框起來，例如【價格】）</label><textarea id="tplText" style="min-height:140px">${esc(ed.text)}</textarea></div>
+      <div class="full row" style="justify-content:flex-end"><button class="link" id="tplCancel">取消</button><button class="primary" id="tplSave">儲存</button></div></div>`
+      : `<div class="row" style="margin-top:12px"><button id="tplNew">＋ ${c.p.text.trim() ? '把現在的文字存成範本' : '新增範本'}</button></div>`}
+    <p class="hint-s">用了範本之後，把【】裡的字換成你的內容就好。</p>`;
+  const box = $('#tplBody');
+  box.querySelectorAll('[data-tpluse]').forEach(b => b.onclick = () => tplUse(list.find(t => t.id === b.dataset.tpluse)));
+  box.querySelectorAll('[data-tpledit]').forEach(b => b.onclick = () => { c.edit = b.dataset.tpledit; renderTpl(); $('#tplText').focus(); });
+  box.querySelectorAll('[data-tpldel]').forEach(b => b.onclick = () => { const t = list.find(x => x.id === b.dataset.tpldel); if (!confirm(`刪除範本「${t.name}」？`)) return; S.templates = list.filter(x => x !== t); save(); renderTpl(); });
+  if ($('#tplNew')) $('#tplNew').onclick = () => { c.edit = 'new'; renderTpl(); $('#tplName').focus(); };
+  if (!ed) return;
+  $('#tplCancel').onclick = () => { c.edit = null; renderTpl(); };
+  $('#tplSave').onclick = () => {
+    const name = $('#tplName').value.trim(), text = $('#tplText').value.trim();
+    if (!text) return toast('請輸入範本內容');
+    if (ed.id) Object.assign(ed, { name: name || '範本', text });
+    else list.push({ id: uid(), name: name || `範本 ${list.length + 1}`, text });
+    c.edit = null; save(); renderTpl(); toast('已儲存');
+  };
+}
+function tplUse(t) {
+  const p = tplCtx.p;
+  if (p.text.trim() && !confirm('要用範本取代現在的文字嗎？')) return;
+  p.text = t.text; save();
+  $('#tplModal').classList.remove('open');
+  renderEditor(); renderList(); renderBar();
+  tplNextHole(p);
+}
+// 選到下一個【】，直接打字就換掉
+function tplNextHole(p) {
+  const ta = $('#text'); if (!ta) return;
+  const all = [...ta.value.matchAll(TPL_HOLE)]; if (!all.length) return;
+  const m = all.find(x => x.index >= ta.selectionEnd) || all[0];
+  ta.focus(); ta.setSelectionRange(m.index, m.index + m[0].length);
+}
+const tplLeftHtml = p => { const n = (p.text.match(TPL_HOLE) || []).length; return n ? `📋 還有 <b>${n}</b> 個【】要填<button class="link" id="tplNext">跳到下一個 →</button>` : ''; };
+function bindTplLeft(p) { const b = $('#tplNext'); if (b) { b.onmousedown = e => e.preventDefault(); b.onclick = () => tplNextHole(p); } }
+
 // ===== 常用標籤組：存幾組 hashtag，發文時一鍵加上 =====
 // S.tagSets = [{ id, name, tags: ['#…'] }]
 let tagCtx = null;   // { p, edit: 組的 id | 'new' | null }
 const tagsOf = s => [...new Set(String(s).split(/[\s,，、]+/).map(x => x.trim().replace(/^#+/, '')).filter(Boolean).map(x => '#' + x))];
 const tagCount = t => (String(t).match(/#[^\s#]+/g) || []).length;
-function openTags(p) { tagCtx = { p, edit: (S.tagSets || []).length ? null : 'new' }; $('#tagModal').classList.add('open'); renderTags(); }
+function openTags(p) { tagCtx = { p, edit: (S.tagSets || []).length ? null : 'new', ai: null }; $('#tagModal').classList.add('open'); renderTags(); }
+// AI 推薦：看文字（沒文字就看第一張照片）推薦 15 個，點一下可以不要
+function htAiHtml(c) {
+  const a = c.ai;
+  return `<div class="ht-ai"><div class="row" style="gap:8px"><b style="flex:1">✨ AI 推薦標籤</b><button class="${a?.tags ? '' : 'primary'}" id="htGo" ${a?.busy ? 'disabled' : ''}>${a?.tags ? '🔄 再推薦一次' : '看我的貼文推薦'}</button></div>
+    ${a?.busy ? '<div class="ai-wait">AI 想標籤中，大約 5～15 秒⋯</div>' : a?.tags ? `<div class="chips">${a.tags.map((t, i) => `<button class="chip ${a.off.has(i) ? 'off' : 'on'}" data-htai="${i}">${esc(t)}</button>`).join('')}</div>
+      <p class="hint-s" style="margin:6px 0 0">點一下可以不要那個標籤。</p>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button id="htSave">存成標籤組</button><button class="primary" id="htAdd">加到文字（${a.tags.length - a.off.size} 個）</button></div>`
+    : '<p class="hint-s" style="margin:6px 0 0">依你寫的文字和照片，推薦大家常搜尋的標籤和跟內容貼近的標籤。</p>'}</div>`;
+}
+async function htAiGo() {
+  const c = tagCtx, p = c.p, ph = aiCover(p), text = p.text.replace(/#[^\s#]+/g, '').trim();
+  if (!text && !ph) return toast('先寫文字或放一張照片');
+  c.ai = { busy: true }; renderTags();
+  try {
+    const image = !text && ph ? await aiImage(ph).catch(() => '') : '';
+    const r = await fetch(API + '/ai/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, image, have: (p.text.match(/#[^\s#]+/g) || []).join(' ') }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
+    c.ai = { tags: j.tags, off: new Set() };
+  } catch (e) {
+    c.ai = null; toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message);
+  }
+  if (tagCtx === c) renderTags();
+}
 function renderTags() {
-  const c = tagCtx, sets = S.tagSets ||= [], ed = c.edit && (c.edit === 'new' ? { id: '', name: '', tags: [] } : sets.find(s => s.id === c.edit));
-  $('#tagBody').innerHTML = `
+  const c = tagCtx, sets = S.tagSets ||= [], ed = c.edit && (c.edit === 'new' ? { id: '', name: '', tags: c.newTags || [] } : sets.find(s => s.id === c.edit));
+  $('#tagBody').innerHTML = htAiHtml(c) + '<div class="pick-label" style="margin-top:0">常用標籤組</div>' + `
     ${sets.map(s => `<div class="tag-set"><div class="row" style="gap:8px"><b style="flex:1">${esc(s.name)}</b><span class="hint-s">${s.tags.length} 個</span>
         <button class="primary" data-tagadd="${s.id}">加到文字</button><button class="link" data-tagedit="${s.id}">修改</button><button class="link danger" data-tagdel="${s.id}">刪除</button></div>
       <div class="tags">${esc(s.tags.join(' '))}</div></div>`).join('') || '<p class="hint-s" style="margin-top:0">還沒有標籤組。先建一組常用的 hashtag，之後發文按一下就加上。</p>'}
@@ -5066,6 +5168,11 @@ function renderTags() {
       : '<div class="row" style="margin-top:12px"><button id="tagNew">＋ 新增一組</button></div>'}
     <p class="hint-s">IG 一則最多 30 個 hashtag，加之前網站會幫你檢查。</p>`;
   const box = $('#tagBody');
+  $('#htGo').onclick = htAiGo;
+  box.querySelectorAll('[data-htai]').forEach(b => b.onclick = () => { const i = +b.dataset.htai; c.ai.off.has(i) ? c.ai.off.delete(i) : c.ai.off.add(i); renderTags(); });
+  const aiPicked = () => c.ai.tags.filter((_, i) => !c.ai.off.has(i));
+  if ($('#htAdd')) $('#htAdd').onclick = () => tagInsert({ tags: aiPicked() });
+  if ($('#htSave')) $('#htSave').onclick = () => { if (!aiPicked().length) return toast('至少留一個標籤'); c.edit = 'new'; c.newTags = aiPicked(); renderTags(); $('#tagName2').focus(); };
   box.querySelectorAll('[data-tagadd]').forEach(b => b.onclick = () => tagInsert(sets.find(s => s.id === b.dataset.tagadd)));
   box.querySelectorAll('[data-tagedit]').forEach(b => b.onclick = () => { c.edit = b.dataset.tagedit; renderTags(); });
   box.querySelectorAll('[data-tagdel]').forEach(b => b.onclick = () => { const s = sets.find(x => x.id === b.dataset.tagdel); if (!confirm(`刪除標籤組「${s.name}」？`)) return; S.tagSets = sets.filter(x => x !== s); save(); renderTags(); });
@@ -5073,16 +5180,17 @@ function renderTags() {
   if (!ed) return;
   const cnt = () => { const n = tagsOf($('#tagList').value).length; $('#tagN').textContent = n ? `${n} 個標籤${n > 30 ? '（超過 IG 的 30 個上限）' : ''}` : ''; };
   $('#tagList').oninput = cnt; cnt();
-  if ($('#tagCancel')) $('#tagCancel').onclick = () => { c.edit = null; renderTags(); };
+  if ($('#tagCancel')) $('#tagCancel').onclick = () => { c.edit = null; c.newTags = null; renderTags(); };
   $('#tagSave').onclick = () => {
     const name = $('#tagName2').value.trim(), tags = tagsOf($('#tagList').value);
     if (!tags.length) return toast('請輸入標籤');
     if (ed.id) Object.assign(ed, { name: name || '標籤組', tags });
     else sets.push({ id: uid(), name: name || `標籤組 ${sets.length + 1}`, tags });
-    c.edit = null; save(); renderTags(); toast('已儲存');
+    c.edit = null; c.newTags = null; save(); renderTags(); toast('已儲存');
   };
 }
 function tagInsert(set) {
+  if (!set.tags.length) return toast('至少留一個標籤');
   const p = tagCtx.p, add = set.tags.filter(t => !new RegExp(`(^|\\s)${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`).test(p.text));
   if (!add.length) return toast('這組標籤都已經在文字裡了');
   const next = p.text.trimEnd() + (p.text.trim() ? '\n\n' : '') + add.join(' ');
