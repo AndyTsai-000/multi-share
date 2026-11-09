@@ -43,7 +43,8 @@ label.field { display: block; font-size: 13px; color: var(--sub); margin: 0 0 6p
 aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 aside header { padding: 16px 16px 10px; }
 aside h1 { font-size: 19px; margin: 0 0 12px; }
-aside .new { width: 100%; }
+aside .new-row { display: flex; gap: 8px; }
+aside .new { flex: 1; min-width: 0; padding-left: 6px; padding-right: 6px; }
 .posts { overflow: auto; padding: 4px 10px 16px; flex: 1; }
 .group-title { font-size: 12px; color: var(--sub); margin: 14px 6px 6px; font-weight: 600; display: flex; justify-content: space-between; }
 .group-title span { font-weight: 400; }
@@ -76,8 +77,11 @@ aside .new { width: 100%; }
 .aimg-ref small { display: block; color: var(--sub); }
 .aimg-post { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--hint); font-size: 13px; line-height: 1.5; white-space: pre-wrap; max-height: 86px; overflow: hidden; color: var(--sub); }
 .aimg-wt { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; cursor: pointer; }
-.aimg-slide { border-radius: 10px; overflow: hidden; background: var(--hint); }
+.aimg-res .aimg-slide { position: relative; border-color: var(--accent); }
 .aimg-slide img { width: 100%; display: block; }
+.aimg-slide .ck { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; line-height: 26px; text-align: center; }
+.aimg-res .aimg-slide.off { border-color: transparent; opacity: .4; }
+.aimg-slide.off .ck { background: rgba(0,0,0,.45); color: transparent; box-shadow: inset 0 0 0 2px #fff; }
 .aimg-wt input { width: auto; margin: 0; flex: none; }
 .media-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .media-tools:empty { display: none; }
@@ -278,6 +282,21 @@ main { overflow: auto; min-height: 0; }
 .pe-pins { position: absolute; inset: 0; pointer-events: none; }
 .pe-pins .tag-pin, .pe-pins .tag-pin button { pointer-events: auto; }
 .ai-btn.on { background: var(--soft); color: var(--soft-ink); }
+.sp-phone { position: relative; width: min(340px, 100%); aspect-ratio: 9 / 16; margin: 0 auto; border-radius: 14px; overflow: hidden; background: #000; color: #fff; user-select: none; }
+.sp-phone canvas { width: 100%; height: 100%; display: block; }
+.sp-top { position: absolute; inset: 0 0 auto 0; padding: 8px 8px 22px; background: linear-gradient(rgba(0,0,0,.45), transparent); pointer-events: none; }
+.sp-bars { display: flex; gap: 3px; }
+.sp-bars i { flex: 1; height: 2.5px; border-radius: 2px; background: rgba(255,255,255,.4); overflow: hidden; }
+.sp-bars b { display: block; height: 100%; width: 0; background: #fff; }
+.sp-head { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.sp-head .pp-avatar { width: 28px; height: 28px; font-size: 12px; box-shadow: none; }
+.sp-head small { opacity: .8; }
+.sp-head .sp-mu { display: block; font-size: 11px; opacity: .9; }
+.sp-tap { position: absolute; top: 0; bottom: 60px; width: 35%; background: none; border: 0; padding: 0; cursor: pointer; }
+.sp-tap.l { left: 0; } .sp-tap.r { right: 0; width: 65%; }
+.sp-bottom { position: absolute; inset: auto 0 0 0; display: flex; align-items: center; gap: 14px; padding: 10px 12px 14px; font-size: 20px; pointer-events: none; }
+.sp-bottom span:first-child { flex: 1; font-size: 13px; border: 1px solid rgba(255,255,255,.7); border-radius: 22px; padding: 9px 14px; }
+.sp-ctrl { justify-content: center; gap: 8px; margin-top: 10px; }
 .pp-wrap { display: grid; grid-template-columns: minmax(0, 375px) 1fr; gap: 20px; align-items: start; }
 .pp-phone { background: #fff; color: #111; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); font-size: 14px; }
 .pp-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
@@ -483,7 +502,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   .menu-btn { display: inline-block !important; }
   aside header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
   aside h1 { margin: 0; font-size: 17px; flex: 1; }
-  aside .new { width: auto; }
+  aside .new { flex: none; font-size: 13px; }
   aside footer { grid-template-columns: repeat(4, 1fr); padding: 8px 12px; }
   aside footer button { font-size: 12px; padding: 6px 2px; }
   aside footer .ver { grid-column: 1 / -1; }
@@ -507,7 +526,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
     <header>
       <h1><button class="home-link" id="goHome" title="回主畫面">社群管家</button></h1>
       <button class="menu-btn" id="menuBtn" title="貼文清單和設定">☰ 清單</button>
-      <button class="primary new" id="newPost">＋ 新增貼文</button>
+      <div class="new-row"><button class="primary new" id="newPost">＋ 新增貼文</button><button class="primary new" id="newStory">＋ 新增限動</button></div>
     </header>
     <div class="side-tools"><button id="openIdeas">💡 靈感暫存</button><button id="openBk">📦 一次排多則</button></div>
     <input class="post-search" id="postSearch" type="search" placeholder="🔎 搜尋貼文" hidden>
@@ -528,7 +547,6 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   <span class="grow" id="barInfo"></span>
   <button class="link danger" id="delPost">刪除這則</button>
   <button class="link" id="dupPost" title="複製成新的一則（文字、圖片影片、編輯設定都一起）">複製一則</button>
-  <button class="primary" id="barNext" hidden>下一步 →</button>
   <button id="lineBatch" hidden>LINE 分批</button>
   <button class="primary" id="autoSend" hidden>⚡ 自動發</button>
   <button class="primary" id="startSend">開始發送</button>
@@ -554,6 +572,11 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 <div class="modal-bg" id="storyModal"><div class="modal" style="width:min(920px,100%)">
   <h3>🎨 編輯限動畫面 <button class="link" id="storyClose">關閉</button></h3>
   <div id="storyBody"></div>
+</div></div>
+
+<div class="modal-bg" id="spModal"><div class="modal" style="width:min(460px,100%)">
+  <h3>👁 限動預覽 <button class="link" id="spClose">關閉</button></h3>
+  <div id="spBody"></div>
 </div></div>
 
 <div class="modal-bg" id="ssModal"><div class="modal" style="width:min(860px,100%)">
@@ -835,7 +858,10 @@ function localInput(d) {
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function postTargets(p) { return p.mode === 'auto' ? [] : p.targets.map(id => S.targets.find(t => t.id === id)).filter(Boolean); }
+// 貼文和限動分開排：p.kind = 'post'｜'story'；以前建的沒有 kind，兩種都可以發
+const kindFits = (p, story) => !p.kind || (p.kind === 'story') === story;
+const kindTargets = p => S.targets.filter(t => kindFits(p, /story$/.test(t.type)));
+function postTargets(p) { return p.mode === 'auto' ? [] : p.targets.map(id => S.targets.find(t => t.id === id)).filter(t => t && kindFits(p, /story$/.test(t.type))); }
 function postStatus(p) {
   // 全自動還沒送到伺服器：不管有沒有選時間，都是「還沒送出」
   if (p.mode === 'auto' && !p.serverPost) return { cls: 'unsched', text: p.time ? '⚠️ 還沒送出' : '未排程' };
@@ -914,6 +940,7 @@ $('#postList').onclick = e => {
   closeMenu(); S.activeId = b.dataset.id; save(); renderAll();
 };
 $('#newPost').onclick = () => { closeMenu(); newPost(); };
+$('#newStory').onclick = () => { closeMenu(); newPost({ kind: 'story' }); };
 $('#goHome').onclick = () => { closeMenu(); goHome(); };
 document.querySelectorAll('aside footer button').forEach(b => b.addEventListener('click', closeMenu));
 // extra：一開始就帶的內容（月曆、再發、九宮格用）；quiet：只建立，不切過去
@@ -923,8 +950,8 @@ function pruneEmpty() {
   S.posts = S.posts.filter(p => !gone.includes(p)); save();
 }
 function newPost(extra = {}, quiet = false) {
-  const last = S.posts[S.posts.length - 1];
-  const p = { id: uid(), text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], auto: last ? [...(last.auto || [])] : [], mode: null, step: 1, serverPost: null, done: {}, reminded: false, ...extra };
+  const kind = extra.kind || 'post', last = [...S.posts].reverse().find(x => !x.kind || x.kind === kind);   // 發送對象沿用上一則同類的
+  const p = { id: uid(), kind, text: '', link: '', media: [], time: null, targets: last ? [...last.targets] : [], auto: last ? [...(last.auto || [])] : [], mode: null, step: 1, serverPost: null, done: {}, reminded: false, ...extra };
   S.posts.push(p);
   if (quiet) { save(); return p; }
   S.activeId = p.id; save(); renderAll();
@@ -1001,14 +1028,14 @@ function settingsHtml(p) {
     const opts = autoSelected(p), parts = [];
     if (postMedia(p).length > 20) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 20 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">🎨 編輯貼文（照片、標註、協作者、地點）${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
-    if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button></div>`);
+    if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button>${p.media.length ? '<button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>' : ''}</div>`);
     if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p, 'threads')].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
     if (opts.some(isStory) && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">IG 限動要有圖片、影片，或在第 1 步做一張純文字限動</p>');
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
-  return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button>` : ''}</div>`).join('');
+  return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button><button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>` : ''}</div>`).join('');
 }
 function perTextHtml(p) {
   if (!p.perOpen && !ownTexts(p).length) return `<button class="link" id="perOpen" style="color:var(--accent);padding:0">✏️ 各平台用不同文字</button>`;
@@ -1034,11 +1061,12 @@ function renderEditor() {
   if (!p) { renderHome(); renderBar(); return; }
   if (p.serverPost) { p.mode = 'auto'; p.step = 3; }
   if (!p.step || (p.step >= 2 && !hasContent(p)) || (p.step >= 3 && !p.mode)) p.step = !hasContent(p) ? 1 : !p.mode ? 2 : 3;
-  const cats = [...new Set(S.targets.map(t => t.cat).filter(Boolean))];
-  const plats = PLATFORMS.filter(pl => S.targets.some(t => t.type in pl.types));
+  const tl = kindTargets(p), aopts = kindAutoOptions(p), story = p.kind === 'story';
+  const cats = [...new Set(tl.map(t => t.cat).filter(Boolean))];
+  const plats = PLATFORMS.filter(pl => tl.some(t => t.type in pl.types));
   let body = '';
   if (p.step === 1) body = `
-  <div class="card">
+  ${story ? '' : `<div class="card">
     <h2>文字</h2>
     <div class="text-head"><label class="field" for="text">要發的文字</label><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ai-btn" id="tplOpen">📋 範本</button><button class="ai-btn" id="tagOpen"># 標籤</button><button class="ai-btn" id="aiLook" hidden>📷 AI 看圖寫</button><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></span></div>
     <textarea id="text" placeholder="要發的文字⋯">${esc(p.text)}</textarea>
@@ -1046,20 +1074,20 @@ function renderEditor() {
     <div class="per-text" id="perText">${perTextHtml(p)}</div>
     <label class="field" for="link" style="margin-top:12px">連結（會接在文字最後面）</label>
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
-  </div>
+  </div>`}
   <div class="card" id="aimgCard">
     <h2>製作圖片 <small>沒有合適的圖時用；AI 可以參考上面要發的文字</small></h2>
     <div class="media-ai">${AIMG_MODES.map(([v, l]) => `<button class="ai-btn" data-aimgopen="${v}">${l}</button>`).join('')}<button class="ai-btn" data-tcopen>📝 文字卡片</button></div>
   </div>
   <div class="card">
-    <h2>圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small></h2>
+    <h2>${story ? '限動的照片、影片 <small>可多選，一個檔案就是一則限動（最多 10 則）</small>' : '圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small>'}</h2>
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
     <div class="media-tools" id="mediaTools">${mediaToolsHtml(p)}</div>
   </div>
-  <div class="card" id="postCard">${postCardHtml(p)}</div>
-  <div class="card" id="storyCard">${storyCardHtml(p)}</div>
+  ${story ? '' : `<div class="card" id="postCard">${postCardHtml(p)}</div>`}
+  ${p.kind === 'post' ? '' : `<div class="card" id="storyCard">${storyCardHtml(p)}</div>`}
   <div class="step-nav bare"><span></span><button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
   else if (p.step === 2) body = `
   <div class="card">
@@ -1078,22 +1106,22 @@ function renderEditor() {
   <div class="card">
     ${p.mode === 'auto' ? `
     <h2>發到哪裡 <small>⚡ 全自動 <button class="link" data-step="2" style="padding:0 0 0 6px;color:var(--accent)">換成半自動</button></small></h2>
-    ${autoOptions().length ? `<div class="chips">${autoOptions().map(o => `<button class="chip ${(p.auto || []).includes(o.key) ? 'on' : ''}" data-auto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('')}</div>
+    ${aopts.length ? `<div class="chips">${aopts.map(o => `<button class="chip ${(p.auto || []).includes(o.key) ? 'on' : ''}" data-auto="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}<small>@${esc(o.username)}</small></button>`).join('')}</div>
       <p class="hint-s" style="margin:12px 0 0">要加其他帳號？<button class="link" id="autoLink" style="color:var(--accent);padding:0">連結 Instagram／Threads 帳號</button></p>`
-      : `<p class="empty" style="margin-top:0">全自動要先連結你的 Instagram（創作者或商業帳號）或 Threads 帳號。</p><button class="primary" id="autoLink">連結帳號</button>`}` : `
+      : `<p class="empty" style="margin-top:0">${story ? '全自動發限動要先連結你的 Instagram（創作者或商業帳號）。' : '全自動要先連結你的 Instagram（創作者或商業帳號）或 Threads 帳號。'}</p><button class="primary" id="autoLink">連結帳號</button>`}` : `
     <h2>發到哪裡 <small>📱 半自動${postTargets(p).length ? `・已選 ${postTargets(p).length} 個` : ''} <button class="link" data-step="2" style="padding:0 0 0 6px;color:var(--accent)">換成全自動</button></small></h2>
-    ${S.targets.length ? `
+    ${tl.length ? `
       ${cats.length || plats.length > 1 ? `<div class="chips" style="margin-bottom:10px">
         <button class="chip cat" data-cat="*">全選</button>
         ${plats.length > 1 ? plats.map(pl => `<button class="chip cat" data-plat="${pl.id}"><span class="dot" style="background:${pl.color}"></span>只選 ${pl.label}</button>`).join('') : ''}
         ${cats.map(c => `<button class="chip cat" data-cat="${esc(c)}">只選「${esc(c)}」</button>`).join('')}
         <button class="chip cat" data-cat="">清除</button></div>` : ''}
-      <div class="chips">${byPlatform(S.targets).map(t => {
+      <div class="chips">${byPlatform(tl).map(t => {
         const ty = TYPES[t.type];
         return `<button class="chip ${p.targets.includes(t.id) ? 'on' : ''}" data-t="${t.id}"><span class="dot" style="background:${ty.color}"></span>${esc(t.name)}<small>${ty.label}</small>${p.done?.[t.id] ? ' ✓' : ''}</button>`;
       }).join('')}</div>
       <p class="hint-s" style="margin:12px 0 0"><button class="link" id="manageTargets" style="color:var(--accent);padding:0">＋ 新增或修改發送對象</button></p>`
-      : `<p class="empty" style="margin-top:0">還沒有發送對象。</p><button class="primary" id="addFirst">＋ 新增 LINE、FB 社團、IG⋯</button>`}`}
+      : `<p class="empty" style="margin-top:0">${story ? '還沒有限動的發送對象（FB 限動、IG 限動）。' : S.targets.length ? '還沒有貼文的發送對象。' : '還沒有發送對象。'}</p><button class="primary" id="addFirst">${story ? '＋ 新增 FB 限動、IG 限動' : '＋ 新增 LINE、FB 社團、IG⋯'}</button>`}`}
     <div class="step-nav"><button class="link" data-step="1">← 回去改內容</button><span></span></div>
   </div>
   <div class="card">
@@ -1129,18 +1157,19 @@ function renderEditor() {
   });
   ed.querySelectorAll('[data-plat]').forEach(x => x.onclick = () => {
     const pl = PLATFORMS.find(y => y.id === x.dataset.plat);
-    p.targets = S.targets.filter(t => t.type in pl.types).map(t => t.id);
+    p.targets = tl.filter(t => t.type in pl.types).map(t => t.id);
     save(); renderEditor(); renderList();
   });
   ed.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => {
     const c = x.dataset.cat;
-    p.targets = c === '*' ? S.targets.map(t => t.id) : c ? S.targets.filter(t => t.cat === c).map(t => t.id) : [];
+    p.targets = c === '*' ? tl.map(t => t.id) : c ? tl.filter(t => t.cat === c).map(t => t.id) : [];
     save(); renderEditor(); renderList();
   });
   bindAutoStatus(p);
   bindSettings(p);
   if (p.step === 1) {
     renderThumbs();
+    if ($('#text')) {
     $('#aiOpen').onclick = () => openAi(p);
     $('#tagOpen').onclick = () => openTags(p);
     $('#tplOpen').onclick = () => openTpl(p);
@@ -1149,6 +1178,7 @@ function renderEditor() {
     bindPerText(p);
     $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); $('#tplLeft').innerHTML = tplLeftHtml(p); bindTplLeft(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
+    }
     const drop = $('#drop'), file = $('#file');
     drop.onclick = () => file.click();
     file.onchange = () => { const list = [...file.files]; file.value = ''; addFiles(p, list); };
@@ -1186,7 +1216,8 @@ function refreshStepper(p) {
   const sc = $('#storyCard'), pc = $('#postCard');
   if (pc) pc.innerHTML = postCardHtml(p);
   if ($('#mediaTools')) $('#mediaTools').innerHTML = mediaToolsHtml(p);
-  if (sc) { sc.innerHTML = storyCardHtml(p); bindSettings(p); }
+  if (sc) sc.innerHTML = storyCardHtml(p);
+  if (sc || pc || $('#mediaTools')) bindSettings(p);   // 卡片重畫了，按鈕要重新綁（貼文沒有限動卡片、限動沒有貼文卡片）
 }
 // 第 1 步的限動卡片：有圖片影片才能編輯限動畫面
 function mediaCardHtml(title, sub, desc, buttons) {
@@ -1210,10 +1241,10 @@ function mediaToolsHtml(p) {
 }
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
-  return mediaCardHtml('限時動態畫面', '要發 IG／FB 限動才需要',
+  return mediaCardHtml('限時動態畫面', p.kind === 'story' ? '' : '要發 IG／FB 限動才需要',
     !has ? '沒有照片也可以：做一張 IG「建立」模式那種純文字限動，或用活動 DM、型錄做成限動圖。'
       : done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、畫筆、地點時間標籤，調整照片影片的位置；也可以用檔案做限動圖',
-    `<button class="ai-btn" data-fsopen>📄 用檔案做限動</button><button class="ai-btn" data-seopen>${has ? '🎨 編輯限動畫面' : 'Aa 做純文字限動'}${done ? ' ✓' : ''}</button>`);
+    `<button class="ai-btn" data-fsopen>📄 用檔案做限動</button>${has ? '<button class="ai-btn" data-spopen>👁 預覽限動</button>' : ''}<button class="ai-btn" data-seopen>${has ? '🎨 編輯限動畫面' : 'Aa 做純文字限動'}${done ? ' ✓' : ''}</button>`);
 }
 function setCardHtml(p) {
   return `<h2>發文設定 <small>${p.mode === 'auto' ? '⚡ 全自動' : '📱 半自動'}・${stepSelCount(p)} 個對象</small></h2>
@@ -1234,7 +1265,7 @@ function renderHome() {
   if (lrDone) { lr.title = '✅ 已發布'; lr.text = lr.text.replace(/^.*?(會自動發到|會發到)：/, '已經發到：'); }
   const cal = S.homeView === 'cal', hols = upcomingHolidays();
   $('#editor').innerHTML = `<div class="home">
-    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="homeIdeas">💡 靈感${(S.ideas || []).length ? `（${S.ideas.length}）` : ''}</button><button id="homeBk">📦 一次排多則</button><button class="primary" id="homeNew">＋ 新增貼文</button></span></div>
+    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="homeIdeas">💡 靈感${(S.ideas || []).length ? `（${S.ideas.length}）` : ''}</button><button id="homeBk">📦 一次排多則</button><button class="primary" id="homeNew">＋ 新增貼文</button><button class="primary" id="homeNewStory">＋ 新增限動</button></span></div>
     <div class="home-tabs"><button class="chip ${cal ? '' : 'on'}" data-hview="list">📋 清單</button><button class="chip ${cal ? 'on' : ''}" data-hview="cal">📅 月曆</button>
       <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 管理貼文</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🗑 清除網站貼文</button></div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
@@ -1247,6 +1278,7 @@ function renderHome() {
     ${recent.length ? `<div class="card"><h2>✅ 最近發布 <small>最近 ${recent.length} 則</small></h2>${recent.map(p => item(p, true)).join('')}</div>` : ''}`}
   </div>`;
   $('#homeNew').onclick = () => newPost();
+  $('#homeNewStory').onclick = () => newPost({ kind: 'story' });
   $('#homeIdeas').onclick = openIdeas;
   $('#homeBk').onclick = openBk;
   if ($('#homeOkClose')) $('#homeOkClose').onclick = () => { S.lastResult = null; save(); renderHome(); };
@@ -1285,6 +1317,7 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-seopen]').forEach(x => x.onclick = () => openStoryEditor(p));
   document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
   document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
+  document.querySelectorAll('#editor [data-spopen]').forEach(x => x.onclick = () => openStoryPreview(p));
   document.querySelectorAll('#editor [data-fsopen]').forEach(x => x.onclick = () => openFileStory(p));
   document.querySelectorAll('#editor [data-ssopen]').forEach(x => x.onclick = () => openSlide(p));
   document.querySelectorAll('#editor [data-dlall]').forEach(x => x.onclick = () => saveMedia(p.media));
@@ -1334,8 +1367,6 @@ async function addFiles(p, files, extra) {
 function renderBar() {
   const p = active(), btn = $('#startSend');
   $('#delPost').hidden = !p; $('#dupPost').hidden = !p;
-  $('#barNext').hidden = !p || p.step !== 1 || !!p.serverPost;
-  if (p) $('#barNext').disabled = !hasContent(p);
   if (!p) { btn.hidden = true; $('#autoSend').hidden = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
   const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
   const empty = !hasContent(p);
@@ -1351,9 +1382,8 @@ function renderBar() {
   btn.hidden = !last || p.mode === 'auto';
   if (!last) $('#lineBatch').hidden = true;
   btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
-  $('#barInfo').textContent = p.serverPost ? '' : p.step === 1 ? (empty ? '① 先輸入文字或加入圖片影片' : '① 內容好了，按「下一步」') : p.step === 2 ? '② 選全自動或半自動' : !stepSelCount(p) ? '③ 選要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}` : '';
+  $('#barInfo').textContent = p.serverPost ? '' : p.step === 1 ? (empty ? (p.kind === 'story' ? '① 先加入照片影片，或做一張純文字限動' : '① 先輸入文字或加入圖片影片') : '① 內容好了，按「下一步：選發送方式」') : p.step === 2 ? '② 選全自動或半自動' : !stepSelCount(p) ? '③ 選要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}` : '';
 }
-$('#barNext').onclick = () => active() && goStep(active(), 2);
 $('#dupPost').onclick = () => active() && dupPost(active(), '📄 複本');
 $('#delPost').onclick = async () => {
   const p = active(); if (!p) return;
@@ -1935,7 +1965,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 const serverPosts = {};
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1106c";
+const APP_VERSION = "v1107b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -1959,7 +1989,8 @@ function autoOptions() {
   return autoAccounts.flatMap(acc => AUTO_KINDS.filter(k => k.platform === acc.platform)
     .map(k => ({ ...k, key: acc.id + ':' + k.kind, account: acc.id, username: acc.username })));
 }
-const autoSelected = p => p.mode === 'manual' ? [] : autoOptions().filter(o => (p.auto || []).includes(o.key));
+const kindAutoOptions = p => autoOptions().filter(o => kindFits(p, o.platform === 'ig' && o.kind === 'story'));
+const autoSelected = p => p.mode === 'manual' ? [] : kindAutoOptions(p).filter(o => (p.auto || []).includes(o.key));
 const AUTO_STATUS = {
   scheduled: ['', '⚡ 已排程'], preparing: ['', '⚡ 已排程'], running: ['due', '⚡ 發送中'], done: ['done', '⚡ 已發布'],
   partial: ['due', '⚡ 部分失敗'], error: ['due', '⚡ 失敗'], canceled: ['', '⚡ 已取消'],
@@ -1994,16 +2025,16 @@ function autoStatusHtml(p) {
   const again = sp.status === 'canceled' || sp.status === 'error' || sp.status === 'partial';
   return `<p style="margin:0 0 6px;font-weight:600">${head}</p>${rows}
     <div class="row" style="margin-top:8px">
-      ${sp.status === 'scheduled' || (sp.status === 'preparing' && sp.run_at > Date.now()) ? '<button class="link danger" id="autoCancel" style="padding:0">取消自動發</button>' : ''}
+      ${sp.status === 'scheduled' || (sp.status === 'preparing' && sp.run_at > Date.now()) ? '<button class="link" id="autoCancel" style="color:var(--accent);padding:0">✏️ 修改貼文和排程</button>' : ''}
       ${again ? '<button class="link" id="autoAgain" style="color:var(--accent);padding:0">重新設定自動發</button>' : ''}
     </div>
-    ${sp.status === 'scheduled' || sp.status === 'preparing' ? '<p class="hint-s" style="margin:6px 0 0">已經送出的內容不會跟著修改；要改內容請先取消，再重新排程。</p>' : ''}`;
+    ${sp.status === 'scheduled' || sp.status === 'preparing' ? '<p class="hint-s" style="margin:6px 0 0">要改內容或時間：按「修改貼文和排程」，會先停掉這次的自動發、回到第 1 步，改好再重新送出。</p>' : ''}`;
 }
 function bindAutoStatus(p) {
   if ($('#autoCancel')) $('#autoCancel').onclick = async () => {
-    if (!confirm('取消這則自動發？')) return;
-    try { await apiCall('/api/posts/' + p.serverPost, { method: 'DELETE' }); p.serverPost = null; save(); toast('已取消自動發'); }
-    catch (e) { toast('取消失敗：' + e.message); }
+    if (!confirm('要修改這則？\n\n會先停掉這次的自動發，回到第 1 步。改好之後要再按一次「自動發」才會重新排程。')) return;
+    try { await apiCall('/api/posts/' + p.serverPost, { method: 'DELETE' }); p.serverPost = null; p.step = 1; save(); toast('已停掉自動發，改好後記得再按「自動發」'); logRemote('trace', '修改貼文和排程'); }
+    catch (e) { toast('停掉自動發失敗：' + e.message); }
     renderAll();
   };
   if ($('#autoAgain')) $('#autoAgain').onclick = () => { p.serverPost = null; save(); renderAll(); };
@@ -2535,7 +2566,7 @@ function renderStoryEditor() {
     </div>
     ${opts ? `<div class="box hint-s" style="margin-top:12px"><b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${stories.map(o => `IG 限動 @${esc(o.username)}`).concat(others.map(o => `${o.label} @${esc(o.username)}`)).join('、')}</div>` : ''}
     <div class="se-busy" id="seBusy" hidden></div>
-    <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>`;
+    <div class="send"><div class="nav"><button class="link" id="seCancel">${opts ? '先不要' : '關閉'}</button><button id="sePreview">👁 預覽限動</button><button class="primary" id="seOk">${opts ? `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發` : '✓ 完成'}</button></div></div>`;
   const box = $('#storyBody');
   const goPage = i => { if (i < 0) return; seCommit(); ctx.i = i; ctx.sel = null; renderStoryEditor(); seLoadSource(); renderThumbs(); };
   seHist();   // 第一次看到這張：先記下原本的樣子
@@ -2567,6 +2598,7 @@ function renderStoryEditor() {
   box.querySelectorAll('[data-sefilter]').forEach(b => b.onclick = () => { fr.filter = b.dataset.sefilter; seBump(p); renderStoryEditor(); seDraw(); });
   $('#seCancel').onclick = () => closeStoryEditor('按了先不要');
   $('#seOk').onclick = seFinish;
+  $('#sePreview').onclick = () => { const i = ctx.i; openStoryPreview(p); spShow(i); };
   if (fr.music) muBindRow($('#seMusicSec'), fr.music, { pick: seMusicPick, del: () => { delete fr.music; seBump(p); renderStoryEditor(); },
     change: soft => { seBump(p, soft); if (!soft && !isVideo(m)) renderStoryEditor(); }, dur: () => isVideo(m) ? (ctx.video?.duration || 15) : (fr.music.len || 15) });
   subBind($('#seSubSec'), fr, { blob: () => mediaBlob(m), video: () => ctx.video,
@@ -2575,6 +2607,95 @@ function renderStoryEditor() {
   seBindStage();
   renderSeLayer();
   seDraw();
+}
+// ===== 限動預覽：跟 IG 看限動一樣（上面進度條、帳號，下面回覆框），一張一張自動播；看字有沒有被擋到 =====
+let spCtx = null;   // { p, i, el（這張播了幾秒）, dur, paused, src, video, raf }
+function openStoryPreview(p) {
+  if (!p.media.length) return toast('先加入照片影片，或做一張純文字限動');
+  if (seCtx?.p === p) { seCommit(); seCtx.video?.pause(); }
+  storyEdit(p); seLinkFonts();
+  spCtx = { p, i: 0, paused: false, muted: true };
+  $('#spModal').classList.add('open');
+  logRemote('trace', `預覽限動 ${p.media.length} 張`);
+  const who = ppWho(p);
+  $('#spBody').innerHTML = `
+    <div class="sp-phone"><canvas id="spCanvas" width="${SW}" height="${SH}"></canvas>
+      <div class="sp-top"><div class="sp-bars">${p.media.map(() => '<i><b></b></i>').join('')}</div>
+        <div class="sp-head"><span class="pp-avatar">${esc([...who][0].toUpperCase())}</span><span><b>${esc(who)}</b> <small>剛剛</small><span class="sp-mu" id="spMu"></span></span></div></div>
+      <button class="sp-tap l" id="spPrev" aria-label="上一張"></button><button class="sp-tap r" id="spNext" aria-label="下一張"></button>
+      <div class="sp-bottom"><span>傳送訊息⋯</span><span>♡</span><span>➤</span></div></div>
+    <div class="row sp-ctrl"><button id="spBack">‹ 上一張</button><button id="spPause">⏸ 暫停</button><button id="spFwd">下一張 ›</button><button id="spSound" hidden>🔇</button></div>
+    <p class="hint-s" style="margin:10px 0 0">點畫面左邊、右邊可以換上一張、下一張。最上面和最下面 IG 會蓋上帳號和回覆框，重要的字別放太邊邊。</p>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button id="spEdit">🎨 編輯限動畫面</button></div>`;
+  const go = d => spShow(spCtx.i + d);
+  $('#spPrev').onclick = $('#spBack').onclick = () => go(-1);
+  $('#spNext').onclick = $('#spFwd').onclick = () => go(1);
+  $('#spPause').onclick = () => {
+    const c = spCtx; if (c.done) return spShow(0);
+    c.paused = !c.paused; c.last = performance.now();
+    if (c.video) c.paused ? c.video.pause() : c.video.play().catch(() => {});
+    $('#spPause').textContent = c.paused ? '▶ 繼續' : '⏸ 暫停';
+  };
+  $('#spSound').onclick = () => { const c = spCtx; c.muted = !c.muted; if (c.video) c.video.muted = c.muted; $('#spSound').textContent = c.muted ? '🔇' : '🔊'; };
+  $('#spEdit').onclick = () => { const i = spCtx.i; closeStoryPreview(); if (seCtx?.p === p) { if (seCtx.i !== i) { seCtx.i = i; seCtx.sel = null; renderStoryEditor(); seLoadSource(); } } else { openStoryEditor(p); if (seCtx && i) { seCtx.i = i; renderStoryEditor(); seLoadSource(); } } };
+  spShow(0);
+}
+function spStop(c) {
+  cancelAnimationFrame(c.raf);
+  if (c.video) { c.video.pause(); URL.revokeObjectURL(c.video.src); c.video = null; }
+  c.src?.close?.(); c.src = null;
+}
+function closeStoryPreview() {
+  const c = spCtx; if (!c) return;
+  spStop(c); spCtx = null;
+  $('#spModal').classList.remove('open');
+  if (seCtx?.p === c.p) seCtx.video?.play().catch(() => {});
+}
+$('#spClose').onclick = closeStoryPreview;
+async function spShow(i) {
+  const c = spCtx; if (!c) return;
+  const p = c.p; i = Math.max(0, Math.min(i, p.media.length - 1));
+  spStop(c);
+  Object.assign(c, { i, el: 0, dur: 5, done: false, last: performance.now(), run: (c.run || 0) + 1 });
+  if (c.paused) { c.paused = false; $('#spPause').textContent = '⏸ 暫停'; }
+  const run = c.run, m = p.media[i], fr = p.storyEdit.frames[m.id] || storyEdit(p).frames[m.id];
+  $('#spBody').querySelectorAll('.sp-bars b').forEach((b, j) => b.style.width = j < i ? '100%' : '0');
+  $('#spMu').textContent = fr.music?.title ? `🎵 ${fr.music.title}` : '';
+  $('#spSound').hidden = !isVideo(m);
+  const g = $('#spCanvas').getContext('2d');
+  const blob = await mediaBlob(m);
+  if (spCtx !== c || c.run !== run) return;
+  if (!blob) { toast(`找不到「${m.name}」，請重新加入`); return; }
+  let w, h;
+  if (isVideo(m)) {
+    const v = c.video = document.createElement('video');
+    v.src = URL.createObjectURL(blob); v.muted = c.muted; v.playsInline = true;
+    await new Promise(r => { v.onloadeddata = r; v.onerror = r; setTimeout(r, 8000); });
+    if (spCtx !== c || c.run !== run) return;
+    w = v.videoWidth; h = v.videoHeight; c.dur = Math.min(v.duration || 15, SE_LIMIT);
+    v.play().catch(() => {});
+  } else {
+    c.src = await createImageBitmap(blob); w = c.src.width; h = c.src.height;
+    c.dur = fr.music ? fr.music.len || 15 : 5;   // 照片 5 秒；加了音樂會變成影片
+  }
+  await seLoadFonts(fr.layers);
+  if (spCtx !== c || c.run !== run) return;
+  const bar = $('#spBody').querySelectorAll('.sp-bars b')[i];
+  const tick = () => {
+    if (spCtx !== c || c.run !== run) return;
+    const now = performance.now();
+    if (c.video) c.el = c.video.currentTime; else if (!c.paused) c.el += (now - c.last) / 1000;
+    c.last = now;
+    seDrawFrame(g, fr, c.video || c.src, w, h);
+    if (fr.subs && c.video) subDraw(g, SW, SH, fr.subs, c.video.currentTime);
+    bar.style.width = `${Math.min(100, c.el / c.dur * 100)}%`;
+    if (c.el >= c.dur || c.video?.ended) {
+      if (i < p.media.length - 1) return spShow(i + 1);
+      c.done = true; c.video?.pause(); $('#spPause').textContent = '↻ 從頭看'; return;   // 看完最後一張：停在這裡
+    }
+    c.raf = requestAnimationFrame(tick);
+  };
+  tick();
 }
 function seMusicPick() {
   const p = seCtx.p, fr = seFrame();
@@ -2840,7 +2961,8 @@ async function seEncodeVideo(fr, blob, onTick, o = {}) {
           last = t; moved = Date.now();
           if (o.draw) o.draw(g, v, SW, SH, t);
           else { seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null); if (fr.subs) subDraw(g, SW, SH, fr.subs, t); logoDraw(g, SW, SH, true, lg); }
-          const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6) });
+          // 一定要給 duration：新版 Chrome／Edge（157）沒給的話 chunk.duration 是 null，MP4 打包會整格丟掉
+          const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / 30) });
           venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close();
           onTick?.(t, limit);
           // 電腦壓不夠快時先暫停播放，等它跟上，才不會漏掉畫面
@@ -4633,7 +4755,7 @@ async function vcEncode(clips, speed, mute, onTick, isCancel) {
   venc.configure(vcfg);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'), lg = await logoReady();
-  const put = ts => { const f = new VideoFrame(cv, { timestamp: Math.round(ts * 1e6) }); venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close(); lastTs = ts; };
+  const put = ts => { const f = new VideoFrame(cv, { timestamp: Math.round(ts * 1e6), duration: Math.round(1e6 / 30) }); /* 要給 duration（見 seEncodeVideo）*/ venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close(); lastTs = ts; };
   for (const x of clips) {
     await vcPlayClip(x, speed, async (v, t) => {
       g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
@@ -4774,8 +4896,7 @@ async function tcDraw(card, i, n, photo, st = tcSet()) {
   y += gap;
   g.font = `400 ${bs}px ${fam}`;
   bl.forEach((l, j) => g.fillText(l, W / 2, y + j * bs * 1.55));
-  g.shadowBlur = 0;
-  if (n > 1) { g.font = `400 ${Math.round(W * 0.028)}px ${STORY_FONT}`; g.globalAlpha = 0.6; g.fillText(`${i + 1} / ${n}`, W / 2, H - (story ? H * 0.12 : W * 0.07)); g.globalAlpha = 1; }
+  g.shadowBlur = 0;   // 不放頁碼：使用者可以只挑其中幾張、換順序
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
 }
 async function tcDrawAll() {
@@ -4890,6 +5011,7 @@ function refBoxHtml(c) {
 function openAimg(p, mode = 'new') {
   const st = S.aimg ||= { mode: 'new', style: 'photo', editStyle: 'water', ratio: '4:5' };
   aimg = { p, mode: mode || st.mode, prompt: '', busy: false, images: [], pick: 0, photo: aimgPhotos(p)[0]?.id || null, src: p.text.trim() ? 'post' : 'own' };
+  if (p.kind === 'story') st.ratio = '9:16'; else if (p.kind === 'post' && st.ratio === '9:16') st.ratio = '4:5';
   if (!st.refInit && refAvail(p)) { st.style = st.editStyle = 'ref'; st.refInit = true; save(); }
   $('#aimgModal').classList.add('open'); renderAimg();
   setTimeout(() => $('#aimgText')?.focus(), 50);
@@ -4919,11 +5041,11 @@ function renderAimg() {
     ${edit ? '' : `<div class="pick-label">尺寸</div><div class="chips">${chips(AIMG_RATIOS, st.ratio, 'aimgratio')}</div>`}
     <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${aimgMulti(c) ? (c.slides ? '🔄 整組重畫' : '✨ 做輪播圖') : c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
     ${c.busy ? `<div class="ai-wait">${c.busy === 'ref' ? 'AI 先看你之前發過的圖片、整理風格⋯' : aimgMulti(c) ? 'AI 整理內容、每張各畫一張圖，大約 30～60 秒⋯' : 'AI 畫圖中，大約 15～30 秒⋯'}</div>` : ''}
-    ${c.slides && !c.busy ? `<div class="aimg-res">${c.comp.map((u, i) => `<div class="aimg-slide"><img src="${u}" alt="第 ${i + 1} 張"></div>`).join('')}</div>
+    ${c.slides && !c.busy ? `<p class="hint-s" style="margin:12px 0 0">點圖可以取消不要的那張（打 ✓ 的才會加入、存檔）。</p><div class="aimg-res">${aimgSlidesHtml(c)}</div>
       <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張</small></label>
       <textarea id="aimgSText" style="min-height:150px">${esc(c.sText)}</textarea>
       <p class="hint-s" style="margin:6px 0 0">貼文沒寫到的內容（例如「3 個方法」是哪 3 個）是 AI 補寫的，加入前請確認正確。</p>
-      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button id="aimgSave">💾 存到電腦</button><button id="aimgVideo">🎬 做成影片（Reels）</button><button class="primary" id="aimgUse">加入 ${c.comp.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}</button></div>`
+      <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button id="aimgSave">💾 存到電腦</button><button id="aimgVideo">🎬 做成影片（Reels）</button><button class="primary" id="aimgUse">${aimgUseLabel(c)}</button></div>`
     : c.images.length && !c.busy ? `<div class="aimg-res">${c.images.map((u, i) => `<button class="${i === c.pick ? 'on' : ''}" data-aimgpick="${i}"><img src="${c.comp?.[i] || u}" alt="AI 畫的第 ${i + 1} 張"></button>`).join('')}</div>
       <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;flex-wrap:wrap">
         <button id="aimgSave">💾 存到電腦</button>
@@ -4937,6 +5059,7 @@ function renderAimg() {
     b.onclick = () => { c.photo = b.dataset.aimgph; renderAimg(); };
     const u = await mediaUrl(c.p.media.find(m => m.id === b.dataset.aimgph)); const im = b.querySelector('img'); if (im && u) im.src = u;
   });
+  if (c.slides) { aimgBindSlides(c); aimgUseBtns(c); }
   box.querySelectorAll('[data-aimgpick]').forEach(b => b.onclick = () => { c.pick = +b.dataset.aimgpick; box.querySelectorAll('[data-aimgpick]').forEach(x => x.classList.toggle('on', x === b)); });
   box.querySelectorAll('[data-aimgsrc]').forEach(b => b.onclick = () => { c.src = b.dataset.aimgsrc; renderAimg(); $('#aimgText').focus(); });
   $('#aimgText').oninput = e => { c.prompt = e.target.value; $('#aimgGo').disabled = !aimgCan(c); };
@@ -4975,7 +5098,7 @@ async function aimgGenerate() {
     if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
     if (aimg !== c) return;
     c.comp?.forEach(u => URL.revokeObjectURL(u));
-    c.pick = 0; c.ratio = ratio; c.comp = null; c.slides = null;
+    c.pick = 0; c.ratio = ratio; c.comp = null; c.slides = null; c.off = new Set();
     if (j.slides) {   // 輪播：每張一張圖，字可以改
       c.slides = j.slides; c.images = j.slides.map(x => x.image);
       c.sText = j.slides.map(x => `${x.title}${x.body ? '\n' + x.body : ''}`).join('\n\n');
@@ -4997,18 +5120,34 @@ const aimgMulti = c => aimgWantText(c) && S.aimg.slides !== false;
 // 依「圖上的字」重新排每一張（圖不夠就輪流用）
 async function aimgRecompose(c, quiet) {
   const cards = tcCards(c.sText || ''), run = c.sRun = (c.sRun || 0) + 1;
-  const urls = await Promise.all(cards.map((card, i) => aimgCompose(c.images[i % c.images.length], card, c.ratio, i, cards.length)));
+  const urls = await Promise.all(cards.map((card, i) => aimgCompose(c.images[i % c.images.length], card, c.ratio)));
   if (c.sRun !== run || aimg !== c) return urls.forEach(u => URL.revokeObjectURL(u));
   c.comp?.forEach(u => URL.revokeObjectURL(u)); c.comp = urls;
   if (quiet) return;
-  const box = $('#aimgBody .aimg-res'); if (box) box.innerHTML = urls.map((u, i) => `<div class="aimg-slide"><img src="${u}" alt="第 ${i + 1} 張"></div>`).join('');
-  const use = $('#aimgUse'); if (use) { use.textContent = `加入 ${urls.length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}`; use.disabled = !urls.length; }
+  const box = $('#aimgBody .aimg-res'); if (box) { box.innerHTML = aimgSlidesHtml(c); aimgBindSlides(c); }
+  aimgUseBtns(c);
+}
+// 輪播：圖上不放頁碼，使用者可以只挑其中幾張；c.off = 不要的那幾張
+const aimgChosen = c => (c.comp || []).filter((_, i) => !c.off?.has(i));
+const aimgUseLabel = c => `加入 ${aimgChosen(c).length} 張到這則貼文${c.ratio === '9:16' ? '（限動用）' : '（輪播）'}`;
+const aimgSlidesHtml = c => c.comp.map((u, i) => `<button class="aimg-slide ${c.off?.has(i) ? 'off' : ''}" data-aimgsl="${i}" title="點一下取消／選取"><img src="${u}" alt="第 ${i + 1} 張"><span class="ck">✓</span></button>`).join('');
+function aimgUseBtns(c) {
+  const n = aimgChosen(c).length, use = $('#aimgUse');
+  if (use) { use.textContent = aimgUseLabel(c); use.disabled = !n; }
+  ['#aimgSave', '#aimgVideo'].forEach(s => { if ($(s)) $(s).disabled = !n; });
+}
+function aimgBindSlides(c) {
+  document.querySelectorAll('#aimgBody [data-aimgsl]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.aimgsl; c.off ||= new Set();
+    c.off.has(i) ? c.off.delete(i) : c.off.add(i);
+    b.classList.toggle('off', c.off.has(i)); aimgUseBtns(c);
+  });
 }
 const aimgWantText = c => aimgUsePost(c) && (c.mode === 'bg' || S.aimg.withText !== false);
-async function aimgCompose(url, card, ratio, i = 0, n = 1) {
+async function aimgCompose(url, card, ratio) {
   seLinkFonts();
   const bmp = await createImageBitmap(await (await fetch(url)).blob());
-  const out = await tcDraw(card, i, n, bmp, { theme: 'photo', ratio: TC_RATIOS.some(r => r[0] === ratio) ? ratio : '4:5', font: tcSet().font });
+  const out = await tcDraw(card, 0, 1, bmp, { theme: 'photo', ratio: TC_RATIOS.some(r => r[0] === ratio) ? ratio : '4:5', font: tcSet().font });
   bmp.close(); return URL.createObjectURL(out);
 }
 async function aimgUse(edit) {
@@ -5028,15 +5167,17 @@ async function aimgUse(edit) {
 async function aimgSave(c) {
   if (c.slides) { clearTimeout(c.sTimer); await aimgRecompose(c, true); }
   if (aimg !== c) return;
-  const urls = c.slides ? c.comp : [c.comp?.[c.pick] || c.images[c.pick]], d = stamp();
+  const urls = c.slides ? aimgChosen(c) : [c.comp?.[c.pick] || c.images[c.pick]], d = stamp();
+  if (!urls.length) return toast('先點選要存的圖');
   const list = await Promise.all(urls.map(async (u, i) => ({ blob: await (await fetch(u)).blob(), name: c.slides ? `AI輪播-${d}-${i + 1}` : `AI製圖-${d}` })));
   saveMany(list); logRemote('trace', `AI 製圖存到電腦 ${list.length} 張`);
 }
 async function aimgUseSlides(c, video) {
   clearTimeout(c.sTimer); await aimgRecompose(c, true);   // 剛改完字：先排好再加
-  if (aimg !== c || !c.comp.length) return;
+  if (aimg !== c) return;
+  const chosen = aimgChosen(c); if (!chosen.length) return toast('先點選要用的圖');
   const p = c.p, story = c.ratio === '9:16' && !video;
-  const files = await Promise.all(c.comp.map(async (u, i) => new File([await (await fetch(u)).blob()], `AI輪播${i + 1}.jpg`, { type: 'image/jpeg' })));
+  const files = await Promise.all(chosen.map(async (u, i) => new File([await (await fetch(u)).blob()], `AI輪播${i + 1}.jpg`, { type: 'image/jpeg' })));
   closeAimg();
   const before = new Set(p.media.map(m => m.id));
   await addFiles(p, files, story ? { storyOnly: true, aiImg: true } : {});
@@ -5336,7 +5477,7 @@ function calWhen(p) {
   if (p.publishedAt) return new Date(p.publishedAt);
   return null;
 }
-const postSnip = p => (p.label ? p.label + '｜' : '') + (p.text.trim().split('\n')[0] || p.link || ownTexts(p).map(([id]) => p.texts[id].trim().split('\n')[0])[0] || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'));
+const postSnip = p => (p.kind === 'story' ? '限動｜' : '') + (p.label ? p.label + '｜' : '') + (p.text.trim().split('\n')[0] || p.link || ownTexts(p).map(([id]) => p.texts[id].trim().split('\n')[0])[0] || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'));
 function calHtml() {
   const base = S.calMonth ? new Date(S.calMonth + '-01T00:00') : new Date(), y = base.getFullYear(), mo = base.getMonth();
   const first = new Date(y, mo, 1), days = new Date(y, mo + 1, 0).getDate(), weeks = Math.ceil((first.getDay() + days) / 7);
@@ -5825,7 +5966,7 @@ async function dupPost(src, label = '🔁 再發') {
     media.push({ ...m, id });
   }
   const remap = o => o && JSON.parse(Object.entries(map).reduce((s, [a, b]) => s.split(a).join(b), JSON.stringify(o)));
-  const p = newPost({ text: src.text, texts: src.texts && { ...src.texts }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
+  const p = newPost({ kind: src.kind, text: src.text, texts: src.texts && { ...src.texts }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
     postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label });
   toast('已經複製成新貼文，改一下再排程');
   return p;
@@ -5918,6 +6059,7 @@ function navCloseModal(el) {
     else if (el.id === 'musicModal') closeMusicPicker();
     else if (el.id === 'postEdModal') closePostEditor();
     else if (el.id === 'postPrevModal') closePostPreview();
+    else if (el.id === 'spModal') closeStoryPreview();
     else if (el.id === 'insModal') closeIns();
     else if (el.id === 'tcModal') closeTc();
     else if (el.id === 'aimgModal') closeAimg();
