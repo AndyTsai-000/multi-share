@@ -1964,11 +1964,13 @@ const AUTO_KINDS = [
 ];
 let session = '', autoAccounts = [];
 const serverPosts = {};
+let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1107b";
+const APP_VERSION = "v1109a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
+  if (/^(localhost|127.)/.test(location.hostname)) return;   // 本機測試不送，避免用光伺服器資料庫額度
   try {
     fetch(API + '/log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ where, msg: String(msg).slice(0, 500), ua: APP_VERSION + ' ' + navigator.userAgent.slice(0, 180) }) }).catch(() => {});
@@ -2010,7 +2012,7 @@ function jobLabel(acc, kind) {
 }
 function autoStatusHtml(p) {
   const sp = serverPosts[p.serverPost];
-  if (!sp) return '<p class="hint-s" style="margin:0">讀取狀態中⋯</p>';
+  if (!sp) return serverErr ? `<p class="warn-line" style="margin:0">⚠️ 暫時讀不到伺服器的排程狀態${/limit|exceeded|額度/i.test(serverErr) ? '（伺服器今天的免費用量用完了，台灣時間早上 8 點恢復）' : '，稍後會自動再試'}</p>` : '<p class="hint-s" style="margin:0">讀取狀態中⋯</p>';
   const head = {
     scheduled: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出`,
     preparing: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出（檔案已先交給 Instagram 處理，時間到就發）`,
@@ -4360,7 +4362,8 @@ const closeIgOpts = () => closePostEditor();
 
 async function refreshServerPosts() {
   if (!session || !S.posts.some(p => p.serverPost)) return;
-  try { const { posts } = await apiCall('/api/posts'); for (const sp of posts) serverPosts[sp.id] = sp; } catch { return; }
+  try { const { posts } = await apiCall('/api/posts'); for (const sp of posts) serverPosts[sp.id] = sp; serverErr = ''; }
+  catch (e) { serverErr = e.message || '連不上'; const p = active(), box = $('#autoStatus'); if (p?.serverPost && box && !serverPosts[p.serverPost]) box.innerHTML = autoStatusHtml(p); return; }
   let changed = false;
   for (const p of S.posts) {
     const sp = p.serverPost && serverPosts[p.serverPost];
