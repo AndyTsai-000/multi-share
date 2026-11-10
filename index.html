@@ -4,22 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社群管家</title>
-<meta name="theme-color" content="#2563eb">
+<meta name="theme-color" content="#3d4fd6">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
 <style>
 :root {
-  --bg: #f4f5f7; --panel: #fff; --ink: #1d2129; --sub: #6b7280; --line: #e3e5e8;
-  --accent: #2563eb; --accent-ink: #fff; --ok: #16a34a; --warn: #d97706; --danger: #dc2626;
-  --soft: #eef2ff; --soft-line: #c7d2fe; --soft-ink: #1e40af; --hint: #f1f2f4;
-  --warn-bg: #fef3c7; --warn-ink: #78350f; --radius: 12px;
+  --bg: #f5f4f1; --panel: #fff; --ink: #1c1d22; --sub: #6d6f78; --line: #e8e6e1;
+  --accent: #3d4fd6; --accent-2: #6a4fd8; --accent-ink: #fff; --ok: #16a34a; --warn: #d97706; --danger: #dc2626;
+  --soft: #eef0fd; --soft-line: #c9cff6; --soft-ink: #2c39a6; --hint: #f3f2ef;
+  --warn-bg: #fdf3d8; --warn-ink: #7a3f0c; --radius: 16px;
+  --shadow: 0 1px 2px rgba(28, 29, 34, .04), 0 4px 16px rgba(28, 29, 34, .05);
+  --shadow-lg: 0 24px 60px rgba(20, 22, 40, .22);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111318; --panel: #1b1e25; --ink: #e8eaed; --sub: #9aa1ab; --line: #2c313a;
-    --accent: #4f7df5; --soft: #1e2a4a; --soft-line: #34477a; --soft-ink: #b9cbff; --hint: #232731;
+    --bg: #0e1014; --panel: #171a20; --ink: #eceef2; --sub: #9a9fab; --line: #272b34;
+    --accent: #6c7bff; --accent-2: #9a7cff; --soft: #1d2241; --soft-line: #37417c; --soft-ink: #c4caff; --hint: #1f232b;
     --warn-bg: #3a2e10; --warn-ink: #f5d58a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .18);
+    --shadow-lg: 0 24px 60px rgba(0, 0, 0, .55);
   }
 }
 * { box-sizing: border-box; }
@@ -496,7 +502,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   aside.open { position: fixed; inset: 0; z-index: 9; }
   aside.open .posts { display: block !important; }
   aside.open .side-tools { display: grid !important; }
-  #homeNew { display: none; }
+  #homeNew, #homeNewStory { display: none; }
   aside.open footer { display: grid !important; }
   aside.open .post-search:not([hidden]) { display: block !important; }
   .menu-btn { display: inline-block !important; }
@@ -518,6 +524,96 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   .t-form { grid-template-columns: 1fr; }
   .modal { padding: 16px; }
 }
+
+/* ===== 質感：字體、卡片、按鈕、側邊欄 ===== */
+body { font-family: "Noto Sans TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif; letter-spacing: .01em; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, b, strong { letter-spacing: .02em; }
+button { border-radius: 10px; transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s, transform .15s; }
+button:hover { border-color: var(--soft-line); background-color: var(--hint); }
+button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; box-shadow: 0 1px 2px rgba(61, 79, 214, .25), 0 4px 12px rgba(61, 79, 214, .18), inset 0 1px 0 rgba(255, 255, 255, .18); }
+button.primary:hover { filter: brightness(1.06); background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 2px 4px rgba(61, 79, 214, .3), 0 8px 20px rgba(61, 79, 214, .22); }
+button.primary:active { transform: translateY(1px); }
+button.link, button.link:hover { background: none; }
+button.soft { background: var(--soft); border-color: transparent; color: var(--soft-ink); font-weight: 600; }
+button.soft:hover { background: var(--soft); border-color: var(--soft-line); }
+input, textarea, select { border-radius: 10px; transition: border-color .15s, box-shadow .15s; }
+input:focus, textarea:focus, select:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+textarea { line-height: 1.7; }
+
+/* 側邊欄 */
+aside { background: color-mix(in srgb, var(--panel) 92%, var(--bg)); }
+aside header { padding: 20px 16px 12px; }
+aside h1 { font-size: 18px; margin-bottom: 16px; }
+.home-link { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
+.home-link::before { content: '✦'; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 4px 12px rgba(61, 79, 214, .3); }
+aside .new { padding-top: 9px; padding-bottom: 9px; }
+.side-tools { gap: 6px; padding: 0 16px 10px; }
+.side-tools button { border-color: transparent; background: var(--hint); color: var(--ink); }
+.side-tools button:hover { background: var(--soft); color: var(--soft-ink); }
+.group-title { font-size: 11.5px; letter-spacing: .06em; margin: 16px 8px 6px; }
+.post-item { padding: 9px 10px; border-radius: 12px; }
+.post-item:hover { background: var(--hint); }
+.post-item.active { background: var(--panel); border-color: var(--line); box-shadow: var(--shadow), inset 3px 0 0 var(--accent); }
+.lt { border-radius: 10px; }
+.pill { font-weight: 600; padding: 2px 8px; }
+aside footer { padding: 10px; gap: 2px; }
+aside footer button { border: 0; background: none; text-align: left; padding: 9px 12px; color: var(--sub); font-size: 14px; border-radius: 10px; }
+aside footer button:hover { background: var(--hint); color: var(--ink); }
+.ver { margin-top: 6px; }
+.home-link { white-space: nowrap; }
+.bar.idle { display: none; }
+
+/* 主畫面、卡片 */
+.editor { padding-top: 28px; }
+.card { border-color: var(--line); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.card h2 { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+.card h2 small { font-size: 12.5px; }
+.home-head { margin-bottom: 18px; }
+.home-head h2 { font-size: 24px; font-weight: 700; }
+.home-tabs { margin-bottom: 18px; }
+.home-item { padding: 12px 4px; border-radius: 10px; }
+.home-item:hover { background: var(--hint); }
+.home-warn { border-color: rgba(245, 166, 35, .45); box-shadow: var(--shadow), inset 4px 0 0 #f0a020; }
+.home-ok { box-shadow: var(--shadow), inset 4px 0 0 #22c55e; }
+.chip { border-color: var(--line); }
+.chip.on { background: var(--soft); border-color: var(--soft-line); color: var(--soft-ink); font-weight: 600; }
+.ai-btn { border-color: transparent; background: var(--soft); color: var(--soft-ink); font-weight: 500; padding: 5px 13px; }
+.ai-btn:hover { border-color: var(--soft-line); background: var(--soft); }
+.drop { border: 1.5px dashed var(--soft-line); background: color-mix(in srgb, var(--soft) 45%, transparent); border-radius: 14px; padding: 22px 16px; transition: .15s; }
+.drop:hover { border-color: var(--accent); background: var(--soft); }
+.thumb { border-radius: 12px; }
+.empty, .hint-s { line-height: 1.6; }
+
+/* 步驟條 */
+.stepper { background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 6px 14px; margin-bottom: 18px; box-shadow: var(--shadow); }
+.stepper .st-n { width: 28px; height: 28px; }
+.stepper .st.on .st-n { background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 3px 10px rgba(61, 79, 214, .3); }
+.stepper .st-line { height: 1.5px; }
+.step-nav { border-top-color: var(--line); }
+.mode-card { border-radius: 16px; border-width: 1.5px; padding: 18px; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.mode-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); background: var(--panel); }
+.mode-card.on { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+
+/* 底部列、視窗、提示 */
+.bar { background: color-mix(in srgb, var(--panel) 82%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.bar .primary { border-radius: 12px; }
+.modal-bg { background: rgba(15, 18, 30, .45); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.modal { border-radius: 20px; padding: 24px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); }
+.modal h3 { font-size: 19px; }
+.toast { border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.phone-note, .need-scope { border-radius: 12px; }
+@media (max-width: 760px) {
+  aside header { padding: 10px 16px; }
+  aside h1 { margin: 0; }
+  .home-link::before { display: none; }
+  aside h1 { font-size: 17px; }
+  aside footer { grid-template-columns: 1fr 1fr; }
+  aside footer button { font-size: 13px; padding: 8px 10px; }
+  .stepper { border-radius: 14px; padding: 6px 10px; }
+  .card { padding: 16px; }
+  .home-head h2 { font-size: 20px; }
+}
 </style>
 </head>
 <body>
@@ -526,16 +622,16 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
     <header>
       <h1><button class="home-link" id="goHome" title="回主畫面">社群管家</button></h1>
       <button class="menu-btn" id="menuBtn" title="貼文清單和設定">☰ 清單</button>
-      <div class="new-row"><button class="primary new" id="newPost">＋ 新增貼文</button><button class="primary new" id="newStory">＋ 新增限動</button></div>
+      <div class="new-row"><button class="primary new" id="newPost">＋ 新增貼文</button><button class="soft new" id="newStory">＋ 新增限動</button></div>
     </header>
     <div class="side-tools"><button id="openIdeas">💡 靈感暫存</button><button id="openBk">📦 一次排多則</button></div>
     <input class="post-search" id="postSearch" type="search" placeholder="🔎 搜尋貼文" hidden>
     <div class="posts" id="postList"></div>
     <footer>
-      <button id="openTargets">管理發送對象</button>
-      <button id="openBackup">備份／搬資料</button>
-      <button id="openAuto">⚡ 自動發帳號</button>
-      <button id="openIns">📊 成效與管理</button>
+      <button id="openTargets">📮 半自動發送對象</button>
+      <button id="openBackup">💾 備份與還原</button>
+      <button id="openAuto">⚡ 全自動帳號</button>
+      <button id="openIns">📊 已發布貼文</button>
       <div class="ver" id="appVer"></div>
     </footer>
   </aside>
@@ -553,7 +649,7 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 </div></div>
 
 <div class="modal-bg" id="targetsModal"><div class="modal">
-  <h3>發送對象 <button class="link" data-close>關閉</button></h3>
+  <h3>📮 半自動發送對象 <button class="link" data-close>關閉</button></h3>
   <div id="targetList"></div>
   <div id="targetForm"></div>
 </div></div>
@@ -613,12 +709,12 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 </div></div>
 
 <div class="modal-bg" id="autoModal"><div class="modal">
-  <h3>⚡ 自動發帳號 <button class="link" data-close>關閉</button></h3>
+  <h3>⚡ 全自動帳號 <button class="link" data-close>關閉</button></h3>
   <div id="autoBody"></div>
 </div></div>
 
 <div class="modal-bg" id="backupModal"><div class="modal">
-  <h3>備份／搬資料 <button class="link" data-close>關閉</button></h3>
+  <h3>💾 備份與還原 <button class="link" data-close>關閉</button></h3>
   <p class="hint-s" style="margin-top:0">資料只存在這個瀏覽器裡。清除瀏覽器資料、換電腦或換手機之前，先匯出備份。</p>
   <div class="steps">
     <div class="step"><span class="n">↓</span><button id="exportBtn">匯出備份檔（發送對象＋貼文文字）</button></div>
@@ -635,12 +731,12 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
 </div></div>
 
 <div class="modal-bg" id="insModal"><div class="modal" style="width:min(760px,100%)">
-  <h3><span>📊 成效與管理</span> <button class="link" id="insClose">關閉</button></h3>
+  <h3><span>📊 已發布貼文</span> <button class="link" id="insClose">關閉</button></h3>
   <div id="insBody"></div>
 </div></div>
 
 <div class="modal-bg" id="clrModal"><div class="modal">
-  <h3>🗑 清除網站裡的貼文 <button class="link" data-close>關閉</button></h3>
+  <h3>🧹 整理貼文清單 <button class="link" data-close>關閉</button></h3>
   <div id="clrBody"></div>
 </div></div>
 
@@ -1076,7 +1172,7 @@ function renderEditor() {
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
   </div>`}
   <div class="card" id="aimgCard">
-    <h2>製作圖片 <small>沒有合適的圖時用；AI 可以參考上面要發的文字</small></h2>
+    <h2>製作圖片 <small>${story ? "沒有合適的照片時，用 AI 做一張" : "沒有合適的圖時用；AI 可以參考上面要發的文字"}</small></h2>
     <div class="media-ai">${AIMG_MODES.map(([v, l]) => `<button class="ai-btn" data-aimgopen="${v}">${l}</button>`).join('')}<button class="ai-btn" data-tcopen>📝 文字卡片</button></div>
   </div>
   <div class="card">
@@ -1265,9 +1361,9 @@ function renderHome() {
   if (lrDone) { lr.title = '✅ 已發布'; lr.text = lr.text.replace(/^.*?(會自動發到|會發到)：/, '已經發到：'); }
   const cal = S.homeView === 'cal', hols = upcomingHolidays();
   $('#editor').innerHTML = `<div class="home">
-    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="homeIdeas">💡 靈感${(S.ideas || []).length ? `（${S.ideas.length}）` : ''}</button><button id="homeBk">📦 一次排多則</button><button class="primary" id="homeNew">＋ 新增貼文</button><button class="primary" id="homeNewStory">＋ 新增限動</button></span></div>
+    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="homeIdeas">💡 靈感暫存${(S.ideas || []).length ? `（${S.ideas.length}）` : ''}</button><button id="homeBk">📦 一次排多則</button><button class="primary" id="homeNew">＋ 新增貼文</button><button class="soft" id="homeNewStory">＋ 新增限動</button></span></div>
     <div class="home-tabs"><button class="chip ${cal ? '' : 'on'}" data-hview="list">📋 清單</button><button class="chip ${cal ? 'on' : ''}" data-hview="cal">📅 月曆</button>
-      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 管理貼文</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🗑 清除網站貼文</button></div>
+      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 刪除已發布</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🧹 整理清單</button></div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
       <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
     ${cal ? calHtml() : `
@@ -1367,6 +1463,7 @@ async function addFiles(p, files, extra) {
 function renderBar() {
   const p = active(), btn = $('#startSend');
   $('#delPost').hidden = !p; $('#dupPost').hidden = !p;
+  document.querySelector('.bar').classList.toggle('idle', !p);   // 主畫面沒有東西可按，底部列收起來
   if (!p) { btn.hidden = true; $('#autoSend').hidden = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
   const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
   const empty = !hasContent(p);
@@ -1966,7 +2063,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1109a";
+const APP_VERSION = "v1110a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5040,7 +5137,7 @@ function renderAimg() {
     <label class="field" for="aimgText" style="margin-top:12px">${edit ? '想怎麼改？（選填）' : usePost ? '想補充什麼？（選填）' : '想要什麼畫面？'}</label>
     <textarea id="aimgText" style="min-height:64px" placeholder="${edit ? '例如：改成黃昏的光線、加一點秋天的感覺' : usePost ? '例如：畫面要有沙發、明亮一點' : c.mode === 'bg' ? '例如：聖誕節的溫暖客廳／秋天落葉／簡單的木紋桌面' : '例如：北歐風客廳、早晨陽光、木地板、淺灰色沙發'}">${esc(c.prompt)}</textarea>
     <div class="pick-label">風格</div><div class="chips">${chips(styles, style, 'aimgstyle')}</div>
-    ${style === 'ref' ? refBoxHtml(c) : !hasRef && !edit ? '<p class="hint-s" style="margin:6px 0 0">發過幾則有照片的貼文（或連結 IG 自動發帳號）後，這裡會多一個「🎯 跟之前的貼文一樣」，讓 AI 畫的圖跟你的貼文風格一致。</p>' : ''}
+    ${style === 'ref' ? refBoxHtml(c) : !hasRef && !edit ? '<p class="hint-s" style="margin:6px 0 0">發過幾則有照片的貼文（或連結 IG 全自動帳號）後，這裡會多一個「🎯 跟之前的貼文一樣」，讓 AI 畫的圖跟你的貼文風格一致。</p>' : ''}
     ${edit ? '' : `<div class="pick-label">尺寸</div><div class="chips">${chips(AIMG_RATIOS, st.ratio, 'aimgratio')}</div>`}
     <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${aimgMulti(c) ? (c.slides ? '🔄 整組重畫' : '✨ 做輪播圖') : c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
     ${c.busy ? `<div class="ai-wait">${c.busy === 'ref' ? 'AI 先看你之前發過的圖片、整理風格⋯' : aimgMulti(c) ? 'AI 整理內容、每張各畫一張圖，大約 30～60 秒⋯' : 'AI 畫圖中，大約 15～30 秒⋯'}</div>` : ''}
@@ -5624,7 +5721,7 @@ function renderIns() {
     body = `<div class="chips" style="margin-bottom:10px">${accs.map(a => `<button class="chip ${a.id === c.acc ? 'on' : ''}" data-insacc="${a.id}"><span class="dot" style="background:${a.platform === 'ig' ? '#d6249f' : '#111827'}"></span>${name[a.platform]} @${esc(a.username)}</button>`).join('')}</div>
       ${need}${c.busy ? '<div class="ai-wait">讀取中⋯</div>' : c.err && !c.need ? `<p class="warn-line">讀不到：${esc(c.err)}</p>` : c.tab === 'ins' ? insHtml(acc) : c.tab === 'mg' ? mgHtml(acc) : cmHtml(acc)}`;
   }
-  $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button><button class="chip ${c.tab === 'mg' ? 'on' : ''}" data-instab="mg">🗂 管理貼文</button>
+  $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button><button class="chip ${c.tab === 'mg' ? 'on' : ''}" data-instab="mg">🗂 刪除貼文</button>
     <span style="flex:1"></span>${acc && !c.busy ? '<button class="link" id="insRefresh">🔄 重新整理</button>' : ''}</div>${body}`;
   const box = $('#insBody');
   box.querySelectorAll('[data-instab]').forEach(b => b.onclick = () => { c.tab = b.dataset.instab; c.err = ''; c.need = false; renderIns(); insLoad(); });
