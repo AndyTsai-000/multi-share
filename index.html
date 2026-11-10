@@ -619,6 +619,16 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
   .card { padding: 16px; }
   .home-head h2 { font-size: 20px; }
 }
+
+/* AI 剩餘次數、每週摘要 */
+.ai-left { font-size: 12px; font-weight: 400; color: var(--sub); }
+.ai-left.out { color: var(--warn-ink); }
+.modal h3 .ai-left { margin-left: auto; }
+.ins-week { border: 1px solid var(--soft-line); background: var(--soft); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.ins-week h4 { margin: 0 0 8px; font-size: 15px; }
+.ins-week .wk-nums { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.ins-week .up { color: var(--ok); } .ins-week .down { color: var(--danger); }
+.ins-week ol { margin: 6px 0 0; padding-left: 20px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -686,12 +696,12 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
 </div></div>
 
 <div class="modal-bg" id="aiModal"><div class="modal">
-  <h3>✨ AI 幫我寫文案 <button class="link" data-close>關閉</button></h3>
+  <h3>✨ AI 幫我寫文案 <span class="ai-left"></span><button class="link" data-close>關閉</button></h3>
   <div id="aiBody"></div>
 </div></div>
 
 <div class="modal-bg" id="aimgModal"><div class="modal" style="width:min(680px,100%)">
-  <h3>🎨 AI 製圖 <button class="link" id="aimgClose">關閉</button></h3>
+  <h3>🎨 AI 製圖 <span class="ai-left"></span><button class="link" id="aimgClose">關閉</button></h3>
   <div id="aimgBody"></div>
 </div></div>
 
@@ -708,7 +718,7 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
 </div></div>
 
 <div class="modal-bg" id="fsModal"><div class="modal" style="width:min(820px,100%)">
-  <h3>📄 用檔案做限動 <button class="link" id="fsClose">關閉</button></h3>
+  <h3>📄 用檔案做限動 <span class="ai-left"></span><button class="link" id="fsClose">關閉</button></h3>
   <div id="fsBody"></div>
   <input type="file" id="fsFile" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.html,.odt,.ods,image/*" hidden>
 </div></div>
@@ -751,7 +761,7 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
 </div></div>
 
 <div class="modal-bg" id="tagModal"><div class="modal">
-  <h3># 標籤 <button class="link" data-close>關閉</button></h3>
+  <h3># 標籤 <span class="ai-left"></span><button class="link" data-close>關閉</button></h3>
   <div id="tagBody"></div>
 </div></div>
 
@@ -1139,16 +1149,42 @@ function settingsHtml(p) {
   return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button><button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>` : ''}</div>`).join('');
 }
 function perTextHtml(p) {
-  if (!p.perOpen && !ownTexts(p).length) return `<button class="link" id="perOpen" style="color:var(--accent);padding:0">✏️ 各平台用不同文字</button>`;
+  const aiBtn = `<button class="link" id="perAi" style="color:var(--accent);padding:0">✨ AI 改成各平台版本</button>`;
+  if (!p.perOpen && !ownTexts(p).length) return `<div class="row" style="gap:16px;flex-wrap:wrap"><button class="link" id="perOpen" style="color:var(--accent);padding:0">✏️ 各平台用不同文字</button>${aiBtn}</div>`;
   const cur = p.perTab || 'ig', v = p.texts?.[cur] || '';
-  return `<div class="hint-s" style="margin-bottom:6px">有寫的平台用專用文字；留空就用上面的文字。連結一樣接在最後面。</div>
+  return `<div class="row" style="gap:10px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap"><span class="hint-s grow">有寫的平台用專用文字；留空就用上面的文字。連結一樣接在最後面。</span>${aiBtn}</div>
     <div class="chips">${PER_TEXT.map(([id, label]) => `<button class="chip ${id === cur ? 'on' : ''} ${p.texts?.[id]?.trim() ? 'has' : ''}" data-pertab="${id}">${label}</button>`).join('')}</div>
     <textarea id="perTextArea" placeholder="${esc(PER_TEXT.find(x => x[0] === cur)[1])} 專用文字（留空＝用上面的文字）">${esc(v)}</textarea>
     <div class="hint-s" id="perCount">${perCount(p)}</div>`;
 }
 const perCount = p => { const c = p.perTab || 'ig', n = [...(p.texts?.[c] || '')].length, max = c === 'threads' ? 500 : c === 'ig' ? 2200 : 0; return max ? `<span class="${n > max ? 'warn-line' : ''}" style="margin:0">${n}／${max} 字</span>` : ''; };
+// AI 把上面的文字改成各平台版本：有選發送對象就改那些平台，沒選就改 IG、Threads、Facebook
+function perAiPlats(p) {
+  const ids = PER_TEXT.map(x => x[0]);
+  const got = [...postTargets(p).map(t => t.type), ...autoSelected(p).map(o => o.platform)].map(x => String(x || '').replace(/story$/, '')).filter(x => ids.includes(x));
+  return got.length ? [...new Set(got)] : ['ig', 'threads', 'fb'];
+}
+async function perAiRun(p, btn) {
+  if (!p.text.trim()) return alert('先在上面寫好要發的文字，AI 再幫你改成各平台的版本。');
+  const plats = perAiPlats(p), name = id => PER_TEXT.find(x => x[0] === id)[1];
+  const over = plats.filter(id => p.texts?.[id]?.trim());
+  if (over.length && !confirm(`${over.map(name).join('、')} 已經有專用文字，AI 改好會蓋掉，確定嗎？`)) return;
+  btn.disabled = true; btn.textContent = `AI 改寫中⋯（${plats.map(name).join('、')}，約 20 秒）`;
+  try {
+    const r = await fetch(API + '/ai/platforms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: p.text, platforms: plats, brand: S.brand || '' }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `伺服器回應 ${r.status}`);
+    const done = Object.keys(j.texts || {});
+    p.texts ||= {}; for (const k of done) p.texts[k] = j.texts[k];
+    p.perOpen = true; p.perTab = done[0] || p.perTab; save();
+    logRemote('trace', 'AI 各平台版本 ' + done.join(','));
+    toast(`已改好 ${done.map(name).join('、')} 的版本，點平台可以切換檢查`);
+  } catch (e) { alert('AI 沒改成功：' + e.message); }
+  if (active() === p && $('#perText')) { $('#perText').innerHTML = perTextHtml(p); bindPerText(p); renderBar(); refreshStepper(p); renderEditorSettings(p); }
+}
 function bindPerText(p) {
   const box = $('#perText'); if (!box) return;
+  if ($('#perAi')) $('#perAi').onclick = e => perAiRun(p, e.currentTarget);
   if ($('#perOpen')) $('#perOpen').onclick = () => { p.perOpen = true; save(); box.innerHTML = perTextHtml(p); bindPerText(p); $('#perTextArea').focus(); };
   box.querySelectorAll('[data-pertab]').forEach(b => b.onclick = () => { p.perOpen = true; p.perTab = b.dataset.pertab; save(); box.innerHTML = perTextHtml(p); bindPerText(p); });
   if ($('#perTextArea')) $('#perTextArea').oninput = e => {
@@ -1179,6 +1215,7 @@ function renderEditor() {
   <div class="card" id="aimgCard">
     <h2>製作圖片 <small>${story ? "沒有合適的照片時，用 AI 做一張" : "沒有合適的圖時用；AI 可以參考上面要發的文字"}</small></h2>
     <div class="media-ai">${AIMG_MODES.map(([v, l]) => `<button class="ai-btn" data-aimgopen="${v}">${l}</button>`).join('')}<button class="ai-btn" data-tcopen>📝 文字卡片</button></div>
+    <p class="ai-left hint-s" style="margin:8px 0 0">${aiLeftHtml()}</p>
   </div>
   <div class="card">
     <h2>${story ? '限動的照片、影片 <small>可多選，一個檔案就是一則限動（最多 10 則）</small>' : '圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small>'}</h2>
@@ -2094,6 +2131,23 @@ document.addEventListener('keydown', e => {
 // ===== ⚡ 自動發（伺服器）=====
 // 連結的 IG／Threads 帳號由伺服器在時間到時自動發；登入狀態是一組 session，存在這個瀏覽器
 const API = 'https://multi-share-api.multi-share-api.workers.dev';
+// 今天 AI 還剩幾次：伺服器每次 AI 回應都帶 X-AI-Left；第一次要顯示時問一次 /ai/quota
+let aiLeft = null, aiQuotaAsked = false;
+function aiLeftHtml() {
+  if (aiLeft == null) { aiQuotaInit(); return ''; }
+  return aiLeft <= 0 ? '今天的 AI 次數用完了（凌晨 0 點重算）' : `今天 AI 還剩 <b>${aiLeft}</b> 次`;
+}
+// 視窗是固定的 HTML：打開時補上數字
+document.addEventListener('click', () => setTimeout(() => { if (aiLeft != null) document.querySelectorAll('.ai-left:empty').forEach(e => e.innerHTML = aiLeftHtml()); }, 0), true);
+function setAiLeft(v) { aiLeft = v; document.querySelectorAll('.ai-left').forEach(e => { e.innerHTML = aiLeftHtml(); e.classList.toggle('out', v <= 0); }); }
+function aiQuotaInit() {
+  if (aiQuotaAsked) return; aiQuotaAsked = true;
+  fetch(API + '/ai/quota').then(r => r.ok ? r.json() : null).then(j => { if (j && aiLeft == null) setAiLeft(j.left); }).catch(() => { aiQuotaAsked = false; });
+}
+{ const f0 = window.fetch.bind(window);
+  window.fetch = async (u, o) => { const r = await f0(u, o);
+    try { if (typeof u === 'string' && u.startsWith(API + '/ai/')) { const v = r.headers.get('X-AI-Left'); if (v != null && v !== '') setAiLeft(+v); } } catch {}
+    return r; }; }
 const AUTO_KINDS = [
   { platform: 'ig', kind: 'post', label: 'IG 貼文', color: '#d6249f' },
   { platform: 'ig', kind: 'story', label: 'IG 限動', color: '#e1306c' },
@@ -2103,7 +2157,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1110c";
+const APP_VERSION = "v1110d";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -3913,7 +3967,7 @@ async function aiGenerate() {
 
 // ===== 音樂：內建免費音樂（CC0，可以商用、不用註明出處）或自己的音樂檔 =====
 // 音樂設定（存在限動畫面、貼文影片、照片變影片裡）：{ lib: 內建編號 | own: 自己的檔案編號, title, dur, start, vol, origVol, len }
-const MU_CATS = [['all', '全部'], ['upbeat', '輕快'], ['warm', '溫馨木吉他'], ['lofi', 'Lo-fi 放鬆'], ['chill', '時尚爵士'], ['piano', '鋼琴音樂盒'], ['xmas', '聖誕節']];
+const MU_CATS = [['all', '全部'], ['upbeat', '輕快'], ['cute', '活潑可愛'], ['warm', '溫馨'], ['lofi', 'Lo-fi 放鬆'], ['chill', '時尚爵士'], ['electro', '電子節奏'], ['retro', '復古迪斯可'], ['world', '異國風情'], ['piano', '鋼琴古典'], ['xmas', '聖誕節']];
 let muList = null;
 const muLoadList = () => muList ||= fetch('music/list.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(e => { muList = null; throw e; });
 const muBufs = {};
@@ -5776,6 +5830,44 @@ function renderIns() {
   if ($('#insRefresh')) $('#insRefresh').onclick = () => insLoad(true);
   if (c.tab === 'ins') insBind(acc); else if (c.tab === 'mg') mgBind(acc); else cmBind(acc);
 }
+// 每週成效摘要：最近 7 天發的貼文跟再前 7 天比；AI 給下週建議（算 1 次）
+function insWeek(ps) {
+  const now = Date.now(), W = 7 * 864e5;
+  const cur = ps.filter(x => x.time > now - W), prev = ps.filter(x => x.time <= now - W && x.time > now - 2 * W);
+  const sum = (l, k) => l.some(x => x[k] != null) ? l.reduce((s, x) => s + (x[k] || 0), 0) : null;
+  const reachKey = ps.some(x => x.views != null) ? 'views' : 'reach';
+  const keys = [['likes', '❤️ 讚'], ['comments', '💬 留言'], [reachKey, reachKey === 'views' ? '👁 觀看' : '觸及'], ['saved', '🔖 收藏'], ['shares', '🔁 分享']];
+  const nums = keys.map(([k, l]) => ({ k, l, v: sum(cur, k), p: sum(prev, k) })).filter(x => x.v != null);
+  const ranked = [...cur].sort((a, b) => insScore(b) - insScore(a));
+  return { cur, prev, nums, best: ranked[0], ranked };
+}
+function insWeekHtml(acc, ps) {
+  const w = insWeek(ps), tips = S.insTips?.[acc.id];
+  if (!w.cur.length && !w.prev.length) return `<div class="ins-week"><h4>📅 這週摘要</h4><p class="hint-s" style="margin:0">最近兩週沒有發文，發幾則之後這裡會整理每週成效。</p></div>`;
+  const chg = (v, p) => !p || v === p ? '' : `<span class="${v > p ? 'up' : 'down'}">${v > p ? '↑' : '↓'}${Math.round(Math.abs(v - p) / p * 100)}%</span>`;
+  const fresh = tips && Date.now() - tips.at < 3 * 864e5;
+  return `<div class="ins-week"><h4>📅 這週摘要 <small class="hint-s">最近 7 天發的貼文，跟再前 7 天比</small></h4>
+    <div class="wk-nums"><span>發了 <b>${w.cur.length}</b> 則 ${w.prev.length ? `<small class="hint-s">（前一週 ${w.prev.length} 則）</small>` : ''}</span>
+      ${w.nums.map(x => `<span>${x.l} <b>${nFmt(x.v)}</b> ${chg(x.v, x.p)}</span>`).join('')}</div>
+    ${w.best ? `<p style="margin:8px 0 0;font-size:14px">🏆 這週最好：<b>${esc((w.best.text || '（沒有文字）').split('\n')[0].slice(0, 40))}</b> <span class="hint-s">❤️ ${nFmt(w.best.likes)}・💬 ${nFmt(w.best.comments)}</span></p>` : '<p class="hint-s" style="margin:8px 0 0">最近 7 天沒有發文。</p>'}
+    ${fresh ? `<p style="margin:10px 0 0;font-size:14px"><b>💡 下週建議</b> <small class="hint-s">${agoFmt(tips.at)}</small></p><ol>${tips.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ol>` : ''}
+    <div class="row" style="margin-top:10px;gap:10px;align-items:center;flex-wrap:wrap"><button class="ai-btn" id="insWeekAi">✨ ${fresh ? '重新給建議' : 'AI 給下週建議'}</button><span class="ai-left">${aiLeftHtml()}</span></div></div>`;
+}
+async function insWeekAi(acc, btn) {
+  const d = S.insCache?.[acc.id]?.data; if (!d) return;
+  const w = insWeek(d.posts || []), snip = x => `${(x.text || '（沒有文字）').replace(/\s+/g, ' ').slice(0, 80)}（${x.kind || '貼文'}，${new Date(x.time).getHours()} 點發，讚 ${x.likes || 0}、留言 ${x.comments || 0}）`;
+  const list = w.cur.length ? w.ranked : [...w.prev].sort((a, b) => insScore(b) - insScore(a));
+  const best = insBest(d.posts || []);
+  const stats = { 本週則數: w.cur.length, 前一週則數: w.prev.length, ...Object.fromEntries(w.nums.map(x => [x.l.replace(/^\S+ /, ''), `${x.v}（前一週 ${x.p ?? '無'}）`])), 粉絲: d.followers, 互動最多時段: best?.slot?.l || '還看不出來', 互動最多星期: best?.day?.l || '還看不出來' };
+  btn.disabled = true; btn.textContent = 'AI 分析中⋯（約 15 秒）';
+  try {
+    const r = await fetch(API + '/ai/weekly', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: acc.platform === 'ig' ? 'Instagram' : 'Threads', stats, top: list.slice(0, 3).map(snip), low: list.length > 3 ? list.slice(-2).map(snip) : [] }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `伺服器回應 ${r.status}`);
+    (S.insTips ||= {})[acc.id] = { at: Date.now(), tips: j.tips }; save();
+  } catch (e) { alert('AI 沒給出建議：' + e.message); }
+  if (insCtx) renderIns();
+}
 function insHtml(acc) {
   const c = insCtx, d = S.insCache?.[acc.id]?.data;
   if (!d) return '';
@@ -5787,7 +5879,7 @@ function insHtml(acc) {
   const best = insBest(ps), reachKey = ps.some(x => x.views != null) ? 'views' : 'reach';
   const tiles = [['粉絲', d.followers], ['平均讚數', avg('likes')], ['平均留言', avg('comments')], [reachKey === 'views' ? '平均觀看' : '平均觸及', avg(reachKey)], ...(ig ? [['平均收藏', avg('saved')]] : [['平均轉發', avg('shares')]])].filter(t => t[1] != null);
   const bars = (rows) => { const mx = Math.max(...rows.map(r => r.v), 0.01); return `<div class="ins-bars">${rows.map(r => `<span>${r.l}</span><i style="width:${Math.round(r.v / mx * 100)}%"></i><span class="hint-s">${r.n} 則</span>`).join('')}</div>`; };
-  return `<div class="ins-tiles">${tiles.map(([l, v]) => `<div class="ins-tile"><b>${nFmt(v)}</b><small>${l}</small></div>`).join('')}</div>
+  return `${insWeekHtml(acc, ps)}<div class="ins-tiles">${tiles.map(([l, v]) => `<div class="ins-tile"><b>${nFmt(v)}</b><small>${l}</small></div>`).join('')}</div>
     <div class="ins-best">${best ? `🕒 <b>互動最多的時段</b>：${best.slot ? `${best.slot.l}${best.slot.v > 1.05 ? `（是平均的 ${best.slot.v.toFixed(1)} 倍）` : ''}` : '還看不出來'}${best.day ? `；星期是<b>${best.day.l}</b>` : ''}
       <details style="margin-top:6px"><summary class="hint-s" style="cursor:pointer">看各時段</summary>${bars(best.slots)}${bars(best.days)}</details>
       <p class="hint-s" style="margin:6px 0 0">依最近 ${best.n} 則貼文的讚、留言、收藏、分享計算；排程時可以挑這個時段。</p>`
@@ -5806,6 +5898,7 @@ function insHtml(acc) {
 function insBind(acc) {
   const box = $('#insBody'), c = insCtx;
   box.querySelectorAll('[data-inssort]').forEach(b => b.onclick = () => { c.sort = b.dataset.inssort; renderIns(); });
+  if ($('#insWeekAi')) $('#insWeekAi').onclick = e => insWeekAi(acc, e.currentTarget);
   box.querySelectorAll('[data-repost]').forEach(b => b.onclick = () => insRepost(S.insCache[acc.id].data.posts.find(x => x.id === b.dataset.repost), b));
 }
 // 管理貼文（已發佈的）：Threads 可以直接刪；IG 只能跳到 IG 刪（IG 不開放這種連結方式刪除）

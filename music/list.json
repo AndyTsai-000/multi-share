@@ -478,5 +478,955 @@
   "file": "music/m223433.m4a",
   "source": "https://freemusicarchive.org/music/holiznacc0/a-lo-fi-christmas-special/oh-holy-night-lo-fi/",
   "license": "CC0 1.0"
+ },
+ {
+  "id": 175572,
+  "cat": "upbeat",
+  "title": "Summer Pride",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m175572.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_17_Summer_Pride/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 175559,
+  "cat": "upbeat",
+  "title": "Friend to friend",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m175559.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_02_Friend_to_friend/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 175571,
+  "cat": "upbeat",
+  "title": "Hope and Love",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m175571.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_16_Hope_and_Love/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 175564,
+  "cat": "upbeat",
+  "title": "Dancing Fool",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m175564.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_09_Dancing_Fool/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 164282,
+  "cat": "upbeat",
+  "title": "Street of love",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m164282.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/POSITIVE_ATTITUDE_/Loyalty_Freak_Music_-_POSITIVE_ATTITUDE__-_06_Street_of_love/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 171989,
+  "cat": "upbeat",
+  "title": "Love Him",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m171989.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/MELODIES_WITH_A_BEAT/Loyalty_Freak_Music_-_MELODIES_WITH_A_BEAT_-_03_Love_Him/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 197516,
+  "cat": "upbeat",
+  "title": "Running Through the Fields",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m197516.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/western-skies/running-through-the-fields/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195099,
+  "cat": "upbeat",
+  "title": "Mountains Of Paradise",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195099.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/beachy-beatbox-ukulele-music/mountains-of-paradise/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195102,
+  "cat": "upbeat",
+  "title": "Bright Tenement Skyline",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195102.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/happy-trappy-positive-urban-beats/bright-tenement-skyline/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195103,
+  "cat": "upbeat",
+  "title": "Dopest Hope",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195103.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/happy-trappy-positive-urban-beats/dopest-hope/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 212604,
+  "cat": "upbeat",
+  "title": "Day Trips",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m212604.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/city-slacker/day-trips/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 204025,
+  "cat": "upbeat",
+  "title": "Rising Hero",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m204025.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/chiptunes/rising-hero/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 174600,
+  "cat": "warm",
+  "title": "Packed lunch",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m174600.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/TRG_Banks/Packed_lunch/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 174842,
+  "cat": "warm",
+  "title": "Journey with Russ",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m174842.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/Kevelin_and_Chestnuts_Adventures/Journey_with_Russ/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 174839,
+  "cat": "warm",
+  "title": "Coast",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m174839.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/Kevelin_and_Chestnuts_Adventures/Coast/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 174835,
+  "cat": "warm",
+  "title": "Castle Lane",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m174835.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/Kevelin_and_Chestnuts_Adventures/Castle_Lane/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 174214,
+  "cat": "warm",
+  "title": "Night Sun",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m174214.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/Return_to_Dreamland/Night_Sun/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 201517,
+  "cat": "warm",
+  "title": "Love",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m201517.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/only-in-the-milky-way-part-1/love-1/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 205495,
+  "cat": "warm",
+  "title": "Puppy Love",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m205495.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/puppy-love/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 212917,
+  "cat": "warm",
+  "title": "Falling In Love With Yourself",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m212917.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/be-happy-with-who-you-are/falling-in-love-with-yourself/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 212919,
+  "cat": "warm",
+  "title": "Finding Yourself",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m212919.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/be-happy-with-who-you-are/finding-yourself/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 205359,
+  "cat": "warm",
+  "title": "Quiet Houses",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m205359.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/only-in-the-milky-way-part-3/quiet-houses/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 212619,
+  "cat": "warm",
+  "title": "First Snow",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m212619.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/winter-lofi/first-snowmp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 212612,
+  "cat": "warm",
+  "title": "Ramen",
+  "artist": "HoliznaCC0",
+  "dur": 113,
+  "file": "music/m212612.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/ramenmp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 180330,
+  "cat": "warm",
+  "title": "Somewhere Nice",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m180330.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/Public_Domain_Soundtrack_Music_Album_One/somewhere-nice/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 180323,
+  "cat": "warm",
+  "title": "Home At Last",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m180323.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/Public_Domain_Soundtrack_Music_Album_One/home-at-last/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 180322,
+  "cat": "warm",
+  "title": "Heart of Acceptance",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m180322.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/Public_Domain_Soundtrack_Music_Album_One/heart-of-acceptance/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 265844,
+  "cat": "lofi",
+  "title": "Wetlands",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m265844.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/wetlands-lofi-calm-relaxed/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 265850,
+  "cat": "lofi",
+  "title": "Lucid",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m265850.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/lucid-lofi-dreamy-chill-1/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 265847,
+  "cat": "lofi",
+  "title": "Ease into Night",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m265847.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/ease-into-night-lofi-relax-chill/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 265880,
+  "cat": "lofi",
+  "title": "One Good Day",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m265880.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/one-good-day-1/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 267053,
+  "cat": "lofi",
+  "title": "Roof Tops",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m267053.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/summer-air-lo-fi/roof-tops/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 267054,
+  "cat": "lofi",
+  "title": "Summer Felt Longer Then",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m267054.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/summer-air-lo-fi/summer-felt-longer-then/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 267057,
+  "cat": "lofi",
+  "title": "Faded in the Sunlight",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m267057.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/summer-air-lo-fi/faded-in-the-sunlight/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 275832,
+  "cat": "lofi",
+  "title": "Down Time",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m275832.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/down-time-lofi-peaceful-mp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 275834,
+  "cat": "lofi",
+  "title": "Before Everything",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m275834.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/before-everything-lofi-nostalgic-mp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 275838,
+  "cat": "lofi",
+  "title": "Orbs In A Photo",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m275838.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/orbs-in-a-photo-lofi-chill-mp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 275840,
+  "cat": "lofi",
+  "title": "Tetrapod",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m275840.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/tetrapod-lofi-relaxing-mp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 275841,
+  "cat": "lofi",
+  "title": "Orchid",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m275841.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/orchid-lofi-nostalgic-mp3/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 222598,
+  "cat": "lofi",
+  "title": "Street Lights Passing By",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m222598.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/waves-of-nostalgia-2/street-lights-passing-by/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 217331,
+  "cat": "lofi",
+  "title": "Creature Comforts",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m217331.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/creature-comforts/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195138,
+  "cat": "chill",
+  "title": "Panama Lounge",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195138.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/hot-equatorial-night/panama-lounge/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195143,
+  "cat": "chill",
+  "title": "Oriental Bossa",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195143.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/chinese-valentine/oriental-bossa/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 198742,
+  "cat": "chill",
+  "title": "Rich Mahogany",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m198742.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/eurodisco-party-heaven/rich-mahogany/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 197509,
+  "cat": "chill",
+  "title": "Self-Driving Nights",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m197509.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/machine-learning/self-driving-nights/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195125,
+  "cat": "chill",
+  "title": "Uncle Funkster",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195125.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/sounds-like-a-dad-band/uncle-funkster/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195119,
+  "cat": "chill",
+  "title": "Fatherly Funkitude",
+  "artist": "John Bartmann",
+  "dur": 111,
+  "file": "music/m195119.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/sounds-like-a-dad-band/fatherly-funkitude/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 204031,
+  "cat": "chill",
+  "title": "4",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m204031.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/4-jazz/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 208286,
+  "cat": "chill",
+  "title": "Foggy Headed",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m208286.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/foggy-headed/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 201274,
+  "cat": "chill",
+  "title": "Sleep",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m201274.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/bassic/sleep-2/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 167152,
+  "cat": "chill",
+  "title": "Old Key",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m167152.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/MINIMAL_AMBIENT_BOUNCE/Loyalty_Freak_Music_-_MINIMAL_AMBIENT_BOUNCE_-_03_Old_Key/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 167153,
+  "cat": "chill",
+  "title": "Static Shoes",
+  "artist": "Loyalty Freak Music",
+  "dur": 120,
+  "file": "music/m167153.m4a",
+  "source": "https://freemusicarchive.org/music/Loyalty_Freak_Music/MINIMAL_AMBIENT_BOUNCE/Loyalty_Freak_Music_-_MINIMAL_AMBIENT_BOUNCE_-_04_Static_Shoes/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 65682,
+  "cat": "piano",
+  "title": "Aria",
+  "artist": "Kimiko Ishizaka",
+  "dur": 120,
+  "file": "music/m65682.m4a",
+  "source": "https://freemusicarchive.org/music/Kimiko_Ishizaka/The_Open_Goldberg_Variations/KIMIKO_ISHIZAKA_-_Goldberg_Variations_BWV_988_-_01_-_Aria__44k-24b/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 65681,
+  "cat": "piano",
+  "title": "Variatio 1 a 1 Clav.",
+  "artist": "Kimiko Ishizaka",
+  "dur": 115,
+  "file": "music/m65681.m4a",
+  "source": "https://freemusicarchive.org/music/Kimiko_Ishizaka/The_Open_Goldberg_Variations/KIMIKO_ISHIZAKA_-_Goldberg_Variations_BWV_988_-_02_-_Variatio_1_a_1_Clav__44k-24b/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 65678,
+  "cat": "piano",
+  "title": "Variatio 4 a 1 Clav.",
+  "artist": "Kimiko Ishizaka",
+  "dur": 69,
+  "file": "music/m65678.m4a",
+  "source": "https://freemusicarchive.org/music/Kimiko_Ishizaka/The_Open_Goldberg_Variations/KIMIKO_ISHIZAKA_-_Goldberg_Variations_BWV_988_-_05_-_Variatio_4_a_1_Clav__44k-24b/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 65669,
+  "cat": "piano",
+  "title": "Variatio 13 a 2 Clav.",
+  "artist": "Kimiko Ishizaka",
+  "dur": 120,
+  "file": "music/m65669.m4a",
+  "source": "https://freemusicarchive.org/music/Kimiko_Ishizaka/The_Open_Goldberg_Variations/KIMIKO_ISHIZAKA_-_Goldberg_Variations_BWV_988_-_14_-_Variatio_13_a_2_Clav__44k-24b/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 265899,
+  "cat": "piano",
+  "title": "OST Music Box 6",
+  "artist": "HoliznaCC0",
+  "dur": 53,
+  "file": "music/m265899.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/background-music/ost-music-box-6/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 182248,
+  "cat": "xmas",
+  "title": "Christmas lights",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m182248.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/TRG_Banks_Christmas_Album/Christmas_lights/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 184568,
+  "cat": "xmas",
+  "title": "Christmas Town",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m184568.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/TRG_Banks_Christmas_Album/Christmas_Town/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 223437,
+  "cat": "xmas",
+  "title": "God Rest Ye Merry Gentlemen",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m223437.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/a-synth-wave-christmas-special/god-rest-ye-merry-gentlemen-synth-wave/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 223440,
+  "cat": "xmas",
+  "title": "We Three Kings",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m223440.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/a-synth-wave-christmas-special/we-three-kings-synth-wave/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 169720,
+  "cat": "cute",
+  "title": "Poupi's Theme",
+  "artist": "Komiku",
+  "dur": 52,
+  "file": "music/m169720.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Poupis_incredible_adventures_/Komiku_-_Poupis_incredible_adventures__-_02_Poupis_Theme/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 140391,
+  "cat": "cute",
+  "title": "Champ de tournesol",
+  "artist": "Komiku",
+  "dur": 118,
+  "file": "music/m140391.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Its_time_for_adventure_/Komiku_-_Its_time_for_adventure_-_03_Champ_de_tournesol/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 169774,
+  "cat": "cute",
+  "title": "Tea with Granma",
+  "artist": "Komiku",
+  "dur": 79,
+  "file": "music/m169774.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Poupis_incredible_adventures_/Komiku_-_Poupis_incredible_adventures__-_56_Tea_with_Granma/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 169778,
+  "cat": "cute",
+  "title": "The Strawberry",
+  "artist": "Komiku",
+  "dur": 60,
+  "file": "music/m169778.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Poupis_incredible_adventures_/Komiku_-_Poupis_incredible_adventures__-_60_The_Strawberry/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 169766,
+  "cat": "cute",
+  "title": "Princess Cheese Burger",
+  "artist": "Komiku",
+  "dur": 84,
+  "file": "music/m169766.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Poupis_incredible_adventures_/Komiku_-_Poupis_incredible_adventures__-_48_Princess_Cheese_Burger/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 169755,
+  "cat": "cute",
+  "title": "I'm on a boat !",
+  "artist": "Komiku",
+  "dur": 108,
+  "file": "music/m169755.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Poupis_incredible_adventures_/Komiku_-_Poupis_incredible_adventures__-_37_Im_on_a_boat_/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 180326,
+  "cat": "cute",
+  "title": "Mad Hatter Tea Party",
+  "artist": "John Bartmann",
+  "dur": 64,
+  "file": "music/m180326.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/Public_Domain_Soundtrack_Music_Album_One/mad-hatter-tea-party/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195095,
+  "cat": "cute",
+  "title": "Happy Whistle Beatbox Rhythms",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195095.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/beachy-beatbox-ukulele-music/happy-whistle-beatbox-rhythms/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 194613,
+  "cat": "cute",
+  "title": "Fancy A Stroll",
+  "artist": "John Bartmann",
+  "dur": 86,
+  "file": "music/m194613.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/making-soundtracks-is-easy/fancy-a-stroll/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 194614,
+  "cat": "cute",
+  "title": "First Bicycle",
+  "artist": "John Bartmann",
+  "dur": 95,
+  "file": "music/m194614.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/making-soundtracks-is-easy/first-bicycle/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195114,
+  "cat": "cute",
+  "title": "Gypsy Doo Wop",
+  "artist": "John Bartmann",
+  "dur": 114,
+  "file": "music/m195114.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/picnic-on-the-seine-euro-vacation-sounds/gypsy-doo-wop/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 169773,
+  "cat": "cute",
+  "title": "Sunset on the beach",
+  "artist": "Komiku",
+  "dur": 80,
+  "file": "music/m169773.m4a",
+  "source": "https://freemusicarchive.org/music/Komiku/Poupis_incredible_adventures_/Komiku_-_Poupis_incredible_adventures__-_55_Sunset_on_the_beach/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 163287,
+  "cat": "electro",
+  "title": "Shake me, Baby",
+  "artist": "Soft and Furious",
+  "dur": 120,
+  "file": "music/m163287.m4a",
+  "source": "https://freemusicarchive.org/music/Soft_and_Furious/Dancing_in_the_closet/Soft_and_Furious_-_Dancing_in_the_closet_-_06_Shake_me_Baby/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 163288,
+  "cat": "electro",
+  "title": "I love the way you're talking to me",
+  "artist": "Soft and Furious",
+  "dur": 120,
+  "file": "music/m163288.m4a",
+  "source": "https://freemusicarchive.org/music/Soft_and_Furious/Dancing_in_the_closet/Soft_and_Furious_-_Dancing_in_the_closet_-_07_I_love_the_way_youre_talking_to_me/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 155373,
+  "cat": "electro",
+  "title": "Hyper Staying",
+  "artist": "Soft and Furious",
+  "dur": 120,
+  "file": "music/m155373.m4a",
+  "source": "https://freemusicarchive.org/music/Soft_and_Furious/The_Merfolk_I_Should_Turn_To_Be/Soft_and_Furious_-_The_Merfolk_I_Should_Turn_To_Be_-_08_Hyper_Staying/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 157260,
+  "cat": "electro",
+  "title": "Ultra Pigeon",
+  "artist": "Soft and Furious",
+  "dur": 120,
+  "file": "music/m157260.m4a",
+  "source": "https://freemusicarchive.org/music/Soft_and_Furious/The_Man_Im_Not/Soft_And_Furious_-_The_Man_Im_Not_-_04_Ultra_Pigeon/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 223458,
+  "cat": "electro",
+  "title": "Pixel Party",
+  "artist": "HoliznaCC0",
+  "dur": 112,
+  "file": "music/m223458.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/tiny-plastic-video-games-for-long-anxious-space-travel/pixel-party/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 223472,
+  "cat": "electro",
+  "title": "Game BOI 2",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m223472.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/gamer-soundtrack-game-boi/game-boi-2/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 204023,
+  "cat": "electro",
+  "title": "Dance Till You Die",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m204023.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/chiptunes/dance-till-you-die/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 204945,
+  "cat": "electro",
+  "title": "Dreamers",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m204945.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/forager/dreamers/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 222592,
+  "cat": "electro",
+  "title": "Machines With Feelings",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m222592.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/waves-of-nostalgia-2/machines-with-feelings/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 212896,
+  "cat": "electro",
+  "title": "Retro Soundtrack",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m212896.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/power-pop/retro-soundtrack/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 266597,
+  "cat": "electro",
+  "title": "Phonk ish",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m266597.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/phonk-aura-farming/phonk-ish/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 205189,
+  "cat": "retro",
+  "title": "Back In The 80s",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m205189.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/power-pop/back-in-the-80s/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 208282,
+  "cat": "retro",
+  "title": "Good Vibes",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m208282.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/left-overs/good-vibes/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 201512,
+  "cat": "retro",
+  "title": "Dancing",
+  "artist": "HoliznaCC0",
+  "dur": 120,
+  "file": "music/m201512.m4a",
+  "source": "https://freemusicarchive.org/music/holiznacc0/only-in-the-milky-way-part-2/dancing/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 198737,
+  "cat": "retro",
+  "title": "Born to Boogie",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m198737.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/eurodisco-party-heaven/born-to-boogie/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 198741,
+  "cat": "retro",
+  "title": "Party Party Disco Party",
+  "artist": "John Bartmann",
+  "dur": 113,
+  "file": "music/m198741.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/eurodisco-party-heaven/party-party-disco-party/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 180316,
+  "cat": "world",
+  "title": "Balkan Gypsy Party",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m180316.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/Public_Domain_Soundtrack_Music_Album_One/balkan-gypsy-party/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195136,
+  "cat": "world",
+  "title": "Mexican Plaza",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195136.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/hot-equatorial-night/mexican-plaza/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195104,
+  "cat": "world",
+  "title": "Gimme That African Vibe",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195104.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/happy-trappy-positive-urban-beats/gimme-that-african-vibe/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195141,
+  "cat": "world",
+  "title": "Long Way To Kunming",
+  "artist": "John Bartmann",
+  "dur": 118,
+  "file": "music/m195141.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/chinese-valentine/long-way-to-kunming/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 195139,
+  "cat": "world",
+  "title": "Dumplings For Two",
+  "artist": "John Bartmann",
+  "dur": 120,
+  "file": "music/m195139.m4a",
+  "source": "https://freemusicarchive.org/music/John_Bartmann/chinese-valentine/dumplings-for-two/",
+  "license": "CC0 1.0"
+ },
+ {
+  "id": 174213,
+  "cat": "world",
+  "title": "Lost in Brazil",
+  "artist": "TRG Banks",
+  "dur": 120,
+  "file": "music/m174213.m4a",
+  "source": "https://freemusicarchive.org/music/TRG_Banks/Return_to_Dreamland/Lost_in_Brazil/",
+  "license": "CC0 1.0"
  }
 ]
