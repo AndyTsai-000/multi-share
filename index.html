@@ -563,6 +563,11 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
 .ver { margin-top: 6px; }
 .home-link { white-space: nowrap; }
 .bar.idle { display: none; }
+.name-row { margin: 0 0 12px; }
+.name-row input { border-color: transparent; background: transparent; font-size: 20px; font-weight: 700; padding: 6px 10px; margin-left: -10px; width: calc(100% + 10px); }
+.name-row input:hover { background: var(--hint); }
+.name-row input:focus { background: var(--panel); }
+.name-row input::placeholder { color: var(--sub); font-weight: 500; font-size: 16px; }
 
 /* 主畫面、卡片 */
 .editor { padding-top: 28px; }
@@ -1041,7 +1046,7 @@ $('#goHome').onclick = () => { closeMenu(); goHome(); };
 document.querySelectorAll('aside footer button').forEach(b => b.addEventListener('click', closeMenu));
 // extra：一開始就帶的內容（月曆、再發、九宮格用）；quiet：只建立，不切過去
 function pruneEmpty() {
-  const gone = S.posts.filter(p => p.id !== S.activeId && !hasContent(p) && !p.time && !p.serverPost && !p.label);
+  const gone = S.posts.filter(p => p.id !== S.activeId && !hasContent(p) && !p.time && !p.serverPost && !p.label && !p.name?.trim());
   if (!gone.length) return;
   S.posts = S.posts.filter(p => !gone.includes(p)); save();
 }
@@ -1232,7 +1237,8 @@ function renderEditor() {
       <div class="row" style="gap:8px;flex-wrap:wrap"><button id="ics">📅 加到行事曆提醒</button>${new Date(p.time) > new Date() && postTargets(p).length ? '<button class="primary" id="schedDone">✓ 完成排程，回主畫面</button>' : ''}</div>` : ''}
   </div>
   <div class="card" id="setCard">${setCardHtml(p)}</div>`;
-  ed.innerHTML = stepperHtml(p) + body;
+  ed.innerHTML = `<div class="name-row"><input id="postName" maxlength="40" value="${esc(p.name || '')}" placeholder="✏️ 幫這則取個名字（沒填就用文字第一行）" title="貼文名稱：只顯示在這個網站的清單裡，不會發出去"></div>` + stepperHtml(p) + body;
+  $('#postName').oninput = e => { p.name = e.target.value; save(); renderList(); };
   renderBar();
   navSync();
 
@@ -2063,7 +2069,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1110a";
+const APP_VERSION = "v1110b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5577,7 +5583,7 @@ function calWhen(p) {
   if (p.publishedAt) return new Date(p.publishedAt);
   return null;
 }
-const postSnip = p => (p.kind === 'story' ? '限動｜' : '') + (p.label ? p.label + '｜' : '') + (p.text.trim().split('\n')[0] || p.link || ownTexts(p).map(([id]) => p.texts[id].trim().split('\n')[0])[0] || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）'));
+const postSnip = p => (p.kind === 'story' ? '限動｜' : '') + (p.name?.trim() ? p.name.trim() : (p.label ? p.label + '｜' : '') + (p.text.trim().split('\n')[0] || p.link || ownTexts(p).map(([id]) => p.texts[id].trim().split('\n')[0])[0] || (p.media.length ? `（${p.media.length} 個檔案）` : '（還沒有內容）')));
 function calHtml() {
   const base = S.calMonth ? new Date(S.calMonth + '-01T00:00') : new Date(), y = base.getFullYear(), mo = base.getMonth();
   const first = new Date(y, mo, 1), days = new Date(y, mo + 1, 0).getDate(), weeks = Math.ceil((first.getDay() + days) / 7);
@@ -6067,7 +6073,7 @@ async function dupPost(src, label = '🔁 再發') {
   }
   const remap = o => o && JSON.parse(Object.entries(map).reduce((s, [a, b]) => s.split(a).join(b), JSON.stringify(o)));
   const p = newPost({ kind: src.kind, text: src.text, texts: src.texts && { ...src.texts }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
-    postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label });
+    postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label, name: src.name?.trim() ? src.name.trim() + '（複製）' : '' });
   toast('已經複製成新貼文，改一下再排程');
   return p;
 }
