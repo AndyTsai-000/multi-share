@@ -1336,7 +1336,7 @@ function postCardHtml(p) {
 }
 // 加進來的照片影片可以再處理：只顯示用得到的
 function mediaToolsHtml(p) {
-  const ms = postMedia(p), all = p.media.length > 1 ? `<button class="ai-btn" data-dlall>💾 全部存到電腦（${p.media.length}）</button>` : '';
+  const ms = postMedia(p), all = p.media.length > 1 ? `<button class="ai-btn" data-dlall>💾 全部存到${IS_MOBILE ? "手機" : "電腦"}（${p.media.length}）</button>` : '';
   if (!ms.length) return all ? `<span class="hint-s">處理：</span>${all}` : '';
   const vids = ms.some(isVideo), photos = ms.some(m => !isVideo(m));
   return `<span class="hint-s">處理：</span>${vids ? '<button class="ai-btn" data-vcopen>✂️ 剪輯影片</button>' : ''}${photos ? '<button class="ai-btn" data-gdopen>▦ 切圖／九宮格</button>' : ''}${ssPhotos(p).length ? '<button class="ai-btn" data-ssopen>🎵 照片變影片</button>' : ''}<button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button>${all}`;
@@ -1578,14 +1578,48 @@ function fileName(name, type) {
   const ext = EXT[type] || (type || '').split('/')[1] || 'bin', base = String(name || '檔案').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_');
   return `${base}.${ext}`;
 }
-async function saveMany(list) {   // list = [{ blob, name }]
+// 一次存很多個：瀏覽器會擋「連續自動下載」（第 2 個起要按允許，沒按到就只存到第 1 個）
+// → 電腦（Edge／Chrome）先選一個資料夾，全部直接寫進去；手機用分享選單「儲存影像」；都不行才一個一個下載
+// 選資料夾要在按鈕按下去的當下呼叫（之後才準備檔案），不然瀏覽器會拒絕
+async function pickSaveDir(n) {
+  if (n < 2 || IS_MOBILE || !window.showDirectoryPicker) return null;
+  try { return await showDirectoryPicker({ id: 'ms-save', mode: 'readwrite', startIn: 'downloads' }); }
+  catch (e) { return e.name === 'AbortError' ? 'cancel' : null; }
+}
+async function freeName(dir, name) {
+  const dot = name.lastIndexOf('.'), base = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : '';
+  for (let k = 1; k < 100; k++) {
+    const n = k === 1 ? name : `${base} (${k})${ext}`;
+    try { await dir.getFileHandle(n); } catch { return n; }   // 找不到＝這個名字沒人用
+  }
+  return `${base}-${Date.now()}${ext}`;
+}
+async function saveMany(list, dir) {   // list = [{ blob, name }]
+  if (dir === 'cancel') return;
+  if (dir) {
+    try {
+      for (const x of list) {
+        const fh = await dir.getFileHandle(await freeName(dir, fileName(x.name, x.blob.type)), { create: true });
+        const w = await fh.createWritable(); await w.write(x.blob); await w.close();
+      }
+      return toast(`已存 ${list.length} 個檔案到「${dir.name}」資料夾`);
+    } catch (e) { logRemote('trace', '存到資料夾失敗，改用下載 ' + e.name); }
+  }
+  if (list.length > 1 && IS_MOBILE && navigator.canShare) {
+    const files = list.map(x => new File([x.blob], fileName(x.name, x.blob.type), { type: x.blob.type }));
+    if (navigator.canShare({ files })) {
+      try { await navigator.share({ files }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+  }
   for (const [i, x] of list.entries()) { if (i) await new Promise(r => setTimeout(r, 400)); saveFile(x.blob, fileName(x.name, x.blob.type)); }
   toast(list.length > 1 ? `已存 ${list.length} 個檔案到電腦的「下載」資料夾${'（瀏覽器問要不要允許下載多個檔案，請按允許）'}` : '已存到電腦的「下載」資料夾');
 }
 async function saveMedia(ms) {
+  const dir = await pickSaveDir(ms.length); if (dir === 'cancel') return;
   const list = (await Promise.all(ms.map(async m => ({ blob: await mediaBlob(m).catch(() => null), name: m.name })))).filter(x => x.blob);
   if (!list.length) return toast('找不到檔案，請重新加入');
-  saveMany(list);
+  saveMany(list, dir);
 }
 const stamp = () => localInput(new Date()).slice(0, 10).replace(/-/g, '');
 function saveFile(blob, name) {
@@ -2069,7 +2103,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1110b";
+const APP_VERSION = "v1110c";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5271,12 +5305,14 @@ async function aimgUse(edit) {
 }
 // 存到電腦：輪播存整組，單張存選中的那張（有排字就存有字的）
 async function aimgSave(c) {
+  const n = c.slides ? aimgChosen(c).length : 1; if (!n) return toast('先點選要存的圖');
+  const dir = await pickSaveDir(n); if (dir === 'cancel') return;
   if (c.slides) { clearTimeout(c.sTimer); await aimgRecompose(c, true); }
   if (aimg !== c) return;
   const urls = c.slides ? aimgChosen(c) : [c.comp?.[c.pick] || c.images[c.pick]], d = stamp();
   if (!urls.length) return toast('先點選要存的圖');
   const list = await Promise.all(urls.map(async (u, i) => ({ blob: await (await fetch(u)).blob(), name: c.slides ? `AI輪播-${d}-${i + 1}` : `AI製圖-${d}` })));
-  saveMany(list); logRemote('trace', `AI 製圖存到電腦 ${list.length} 張`);
+  saveMany(list, dir); logRemote('trace', `AI 製圖存到電腦 ${list.length} 張`);
 }
 async function aimgUseSlides(c, video) {
   clearTimeout(c.sTimer); await aimgRecompose(c, true);   // 剛改完字：先排好再加
