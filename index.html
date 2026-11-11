@@ -94,8 +94,6 @@ aside .new { flex: 1; min-width: 0; padding-left: 6px; padding-right: 6px; }
 .card h2 { flex-wrap: wrap; }
 .text-head .field { white-space: nowrap; }
 .media-ai { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
-.side-tools button { font-size: 13px; padding: 7px 4px; }
 .per-text { margin-top: 10px; }
 .per-text textarea { min-height: 90px; margin-top: 8px; }
 .per-text .chip.has::after { content: '●'; color: var(--accent); margin-left: 5px; font-size: 9px; }
@@ -187,15 +185,6 @@ main { overflow: auto; min-height: 0; }
 .ai-ver { border: 1px solid var(--line); border-radius: 10px; padding: 12px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
 .ai-ver .row { margin-top: 10px; justify-content: flex-end; white-space: normal; }
 .ai-wait { text-align: center; padding: 24px 0; color: var(--sub); }
-.fs-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.fs-pick b { word-break: break-all; }
-.fs-frames { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0 8px; margin-top: 14px; }
-.fs-frame { flex: none; width: 210px; display: grid; gap: 6px; }
-.fs-frame .story-frame { width: 100%; position: relative; }
-.fs-frame .story-frame .del { position: absolute; top: 6px; right: 6px; border-radius: 99px; padding: 2px 9px; background: rgba(0,0,0,.6); color: #fff; border: 0; }
-.fs-frame input, .fs-frame textarea { font-size: 13px; padding: 6px 8px; }
-.fs-frame textarea { min-height: 64px; }
-@media (max-width: 760px) { .fs-frame { width: 160px; } }
 .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 
 .send .progress { height: 6px; background: var(--hint); border-radius: 99px; overflow: hidden; margin-bottom: 16px; }
@@ -498,10 +487,9 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); }
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   aside { border-right: 0; border-bottom: 1px solid var(--line); }
   /* 手機：清單和設定按鈕收起來，按「☰ 清單」才打開（蓋住整個畫面） */
-  aside .posts, aside footer, aside .post-search, aside .side-tools { display: none !important; }
+  aside .posts, aside footer, aside .post-search { display: none !important; }
   aside.open { position: fixed; inset: 0; z-index: 9; }
   aside.open .posts { display: block !important; }
-  aside.open .side-tools { display: grid !important; }
   #homeNew, #homeNewStory { display: none; }
   aside.open footer { display: grid !important; }
   aside.open .post-search:not([hidden]) { display: block !important; }
@@ -548,9 +536,6 @@ aside h1 { font-size: 18px; margin-bottom: 16px; }
 .home-link::before { content: '✦'; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 4px 12px rgba(61, 79, 214, .3); }
 aside .new { padding-top: 9px; padding-bottom: 9px; }
-.side-tools { gap: 6px; padding: 0 16px 10px; }
-.side-tools button { border-color: transparent; background: var(--hint); color: var(--ink); }
-.side-tools button:hover { background: var(--soft); color: var(--soft-ink); }
 .group-title { font-size: 11.5px; letter-spacing: .06em; margin: 16px 8px 6px; }
 .post-item { padding: 9px 10px; border-radius: 12px; }
 .post-item:hover { background: var(--hint); }
@@ -620,6 +605,62 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
   .home-head h2 { font-size: 20px; }
 }
 
+/* 主畫面工具列、設定 */
+.home-tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.ht-group { flex: 1 1 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px 10px; }
+.ht-label { display: block; font-size: 11.5px; color: var(--sub); margin: 0 4px 6px; letter-spacing: .06em; }
+.ht-row { display: flex; gap: 6px; }
+.ht-row button { flex: 1; display: grid; justify-items: center; gap: 3px; padding: 8px 6px; border: 0; background: var(--hint); color: var(--ink); font-size: 12.5px; border-radius: 10px; white-space: nowrap; position: relative; min-width: 72px; }
+.ht-row button:hover:not(:disabled) { background: var(--soft); color: var(--soft-ink); }
+.ht-row button i { font-style: normal; font-size: 19px; line-height: 1.1; }
+.ht-row button small { position: absolute; top: 4px; right: 6px; font-size: 10.5px; background: var(--accent); color: #fff; border-radius: 99px; padding: 0 5px; }
+.set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.set-grid button { display: grid; gap: 4px; text-align: left; padding: 14px; border-radius: 12px; }
+.set-grid button small { color: var(--sub); font-size: 12.5px; font-weight: 400; }
+.slot-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.slot-row select, .slot-row input { width: auto; }
+.brand-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.brand-grid label { display: grid; gap: 4px; font-size: 13px; color: var(--sub); }
+.brand-grid input[type=color] { width: 100%; height: 40px; padding: 2px; border-radius: 10px; cursor: pointer; }
+.brand-prev { display: flex; gap: 10px; margin-top: 12px; }
+.brand-prev img { width: 140px; border-radius: 10px; border: 1px solid var(--line); }
+.mf-opt { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; cursor: pointer; }
+.mf-opt input { width: auto; margin-top: 4px; }
+.mf-opt.off { opacity: .55; cursor: default; }
+.rep-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 12px 0; }
+.rep-tile { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.rep-tile b { display: block; font-size: 20px; }
+.rep-tile small { color: var(--sub); }
+.rep-tile .up { color: var(--ok); font-size: 12px; } .rep-tile .down { color: var(--danger); font-size: 12px; }
+.rep-sec { margin-top: 16px; }
+.rep-sec h4 { margin: 0 0 8px; font-size: 15px; }
+.rep-weeks { display: flex; gap: 8px; align-items: flex-end; height: 140px; border-bottom: 1px solid var(--line); padding-top: 18px; }
+.rep-weeks div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 12px; }
+.rep-weeks i { display: block; width: 70%; background: linear-gradient(180deg, var(--accent), var(--accent-2)); border-radius: 6px 6px 0 0; min-height: 2px; }
+.rep-weeks span { color: var(--sub); margin-bottom: 3px; }
+.rep-xl { display: flex; gap: 8px; } .rep-xl span { flex: 1; text-align: center; font-size: 12px; color: var(--sub); padding-top: 4px; }
+.rep-top { display: grid; grid-template-columns: 52px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.rep-top img, .rep-top .ph { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; background: var(--hint); display: grid; place-items: center; }
+.rep-top .snip { font-size: 14px; }
+@media (max-width: 760px) {
+  .home-tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .ht-group, .ht-row { display: contents; }
+  .ht-label { display: none; }
+  .ht-row button { min-width: 0; background: var(--panel); border: 1px solid var(--line); font-size: 12px; padding: 8px 2px; }
+  .set-grid { grid-template-columns: 1fr; }
+  .brand-grid { grid-template-columns: 1fr 1fr; }
+}
+@media print {
+  body.print-rep > *:not(#repModal) { display: none !important; }
+  body.print-rep { background: #fff !important; color: #111 !important; }
+  body.print-rep #repModal { position: static !important; display: block !important; background: none !important; padding: 0 !important; overflow: visible !important; }
+  body.print-rep #repModal .modal { box-shadow: none !important; border: 0 !important; width: 100% !important; max-height: none !important; overflow: visible !important; background: #fff !important; color: #111 !important; padding: 0 !important; }
+  body.print-rep #repModal h3, body.print-rep .rep-noprint { display: none !important; }
+  body.print-rep .rep-tile, body.print-rep .rep-top { border-color: #ddd !important; break-inside: avoid; }
+  body.print-rep .rep-tile small, body.print-rep .hint-s, body.print-rep .rep-weeks span, body.print-rep .rep-xl span { color: #555 !important; }
+  body.print-rep .rep-weeks i { background: #4f5bd5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* AI 剩餘次數、每週摘要 */
 .ai-left { font-size: 12px; font-weight: 400; color: var(--sub); }
 .ai-left.out { color: var(--warn-ink); }
@@ -639,14 +680,11 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
       <button class="menu-btn" id="menuBtn" title="貼文清單和設定">☰ 清單</button>
       <div class="new-row"><button class="primary new" id="newPost">＋ 新增貼文</button><button class="soft new" id="newStory">＋ 新增限動</button></div>
     </header>
-    <div class="side-tools"><button id="openIdeas">💡 靈感暫存</button><button id="openBk">📦 一次排多則</button></div>
     <input class="post-search" id="postSearch" type="search" placeholder="🔎 搜尋貼文" hidden>
     <div class="posts" id="postList"></div>
     <footer>
-      <button id="openTargets">📮 半自動發送對象</button>
-      <button id="openBackup">💾 備份與還原</button>
-      <button id="openAuto">⚡ 全自動帳號</button>
-      <button id="openIns">📊 已發布貼文</button>
+      <button id="openIns">📊 成效與留言</button>
+      <button id="openSettings">⚙️ 設定</button>
       <div class="ver" id="appVer"></div>
     </footer>
   </aside>
@@ -717,10 +755,36 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
   <input type="file" id="bkFile" multiple accept="image/*,video/*" hidden>
 </div></div>
 
-<div class="modal-bg" id="fsModal"><div class="modal" style="width:min(820px,100%)">
-  <h3>📄 用檔案做限動 <span class="ai-left"></span><button class="link" id="fsClose">關閉</button></h3>
-  <div id="fsBody"></div>
-  <input type="file" id="fsFile" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.html,.odt,.ods,image/*" hidden>
+
+<div class="modal-bg" id="setModal"><div class="modal" style="width:min(560px,100%)">
+  <h3>⚙️ 設定 <button class="link" data-close>關閉</button></h3>
+  <div class="set-grid" id="setGrid">
+    <button id="openAuto"><b>⚡ 全自動帳號</b><small data-setsum="auto">連結 IG、Threads，時間到自動發</small></button>
+    <button id="openTargets"><b>📮 半自動發送對象</b><small data-setsum="targets">LINE、FB 社團、IG⋯</small></button>
+    <button id="openSlots"><b>📌 固定發文時段</b><small data-setsum="slots">例如每週五晚上 8 點</small></button>
+    <button id="openBrand"><b>🎨 品牌風格</b><small data-setsum="brand">選用：文字卡片的顏色、字體</small></button>
+    <button id="openBackup"><b>💾 備份與還原</b><small>換電腦、換手機前先備份</small></button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="slotModal"><div class="modal" style="width:min(520px,100%)">
+  <h3>📌 固定發文時段 <button class="link" data-close>關閉</button></h3>
+  <div id="slotBody"></div>
+</div></div>
+
+<div class="modal-bg" id="brandModal"><div class="modal" style="width:min(620px,100%)">
+  <h3>🎨 品牌風格 <button class="link" data-close>關閉</button></h3>
+  <div id="brandBody"></div>
+</div></div>
+
+<div class="modal-bg" id="mfModal"><div class="modal" style="width:min(560px,100%)">
+  <h3>🔀 一份內容變多種格式 <span class="ai-left"></span><button class="link" data-close>關閉</button></h3>
+  <div id="mfBody"></div>
+</div></div>
+
+<div class="modal-bg" id="repModal"><div class="modal" style="width:min(860px,100%)">
+  <h3>📄 每月成效報告 <button class="link" data-close>關閉</button></h3>
+  <div id="repBody"></div>
 </div></div>
 
 <div class="modal-bg" id="autoModal"><div class="modal">
@@ -949,15 +1013,19 @@ function schedulePicker(p) {
   const nowHm = localInput(now).slice(11);
   const isPast = new Date(p.time) <= now;
   const otherDay = !days.some(d => d.v === date);
-  const otherTime = !QUICK_TIMES.includes(hm), bs = bestSlot(), star = t => bs && +t.slice(0, 2) >= bs[0] && +t.slice(0, 2) < bs[1];
+  const qt = [...new Set([...QUICK_TIMES, bestHm()].filter(Boolean))].sort(), sl = S.slots?.length ? nextSlots(4, p) : [], fam = familyOf(p);
+  const otherTime = !qt.includes(hm), bs = bestSlot(), star = t => bs && +t.slice(0, 2) >= bs[0] && +t.slice(0, 2) < bs[1];
   return `
     <div class="pick-label">日期</div>
     <div class="chips">${days.map(d => `<button class="chip ${d.v === date ? 'on' : ''}" data-day="${d.v}">${d.label}<small>（${d.wk}）</small></button>`).join('')}
       <label class="chip ${otherDay ? 'on' : ''} pick-input">${otherDay ? esc(fmtTime(p.time).split(' ')[0]) : '其他日期'}<input type="date" id="pickDate" value="${date}" min="${today}"></label></div>
     <div class="pick-label">時間</div>
-    <div class="chips">${QUICK_TIMES.map(t => `<button class="chip ${t === hm ? 'on' : ''} ${date === today && t <= nowHm ? 'past' : ''}" data-hm="${t}" ${star(t) ? 'title="成效報表：這個時段互動最多"' : ''}>${star(t) ? '⭐ ' : ''}${t}</button>`).join('')}
+    <div class="chips">${qt.map(t => `<button class="chip ${t === hm ? 'on' : ''} ${date === today && t <= nowHm ? 'past' : ''}" data-hm="${t}" ${star(t) ? 'title="成效報表：這個時段互動最多"' : ''}>${star(t) ? '⭐ ' : ''}${t}</button>`).join('')}
       <label class="chip ${otherTime ? 'on' : ''} pick-input">${otherTime ? hm : '自訂時間'}<input type="time" id="pickTime" value="${hm}"></label></div>
     ${bs ? `<p class="hint-s" style="margin:8px 0 0">⭐ 依成效報表，你的貼文在<b>${bs[2]}</b>互動最多</p>` : ''}
+    <div class="pick-label">📌 固定時段</div>
+    <div class="chips">${S.slots?.length ? (sl.map(t => `<button class="chip ${t === p.time ? 'on' : ''}" data-slot="${t}">${esc(fmtTime(t))}</button>`).join('') || '<span class="hint-s">接下來的固定時段都排滿了</span>') : ''}<button class="link" id="slotSet" style="color:var(--accent);padding:4px 6px">${S.slots?.length ? '✏️ 修改' : '＋ 設定每週固定時段'}</button></div>
+    ${fam.length ? `<p class="hint-s" style="margin:10px 0 0">🔀 同一組還有 ${fam.length} 則（${fam.map(q => esc(q.label || postSnip(q))).join('、')}）<button class="link" id="famSync" style="color:var(--accent);padding:0 4px">也排在這個時間</button></p>` : ''}
     <p class="${isPast ? 'warn-line' : 'when-line'}">${isPast ? '⚠️ 這個時間已經過了，請選之後的時間' : `📅 將在 <b>${esc(fmtTime(p.time))}</b> 發出`}</p>`;
 }
 // 成效報表算出來的最佳時段（有讀過成效報表、而且明顯比較好才有）
@@ -993,7 +1061,6 @@ const isScheduled = p => !!p.serverPost || (p.mode !== 'auto' && !!p.time);
 
 // ===== 左側列表 =====
 function renderList() {
-  $('#openIdeas').textContent = '💡 靈感暫存' + ((S.ideas || []).length ? `（${S.ideas.length}）` : '');
   const now = Date.now(), q = ($('#postSearch')?.value || '').trim().toLowerCase();
   $('#postSearch').hidden = S.posts.length < 7 && !q;
   const sorted = [...S.posts].filter(p => !q || (postSnip(p) + ' ' + p.text).toLowerCase().includes(q)).sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
@@ -1226,7 +1293,7 @@ function renderEditor() {
   </div>
   ${story ? '' : `<div class="card" id="postCard">${postCardHtml(p)}</div>`}
   ${p.kind === 'post' ? '' : `<div class="card" id="storyCard">${storyCardHtml(p)}</div>`}
-  <div class="step-nav bare"><span></span><button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
+  <div class="step-nav bare">${story ? '<span></span>' : '<button class="ai-btn" id="mfOpen" title="用這則的內容另外做限動版、Reels 版、Threads 短版">🔀 變成多種格式</button>'}<button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
   else if (p.step === 2) body = `
   <div class="card">
     <h2>要怎麼發？</h2>
@@ -1318,6 +1385,7 @@ function renderEditor() {
     $('#text').oninput = e => { p.text = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); $('#tplLeft').innerHTML = tplLeftHtml(p); bindTplLeft(p); };
     $('#link').oninput = e => { p.link = e.target.value; save(); renderList(); renderBar(); refreshStepper(p); };
     }
+    if ($('#mfOpen')) $('#mfOpen').onclick = () => hasContent(p) ? openMf(p) : toast('先輸入文字或加入照片');
     const drop = $('#drop'), file = $('#file');
     drop.onclick = () => file.click();
     file.onchange = () => { const list = [...file.files]; file.value = ''; addFiles(p, list); };
@@ -1329,7 +1397,7 @@ function renderEditor() {
   if (p.step !== 3 || p.serverPost) return;
   ed.querySelectorAll('[data-when]').forEach(x => x.onclick = () => {
     if (x.dataset.when === 'now') p.time = null;
-    else if (!p.time) { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); p.time = localInput(d); askNotify(); }
+    else if (!p.time) { p.time = defaultTime(p); askNotify(); }
     p.reminded = false; save(); renderAll();
   });
   // 排程：點日期、點時間；也可以用「其他日期／自訂時間」
@@ -1344,6 +1412,14 @@ function renderEditor() {
   if ($('#pickDate')) $('#pickDate').onchange = e => e.target.value && setWhen(e.target.value, null);
   if ($('#pickTime')) $('#pickTime').onchange = e => e.target.value && setWhen(null, e.target.value);
   if ($('#ics')) $('#ics').onclick = () => downloadIcs(p);
+  ed.querySelectorAll('[data-slot]').forEach(x => x.onclick = () => setWhen(...x.dataset.slot.split('T')));
+  if ($('#slotSet')) $('#slotSet').onclick = openSlots;
+  if ($('#famSync')) $('#famSync').onclick = () => {
+    const fam = familyOf(p), auto = fam.filter(q => q.mode === 'auto');
+    fam.forEach(q => { q.time = p.time; q.reminded = false; });
+    save(); renderEditor(); renderList();
+    toast(`同一組 ${fam.length} 則也排在 ${fmtTime(p.time)}${auto.length ? `；其中全自動的 ${auto.length} 則要打開按「⚡ 排程自動發」才會送出` : ''}`);
+  };
   if ($('#schedDone')) $('#schedDone').onclick = () => goHome(`已排程：${fmtTime(p.time)}，時間到會提醒你發送`);
 }
 // 步驟列只重畫自己（打字時不要整頁重畫，游標才不會跑掉）
@@ -1381,9 +1457,9 @@ function mediaToolsHtml(p) {
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
   return mediaCardHtml('限時動態畫面', p.kind === 'story' ? '' : '要發 IG／FB 限動才需要',
-    !has ? '沒有照片也可以：做一張 IG「建立」模式那種純文字限動，或用活動 DM、型錄做成限動圖。'
-      : done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、畫筆、地點時間標籤，調整照片影片的位置；也可以用檔案做限動圖',
-    `<button class="ai-btn" data-fsopen>📄 用檔案做限動</button>${has ? '<button class="ai-btn" data-spopen>👁 預覽限動</button>' : ''}<button class="ai-btn" data-seopen>${has ? '🎨 編輯限動畫面' : 'Aa 做純文字限動'}${done ? ' ✓' : ''}</button>`);
+    !has ? '沒有照片也可以：做一張 IG「建立」模式那種純文字限動。'
+      : done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、畫筆、地點時間標籤，調整照片影片的位置',
+    `${has ? '<button class="ai-btn" data-spopen>👁 預覽限動</button>' : ''}<button class="ai-btn" data-seopen>${has ? '🎨 編輯限動畫面' : 'Aa 做純文字限動'}${done ? ' ✓' : ''}</button>`);
 }
 function setCardHtml(p) {
   return `<h2>發文設定 <small>${p.mode === 'auto' ? '⚡ 全自動' : '📱 半自動'}・${stepSelCount(p)} 個對象</small></h2>
@@ -1404,9 +1480,14 @@ function renderHome() {
   if (lrDone) { lr.title = '✅ 已發布'; lr.text = lr.text.replace(/^.*?(會自動發到|會發到)：/, '已經發到：'); }
   const cal = S.homeView === 'cal', hols = upcomingHolidays();
   $('#editor').innerHTML = `<div class="home">
-    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="homeIdeas">💡 靈感暫存${(S.ideas || []).length ? `（${S.ideas.length}）` : ''}</button><button id="homeBk">📦 一次排多則</button><button class="primary" id="homeNew">＋ 新增貼文</button><button class="soft" id="homeNewStory">＋ 新增限動</button></span></div>
+    <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="primary" id="homeNew">＋ 新增貼文</button><button class="soft" id="homeNewStory">＋ 新增限動</button></span></div>
+    <div class="home-tools">
+      <div class="ht-group"><span class="ht-label">做內容</span><div class="ht-row"><button id="homeIdeas"><i>💡</i>靈感暫存${(S.ideas || []).length ? `<small>${S.ideas.length}</small>` : ''}</button><button id="homeBk"><i>📦</i>一次排多則</button></div></div>
+      <div class="ht-group"><span class="ht-label">看成效</span><div class="ht-row"><button data-hins="ins"><i>📊</i>成效報表</button><button id="homeReport"><i>📄</i>每月報告</button><button data-hins="cm"><i>💬</i>留言</button></div></div>
+      <div class="ht-group"><span class="ht-label">整理</span><div class="ht-row"><button data-hins="mg"><i>🗂</i>刪除已發布</button><button id="homeClear" ${S.posts.length ? '' : 'disabled'}><i>🧹</i>整理清單</button></div></div>
+    </div>
     <div class="home-tabs"><button class="chip ${cal ? '' : 'on'}" data-hview="list">📋 清單</button><button class="chip ${cal ? 'on' : ''}" data-hview="cal">📅 月曆</button>
-      <span class="grow"></span><button class="ai-btn" data-hins="ins">📊 成效報表</button><button class="ai-btn" data-hins="cm">💬 留言</button><button class="ai-btn" data-hins="mg">🗂 刪除已發布</button><button class="ai-btn" id="homeClear" ${S.posts.length ? '' : 'disabled'}>🧹 整理清單</button></div>
+      <span class="grow"></span>${S.slots?.length ? `<span class="hint-s">📌 下一個固定時段：${esc(fmtTime(nextSlots(1)[0]))}</span>` : ''}</div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
       <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
     ${cal ? calHtml() : `
@@ -1420,6 +1501,7 @@ function renderHome() {
   $('#homeNewStory').onclick = () => newPost({ kind: 'story' });
   $('#homeIdeas').onclick = openIdeas;
   $('#homeBk').onclick = openBk;
+  $('#homeReport').onclick = () => openReport();
   if ($('#homeOkClose')) $('#homeOkClose').onclick = () => { S.lastResult = null; save(); renderHome(); };
   const ed = $('#editor');
   ed.querySelectorAll('[data-home]').forEach(b => b.onclick = () => { S.activeId = b.dataset.home; save(); renderAll(); });
@@ -1457,7 +1539,6 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
   document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
   document.querySelectorAll('#editor [data-spopen]').forEach(x => x.onclick = () => openStoryPreview(p));
-  document.querySelectorAll('#editor [data-fsopen]').forEach(x => x.onclick = () => openFileStory(p));
   document.querySelectorAll('#editor [data-ssopen]').forEach(x => x.onclick = () => openSlide(p));
   document.querySelectorAll('#editor [data-dlall]').forEach(x => x.onclick = () => saveMedia(p.media));
   document.querySelectorAll('#editor [data-vcopen]').forEach(x => x.onclick = () => openClip(p));
@@ -2157,7 +2238,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1110d";
+const APP_VERSION = "v1111a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4336,78 +4417,6 @@ async function ssMake() {
   }
 }
 
-// ===== AI 用檔案做限動：讀檔案（PDF、Word、Excel、圖片、文字）→ 拆成幾張 → 畫成 1080×1920 的圖 =====
-const FS_THEMES = [
-  ['navy', '深藍', ['#1e2a4a', '#0d1222'], '#fff', '#f5c46b'],
-  ['cream', '米白', ['#f7f1e6', '#e9dcc5'], '#2b2420', '#b0703a'],
-  ['sunset', '暖橘', ['#f39c6b', '#c2456a'], '#fff', '#fff3c4'],
-  ['photo', '照片背景'],
-];
-const FS_COUNTS = [[0, 'AI 決定'], [1, '1 張'], [3, '3 張'], [5, '5 張']];
-const DOC_EXT = /\.(pdf|docx|xlsx|xlsm|xls|ods|odt|csv|html?)$/i, TEXT_EXT = /\.(txt|md)$/i;
-let fsCtx = null;   // { p, file, photo(blob), count, theme, frames:[{title,body}], urls, busy }
-function openFileStory(p) {
-  fsCtx = { p, file: null, photo: null, count: 0, theme: 'navy', frames: [], urls: [], busy: false };
-  renderFileStory();
-  $('#fsModal').classList.add('open');
-}
-function closeFileStory() {
-  if (fsCtx) fsCtx.urls.forEach(u => u && URL.revokeObjectURL(u));
-  fsCtx = null;
-  $('#fsModal').classList.remove('open');
-}
-// 照片背景：選的檔案是圖片就用它，不然用這則貼文的第一張照片
-async function fsPhoto() {
-  if (fsCtx.file && /^image\//.test(fsCtx.file.type)) return fsCtx.file;
-  const m = aiPhoto(fsCtx.p);
-  return m ? await mediaBlob(m) : null;
-}
-function renderFileStory() {
-  const c = fsCtx, f = c.file, hasPhoto = (f && /^image\//.test(f.type)) || aiPhoto(c.p);
-  const themes = FS_THEMES.filter(t => t[0] !== 'photo' || hasPhoto);
-  if (!themes.some(t => t[0] === c.theme)) c.theme = 'navy';
-  $('#fsBody').innerHTML = `
-    <div class="fs-pick"><button id="fsChoose">${f ? '換一個檔案' : '選擇檔案'}</button>
-      ${f ? `<b>${esc(f.name)}</b>` : `<span class="hint-s">PDF、Word、Excel、圖片或文字檔，最多 10MB</span>`}</div>
-    <div class="pick-label">做幾張</div>
-    <div class="chips">${FS_COUNTS.map(([v, l]) => `<button class="chip ${c.count === v ? 'on' : ''}" data-fscount="${v}">${l}</button>`).join('')}</div>
-    <div class="pick-label">樣式</div>
-    <div class="chips">${themes.map(([v, l]) => `<button class="chip ${c.theme === v ? 'on' : ''}" data-fstheme="${v}">${l}</button>`).join('')}</div>
-    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="fsGo" ${c.busy || !f ? 'disabled' : ''}>${c.frames.length ? '🔄 重新做' : '✨ 開始做'}</button></div>
-    ${c.busy ? `<div class="ai-wait">AI 正在讀檔案、整理重點，大約 10～20 秒⋯</div>` : ''}
-    ${c.frames.length && !c.busy ? `
-      <p class="hint-s" style="margin:14px 0 0">文字可以直接改，畫面會跟著更新；不要的那張按 ✕。</p>
-      <div class="fs-frames">${c.frames.map((fr, i) => `<div class="fs-frame" data-i="${i}">
-        <div class="story-frame"><span class="hint-s">產生中⋯</span>${c.frames.length > 1 ? `<button class="del" data-fsdel="${i}" title="刪掉這張">✕</button>` : ''}</div>
-        <input data-fstitle="${i}" value="${esc(fr.title)}" placeholder="標題">
-        <textarea data-fsbody="${i}" placeholder="內文">${esc(fr.body)}</textarea></div>`).join('')}</div>
-      <p class="hint-s">AI 整理的內容請看過再發，日期、價格要再確認一次。</p>
-      <div class="send"><div class="nav"><button class="link" id="fsCancel">先不要</button><button class="primary" id="fsAdd">加入這則貼文（${c.frames.length} 張）</button></div></div>` : ''}`;
-  const box = $('#fsBody');
-  $('#fsChoose').onclick = () => $('#fsFile').click();
-  box.querySelectorAll('[data-fscount]').forEach(b => b.onclick = () => { c.count = +b.dataset.fscount; renderFileStory(); });
-  box.querySelectorAll('[data-fstheme]').forEach(b => b.onclick = () => { c.theme = b.dataset.fstheme; renderFileStory(); });
-  $('#fsGo').onclick = fsGenerate;
-  if (!c.frames.length || c.busy) return;
-  let typing;
-  const redraw = () => { clearTimeout(typing); typing = setTimeout(drawFsFrames, 300); };
-  box.querySelectorAll('[data-fstitle]').forEach(x => x.oninput = () => { c.frames[+x.dataset.fstitle].title = x.value; redraw(); });
-  box.querySelectorAll('[data-fsbody]').forEach(x => x.oninput = () => { c.frames[+x.dataset.fsbody].body = x.value; redraw(); });
-  box.querySelectorAll('[data-fsdel]').forEach(b => b.onclick = () => { c.frames.splice(+b.dataset.fsdel, 1); renderFileStory(); });
-  $('#fsCancel').onclick = closeFileStory;
-  $('#fsAdd').onclick = fsAddToPost;
-  drawFsFrames();
-}
-$('#fsClose').onclick = closeFileStory;
-$('#fsFile').onchange = e => {
-  const f = e.target.files[0]; e.target.value = '';
-  if (!f || !fsCtx) return;
-  if (!/^image\//.test(f.type) && !DOC_EXT.test(f.name) && !TEXT_EXT.test(f.name)) return toast('這種檔案看不懂，請用 PDF、Word、Excel、圖片或文字檔');
-  if (f.size > 10 * 1024 * 1024) return toast('檔案太大，最多 10MB');
-  fsCtx.file = f; fsCtx.frames = [];
-  if (/^image\//.test(f.type)) fsCtx.theme = 'photo';
-  renderFileStory();
-};
 async function shrinkImage(blob, max, q = 0.85) {
   const bmp = await createImageBitmap(blob);
   const sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
@@ -4415,26 +4424,6 @@ async function shrinkImage(blob, max, q = 0.85) {
   c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', q);
-}
-const fileBase64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
-async function fsGenerate() {
-  const c = fsCtx, f = c.file;
-  if (!f) return;
-  c.busy = true; renderFileStory();
-  try {
-    const body = { name: f.name, type: f.type, count: c.count, brand: S.brand || '' };
-    if (/^image\//.test(f.type)) body.image = await shrinkImage(f, 1024);
-    else if (TEXT_EXT.test(f.name)) body.text = (await f.text()).slice(0, 8000);
-    else body.data = await fileBase64(f);
-    const r = await fetch(API + '/ai/story', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
-    c.frames = j.frames;
-  } catch (e) {
-    toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message);
-  }
-  c.busy = false;
-  if (fsCtx === c) renderFileStory();
 }
 // 一行一行斷字（中文逐字、英文數字盡量不拆開）
 function wrapLines(g, text, maxW) {
@@ -4452,85 +4441,6 @@ function wrapLines(g, text, maxW) {
   return lines;
 }
 const STORY_FONT = '"Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-async function drawFsFrame(fr, theme, photo) {
-  const W = 1080, H = 1920;
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d');
-  const t = FS_THEMES.find(x => x[0] === theme) || FS_THEMES[0];
-  let fg = t[3] || '#fff', accent = t[4] || '#f5c46b';
-  if (theme === 'photo' && photo) {
-    const bmp = await createImageBitmap(photo);
-    const cover = Math.max(W / bmp.width, H / bmp.height);
-    g.drawImage(bmp, (W - bmp.width * cover) / 2, (H - bmp.height * cover) / 2, bmp.width * cover, bmp.height * cover);
-    const sh = g.createLinearGradient(0, 0, 0, H);
-    sh.addColorStop(0, 'rgba(0,0,0,.25)'); sh.addColorStop(.45, 'rgba(0,0,0,.55)'); sh.addColorStop(1, 'rgba(0,0,0,.8)');
-    g.fillStyle = sh; g.fillRect(0, 0, W, H);
-    fg = '#fff'; accent = '#f5c46b';
-  } else {
-    const [a, b] = (t[2] || FS_THEMES[0][2]);
-    const bg = g.createLinearGradient(0, 0, W * 0.4, H);
-    bg.addColorStop(0, a); bg.addColorStop(1, b);
-    g.fillStyle = bg; g.fillRect(0, 0, W, H);
-    g.globalAlpha = .08; g.fillStyle = fg;   // 角落的圓點裝飾
-    g.beginPath(); g.arc(W - 120, 330, 260, 0, 7); g.fill();
-    g.beginPath(); g.arc(90, H - 360, 200, 0, 7); g.fill();
-    g.globalAlpha = 1;
-  }
-  const maxW = W - 160;
-  g.font = `bold 104px ${STORY_FONT}`;
-  const tl = wrapLines(g, fr.title || '', maxW).slice(0, 4);
-  g.font = `64px ${STORY_FONT}`;
-  const bl = wrapLines(g, fr.body || '', maxW).slice(0, 9);
-  const tH = tl.length * 134, gap = tl.length && bl.length ? 96 : 0, bH = bl.length * 96;
-  // 文字放在畫面中間偏上，避開 IG 上方頭像和下方回覆框
-  let y = Math.max(300, Math.min(H - 380 - (tH + gap + bH), (H - (tH + gap + bH)) / 2 - 60));
-  g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = fg;
-  if (theme === 'photo') { g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 16; }
-  g.font = `bold 104px ${STORY_FONT}`;
-  tl.forEach((l, i) => g.fillText(l, W / 2, y + i * 134));
-  y += tH;
-  if (gap) { g.shadowBlur = 0; g.fillStyle = accent; g.fillRect(W / 2 - 60, y + 40, 120, 10); g.fillStyle = fg; if (theme === 'photo') g.shadowBlur = 16; }
-  y += gap;
-  g.font = `64px ${STORY_FONT}`;
-  bl.forEach((l, i) => g.fillText(l, W / 2, y + i * 96));
-  g.shadowBlur = 0;
-  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
-}
-async function drawFsFrames() {
-  const c = fsCtx;
-  if (!c) return;
-  const run = (c.run = (c.run || 0) + 1);
-  const add = $('#fsAdd'); if (add) add.disabled = true;
-  const photo = c.theme === 'photo' ? await fsPhoto() : null;
-  c.blobs = [];
-  for (const [i, fr] of c.frames.entries()) {
-    const b = await drawFsFrame(fr, c.theme, photo);
-    if (fsCtx !== c || c.run !== run) return;   // 又改了，這一輪作廢
-    c.blobs.push(b);
-    const cell = document.querySelector(`#fsBody .fs-frame[data-i="${i}"] .story-frame`);
-    if (!cell) return;
-    if (c.urls[i]) URL.revokeObjectURL(c.urls[i]);
-    c.urls[i] = URL.createObjectURL(b);
-    const del = cell.querySelector('.del');
-    cell.innerHTML = `<img src="${c.urls[i]}" alt="限動 ${i + 1}">`;
-    if (del) cell.appendChild(del);
-  }
-  if (add) add.disabled = false;
-}
-async function fsAddToPost() {
-  const c = fsCtx, { p } = c;
-  if (!c.blobs || c.blobs.length !== c.frames.length) return;
-  const base = (c.file?.name || '限動').replace(/\.[^.]+$/, '').slice(0, 30);
-  const files = c.blobs.map((b, i) => new File([b], `${base}-限動${i + 1}.jpg`, { type: 'image/jpeg' }));
-  closeFileStory();
-  const before = new Set(p.media.map(m => m.id));
-  await addFiles(p, files);
-  // 圖上已經有字了，限動編輯器裡不要再預設疊一次文字
-  p.storyEdit ||= { ver: 1, frames: {}, out: {} };
-  for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'blur', filter: 'none', layers: [] };
-  save();
-  toast(`已加入 ${files.length} 張限動圖，發到「IG 限動」會一張一張發出`);
-}
 
 // ===== IG 貼文設定：標註人物、協作者（最多 3 位）、常用地點 =====
 // p.ig = { tags: { [檔案 id]: [{username,x,y}] }, collaborators: [], location: 地點編號 }；常用地點存在 S.places
@@ -5027,6 +4937,8 @@ function tcCards(text) {
 function openTc(p, bg = null) {
   seLinkFonts();
   if (bg) Object.assign(tcSet(), { theme: 'photo', ratio: bg.ratio });
+  else if (brandOn()) tcSet().theme = 'brand';
+  if (brandOn()) tcSet().font = S.brandStyle.font;
   if (bg?.text) p.tcText = bg.text;
   tcCtx = { p, bg: bg?.blob || null, text: p.tcText ?? (p.text.trim() ? p.text.trim().split(/\n\s*\n/).slice(0, 3).join('\n\n') : ''), urls: [], blobs: [] };
   $('#tcModal').classList.add('open');
@@ -5036,13 +4948,13 @@ function openTc(p, bg = null) {
 function closeTc() { if (tcCtx) tcCtx.urls.forEach(u => URL.revokeObjectURL(u)); tcCtx = null; $('#tcModal').classList.remove('open'); }
 function renderTc() {
   const c = tcCtx, st = tcSet(), ph = c.bg || aiPhoto(c.p);
-  if (st.theme === 'photo' && !ph) st.theme = 'cream';
+  if ((st.theme === 'photo' && !ph) || (st.theme === 'brand' && !brandOn())) st.theme = 'cream';
   const n = tcCards(c.text).length;
   $('#tcBody').innerHTML = `
     <label class="field" for="tcText">內容 <small style="font-weight:400">每張的第一行是標題；<b>空一行</b>就是下一張（最多 10 張）</small></label>
     <textarea id="tcText" style="min-height:120px" placeholder="例如：\n週年慶開跑\n全館 85 折，到 11/30\n\n滿額再送\n買滿 3 萬送抱枕一組">${esc(c.text)}</textarea>
     <div class="pick-label">尺寸</div><div class="chips">${TC_RATIOS.map(([v, l]) => `<button class="chip ${st.ratio === v ? 'on' : ''}" data-tcratio="${v}">${l}</button>`).join('')}</div>
-    <div class="pick-label">底色</div><div class="chips">${TC_THEMES.filter(t => t[0] !== 'photo' || ph).map(([v, l, g]) => `<button class="chip ${st.theme === v ? 'on' : ''}" data-tctheme="${v}">${g ? `<span class="dot" style="background:linear-gradient(135deg,${g[0]},${g[1]})"></span>` : '🖼️'}${v === 'photo' && c.bg ? 'AI 背景' : l}</button>`).join('')}</div>
+    <div class="pick-label">底色</div><div class="chips">${tcThemes().filter(t => t[0] !== 'photo' || ph).map(([v, l, g]) => `<button class="chip ${st.theme === v ? 'on' : ''}" data-tctheme="${v}">${g ? `<span class="dot" style="background:linear-gradient(135deg,${g[0]},${g[1]})"></span>` : '🖼️'}${v === 'photo' && c.bg ? 'AI 背景' : l}</button>`).join('')}</div>
     <div class="pick-label">字體</div><div class="chips">${TC_FONTS.map(id => `<button class="chip ${st.font === id ? 'on' : ''}" data-tcfont="${id}" style="font-family:${seFont(id).fam}">${seFont(id).label}</button>`).join('')}</div>
     <div class="tc-cards" id="tcCards">${n ? '' : '<p class="hint-s">打字後這裡會出現卡片</p>'}</div>
     <div class="send"><div class="nav"><button class="link" id="tcCancel">先不要</button><button class="primary" id="tcAdd" disabled>加入這則貼文（${n} 張）</button></div></div>`;
@@ -5058,7 +4970,7 @@ function renderTc() {
 $('#tcClose').onclick = closeTc;
 async function tcDraw(card, i, n, photo, st = tcSet()) {
   const [, , W, H] = TC_RATIOS.find(r => r[0] === st.ratio) || TC_RATIOS[0];
-  const t = TC_THEMES.find(x => x[0] === st.theme) || TC_THEMES[0], f = seFont(st.font), fam = `${f.fam}, ${STORY_FONT}`;
+  const t = (st.theme === 'brand' ? brandTheme() : TC_THEMES.find(x => x[0] === st.theme)) || TC_THEMES[0], f = seFont(st.font), fam = `${f.fam}, ${STORY_FONT}`;
   await document.fonts?.load?.(`${f.w} 60px ${f.fam}`, card.title + card.body).catch(() => {});
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
@@ -5066,7 +4978,7 @@ async function tcDraw(card, i, n, photo, st = tcSet()) {
   if (st.theme === 'photo' && photo) {
     const s = Math.max(W / photo.width, H / photo.height);
     g.drawImage(photo, (W - photo.width * s) / 2, (H - photo.height * s) / 2, photo.width * s, photo.height * s);
-    g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, 0, W, H); fg = '#fff'; accent = '#f5c46b';
+    g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, 0, W, H); fg = '#fff'; accent = brandOn()?.accent || '#f5c46b';
   } else {
     const lg = g.createLinearGradient(0, 0, W * 0.4, H); lg.addColorStop(0, t[2][0]); lg.addColorStop(1, t[2][1]); g.fillStyle = lg; g.fillRect(0, 0, W, H);
   }
@@ -5818,7 +5730,7 @@ function renderIns() {
       ${need}${c.busy ? '<div class="ai-wait">讀取中⋯</div>' : c.err && !c.need ? `<p class="warn-line">讀不到：${esc(c.err)}</p>` : c.tab === 'ins' ? insHtml(acc) : c.tab === 'mg' ? mgHtml(acc) : cmHtml(acc)}`;
   }
   $('#insBody').innerHTML = `<div class="chips" style="margin-bottom:12px"><button class="chip ${c.tab === 'ins' ? 'on' : ''}" data-instab="ins">📊 成效報表</button><button class="chip ${c.tab === 'cm' ? 'on' : ''}" data-instab="cm">💬 留言</button><button class="chip ${c.tab === 'mg' ? 'on' : ''}" data-instab="mg">🗂 刪除貼文</button>
-    <span style="flex:1"></span>${acc && !c.busy ? '<button class="link" id="insRefresh">🔄 重新整理</button>' : ''}</div>${body}`;
+    <span style="flex:1"></span>${acc && c.tab === 'ins' ? '<button class="link" id="insRep">📄 每月報告</button>' : ''}${acc && !c.busy ? '<button class="link" id="insRefresh">🔄 重新整理</button>' : ''}</div>${body}`;
   const box = $('#insBody');
   box.querySelectorAll('[data-instab]').forEach(b => b.onclick = () => { c.tab = b.dataset.instab; c.err = ''; c.need = false; renderIns(); insLoad(); });
   box.querySelectorAll('[data-insacc]').forEach(b => b.onclick = () => { c.acc = S.insAcc = b.dataset.insacc; save(); c.err = ''; c.need = false; renderIns(); insLoad(); });
@@ -5828,6 +5740,7 @@ function renderIns() {
   });
   if ($('#insLink')) $('#insLink').onclick = () => { closeIns(); openAuto(); };
   if ($('#insRefresh')) $('#insRefresh').onclick = () => insLoad(true);
+  if ($('#insRep')) $('#insRep').onclick = () => { const a = c.acc; closeIns(); openReport(a); };
   if (c.tab === 'ins') insBind(acc); else if (c.tab === 'mg') mgBind(acc); else cmBind(acc);
 }
 // 每週成效摘要：最近 7 天發的貼文跟再前 7 天比；AI 給下週建議（算 1 次）
@@ -6054,7 +5967,6 @@ function renderIdeas() {
     toast('已變成貼文，可以繼續編輯');
   });
 }
-$('#openIdeas').onclick = openIdeas;
 $('#ideaFile').onchange = async e => { const fs = [...e.target.files]; e.target.value = ''; ideaDraft.media.push(...await ideaKeep(fs)); renderIdeas(); };
 
 // ===== 一次排多則：選一批檔案 → 分組、排時間 → 確認文字 → 建成多則貼文（全自動的直接送到伺服器）=====
@@ -6065,13 +5977,17 @@ function openBk() {
   closeMenu();
   if (bk) bk.files.forEach(x => URL.revokeObjectURL(x.url));
   const start = new Date(); start.setDate(start.getDate() + 1);
-  bk = { step: 1, files: [], size: 1, date: localInput(start).slice(0, 10), hm: bestSlotTime() || '20:00', gap: 1, mode: bkOpts().length ? 'auto' : 'manual', auto: [], targets: [], common: '', ai: false, posts: [], busy: '' };
+  bk = { step: 1, files: [], size: 1, date: localInput(start).slice(0, 10), hm: bestSlotTime() || '20:00', gap: S.slots?.length ? 0 : 1, mode: bkOpts().length ? 'auto' : 'manual', auto: [], targets: [], common: '', ai: false, posts: [], busy: '' };
   $('#bkModal').classList.add('open'); renderBk();
   if (session) loadAccounts().then(() => { if (bk && bk.step === 1) { if (bkOpts().length && !bk.targets.length) bk.mode = 'auto'; renderBk(); } });
 }
 const bestSlotTime = () => { const b = bestSlot(); return b ? QUICK_TIMES.find(t => +t.slice(0, 2) >= b[0] && +t.slice(0, 2) < b[1]) : null; };
 function bkGroups() {
   const out = [];
+  if (bk.gap === 0) {   // 照固定時段排
+    const n = Math.ceil(bk.files.length / bk.size), ts = nextSlots(n);
+    return ts.map((time, k) => ({ files: bk.files.slice(k * bk.size, (k + 1) * bk.size), time }));
+  }
   for (let i = 0, k = 0; i < bk.files.length; i += bk.size, k++) {
     const d = new Date(`${bk.date}T${bk.hm}`); d.setDate(d.getDate() + k * bk.gap);
     out.push({ files: bk.files.slice(i, i + bk.size), time: localInput(d) });
@@ -6083,7 +5999,7 @@ function renderBk() {
   const c = bk, box = $('#bkBody');
   const chips = (list, cur, key) => list.map(([v, l]) => `<button class="chip ${cur === v ? 'on' : ''}" data-${key}="${v}">${l}</button>`).join('');
   if (c.step === 1) {
-    const g = bkGroups(), past = new Date(`${c.date}T${c.hm}`) <= new Date(), opts = bkOpts();
+    const g = bkGroups(), slot = c.gap === 0, past = !slot && new Date(`${c.date}T${c.hm}`) <= new Date(), opts = bkOpts();
     const ready = c.files.length && !past && (c.mode === 'auto' ? c.auto.length : c.targets.length);
     box.innerHTML = `
       <button class="primary" id="bkPick">📁 選照片、影片（可以一次選很多）</button>
@@ -6091,11 +6007,12 @@ function renderBk() {
       <p class="hint-s" style="margin:6px 0 0">共 ${c.files.length} 個檔案，照檔名排序</p>` : ''}
       <label class="field" style="margin-top:14px">每則放幾個</label>
       <div class="chips">${chips(BK_SIZES.map(n => [n, n + ' 個']), c.size, 'bksize')}</div>
-      <label class="field" style="margin-top:14px">第一則的日期和時間</label>
+      <label class="field" style="margin-top:14px">什麼時候發</label>
+      <div class="chips">${chips([...(S.slots?.length ? [[0, '📌 照固定時段']] : []), ...BK_GAPS], c.gap, 'bkgap')}</div>
+      ${slot ? `<p class="hint-s" style="margin:6px 0 0">固定時段：${esc(slotsText())}</p>` : `
+      <label class="field" style="margin-top:10px">第一則的日期和時間</label>
       <div class="row" style="gap:8px"><input type="date" id="bkDate" value="${c.date}" min="${localInput(new Date()).slice(0, 10)}" style="width:auto"><input type="time" id="bkTime" value="${c.hm}" style="width:auto"></div>
-      ${past ? '<p class="warn-line" style="margin:6px 0 0">⚠️ 這個時間已經過了，請選之後的時間</p>' : ''}
-      <label class="field" style="margin-top:14px">之後每隔多久發一則</label>
-      <div class="chips">${chips(BK_GAPS, c.gap, 'bkgap')}</div>
+      ${past ? '<p class="warn-line" style="margin:6px 0 0">⚠️ 這個時間已經過了，請選之後的時間</p>' : ''}`}
       <label class="field" style="margin-top:14px">發到哪裡</label>
       <div class="chips">${chips([['auto', '⚡ 全自動'], ['manual', '📱 半自動（時間到提醒）']], c.mode, 'bkmode')}</div>
       <div class="chips" style="margin-top:8px">${c.mode === 'auto'
@@ -6113,8 +6030,8 @@ function renderBk() {
     box.querySelectorAll('[data-bkmode]').forEach(b => b.onclick = () => { c.mode = b.dataset.bkmode; renderBk(); });
     box.querySelectorAll('[data-bkauto]').forEach(b => b.onclick = () => { const k = b.dataset.bkauto; c.auto = c.auto.includes(k) ? c.auto.filter(y => y !== k) : [...c.auto, k]; renderBk(); });
     box.querySelectorAll('[data-bkt]').forEach(b => b.onclick = () => { const k = b.dataset.bkt; c.targets = c.targets.includes(k) ? c.targets.filter(y => y !== k) : [...c.targets, k]; renderBk(); });
-    $('#bkDate').onchange = e => { if (e.target.value) c.date = e.target.value; renderBk(); };
-    $('#bkTime').onchange = e => { if (e.target.value) c.hm = e.target.value; renderBk(); };
+    if ($('#bkDate')) $('#bkDate').onchange = e => { if (e.target.value) c.date = e.target.value; renderBk(); };
+    if ($('#bkTime')) $('#bkTime').onchange = e => { if (e.target.value) c.hm = e.target.value; renderBk(); };
     $('#bkCommon').oninput = e => { c.common = e.target.value; };
     $('#bkAi').onchange = e => { c.ai = e.target.checked; renderBk(); };
     $('#bkNext').onclick = bkToReview;
@@ -6132,7 +6049,6 @@ function renderBk() {
   $('#bkBack').onclick = () => { c.step = 1; renderBk(); };
   $('#bkGo').onclick = bkGo;
 }
-$('#openBk').onclick = openBk;
 $('#bkFile').onchange = e => {
   const fs = [...e.target.files].filter(f => /^(image|video)\//.test(f.type)); e.target.value = '';
   bk.files.push(...fs.map(file => ({ file, url: URL.createObjectURL(file) })));
@@ -6190,7 +6106,7 @@ async function bkGo() {
 }
 
 // 自己這邊的貼文再發一次（已完成的貼文）：文字、圖片影片、編輯設定都複製
-async function dupPost(src, label = '🔁 再發') {
+async function dupPost(src, label = '🔁 再發', extra = {}, quiet = false) {
   const map = {}, media = [];
   for (const m of src.media) {
     const b = await mediaBlob(m); if (!b) continue;
@@ -6202,8 +6118,8 @@ async function dupPost(src, label = '🔁 再發') {
   }
   const remap = o => o && JSON.parse(Object.entries(map).reduce((s, [a, b]) => s.split(a).join(b), JSON.stringify(o)));
   const p = newPost({ kind: src.kind, text: src.text, texts: src.texts && { ...src.texts }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
-    postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label, name: src.name?.trim() ? src.name.trim() + '（複製）' : '' });
-  toast('已經複製成新貼文，改一下再排程');
+    postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label, name: src.name?.trim() ? src.name.trim() + '（複製）' : '', ...extra }, quiet);
+  if (!quiet) toast('已經複製成新貼文，改一下再排程');
   return p;
 }
 function cmHtml(acc) {
@@ -6272,6 +6188,267 @@ function checkDue() {
   startSend(due);
 }
 
+// ===== 設定：全自動帳號、半自動對象、固定時段、品牌風格、備份集中在一個視窗 =====
+function setSummary() {
+  const sum = { auto: autoAccounts.length ? `已連結 ${autoAccounts.length} 個帳號` : '', targets: S.targets.length ? `已有 ${S.targets.length} 個對象` : '',
+    slots: S.slots?.length ? slotsText() : '', brand: S.brandStyle?.on ? '✓ 已開啟' : '' };
+  document.querySelectorAll('[data-setsum]').forEach(x => { if (!x.dataset.def) x.dataset.def = x.textContent; x.textContent = sum[x.dataset.setsum] || x.dataset.def; });
+}
+function openSettings() { closeMenu(); setSummary(); $('#setModal').classList.add('open'); }
+$('#openSettings').onclick = openSettings;
+// 設定裡的按鈕：先關掉設定視窗，再打開那個功能
+$('#setGrid').addEventListener('click', e => { if (e.target.closest('button')) $('#setModal').classList.remove('open'); }, true);
+
+// ===== 固定發文時段：S.slots = [{ w: 0～6（週日～週六）, hm: 'HH:MM' }] =====
+const slotSort = l => [...l].sort((a, b) => (a.w + 6) % 7 - (b.w + 6) % 7 || a.hm.localeCompare(b.hm));   // 週一排最前面
+const slotsText = () => slotSort(S.slots || []).map(x => `週${WEEK[x.w]} ${x.hm}`).join('、');
+// 已經被其他貼文占用的時間（還沒發完的）
+function takenTimes(except) {
+  const set = new Set();
+  for (const q of S.posts) {
+    if (q === except || listStatus(q).finished) continue;
+    const ra = q.serverPost && serverPosts[q.serverPost]?.run_at, t = q.time || (ra ? localInput(new Date(ra)) : null);
+    if (t) set.add(t.slice(0, 16));
+  }
+  return set;
+}
+// 接下來 n 個還沒被占用的固定時段（localInput 格式）
+function nextSlots(n, except = null) {
+  const out = [];
+  if (!S.slots?.length) return out;
+  const taken = takenTimes(except), soon = Date.now() + 10 * 60e3, d0 = new Date();
+  for (let i = 0; i < 120 && out.length < n; i++) {
+    const d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i), day = localInput(d).slice(0, 10);
+    for (const x of slotSort(S.slots).filter(x => x.w === d.getDay())) {
+      const t = `${day}T${x.hm}`;
+      if (new Date(t) > soon && !taken.has(t) && !out.includes(t)) out.push(t);
+      if (out.length >= n) break;
+    }
+  }
+  return out;
+}
+// 成效報表算出來互動最多的時段 → 一個整點時間；星期也算得出來就給星期
+const bestHm = () => { const b = bestSlot(); return b ? String(Math.floor((b[0] + b[1]) / 2) % 24).padStart(2, '0') + ':00' : null; };
+function bestDay() {
+  for (const c of Object.values(S.insCache || {})) { const b = insBest(c.data?.posts || []); if (b?.day && b.day.v > 1.05) return WEEK.indexOf(b.day.l.slice(1)); }
+  return null;
+}
+// 排程預設時間：固定時段 → 互動最多的時段 → 一小時後
+function defaultTime(p) {
+  const sl = nextSlots(1, p)[0];
+  if (sl) return sl;
+  const hm = bestHm();
+  if (hm) {
+    const d = new Date(); const [h] = hm.split(':'); d.setHours(+h, 0, 0, 0);
+    if (d.getTime() < Date.now() + 15 * 60e3) d.setDate(d.getDate() + 1);
+    return localInput(d);
+  }
+  const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
+  return localInput(d);
+}
+function openSlots() { closeMenu(); S.slots ||= []; $('#slotModal').classList.add('open'); renderSlots(); }
+function renderSlots() {
+  const l = S.slots, bh = bestHm(), bd = bestDay();
+  const nx = nextSlots(4);
+  $('#slotBody').innerHTML = `<p class="hint-s" style="margin-top:0">設好每週固定發文的時間。排程時會出現「📌 固定時段」，按一下就排到下一個還沒被占用的時段；「一次排多則」也可以照這些時段排。</p>
+    ${l.length ? l.map((x, i) => `<div class="slot-row"><select data-slotw="${i}">${[1, 2, 3, 4, 5, 6, 0].map(w => `<option value="${w}" ${x.w === w ? 'selected' : ''}>每週${WEEK[w]}</option>`).join('')}</select>
+      <input type="time" data-sloth="${i}" value="${x.hm}"><span class="grow"></span><button class="link danger" data-slotdel="${i}">刪除</button></div>`).join('') : '<p class="empty" style="margin:8px 0">還沒有固定時段。</p>'}
+    <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button class="primary" id="slotAdd">＋ 新增時段</button>${bh ? `<button id="slotBest">⭐ 加入互動最多的時段（${bd != null ? '週' + WEEK[bd] + ' ' : ''}${bh}）</button>` : ''}</div>
+    ${l.length ? `<p class="hint-s" style="margin:12px 0 0">📅 接下來可以排的時段：${nx.length ? nx.map(t => esc(fmtTime(t))).join('、') : '都排滿了'}</p>` : ''}`;
+  const box = $('#slotBody'), upd = () => { S.slots = slotSort(S.slots); save(); renderSlots(); if (!active()) renderHome(); };
+  box.querySelectorAll('[data-slotw]').forEach(x => x.onchange = () => { l[+x.dataset.slotw].w = +x.value; upd(); });
+  box.querySelectorAll('[data-sloth]').forEach(x => x.onchange = () => { if (x.value) { l[+x.dataset.sloth].hm = x.value; upd(); } });
+  box.querySelectorAll('[data-slotdel]').forEach(x => x.onclick = () => { l.splice(+x.dataset.slotdel, 1); upd(); });
+  $('#slotAdd').onclick = () => { l.push({ w: bd ?? 5, hm: bh || '20:00' }); upd(); };
+  if ($('#slotBest')) $('#slotBest').onclick = () => { if (!l.some(x => x.w === (bd ?? 5) && x.hm === bh)) l.push({ w: bd ?? 5, hm: bh }); upd(); };
+}
+$('#openSlots').onclick = openSlots;
+
+// ===== 品牌風格（選用）：S.brandStyle = { on, c1, c2（底色漸層）, fg（文字）, accent（強調色）, font } =====
+const BRAND_DEF = { on: false, c1: '#fdf6ec', c2: '#f3e3cc', fg: '#3a2a1e', accent: '#c26a2c', font: 'sans' };
+const brandOn = () => S.brandStyle?.on ? S.brandStyle : null;
+const brandTheme = () => { const b = S.brandStyle || BRAND_DEF; return ['brand', '品牌色', [b.c1, b.c2], b.fg, b.accent]; };
+const tcThemes = () => brandOn() ? [brandTheme(), ...TC_THEMES] : TC_THEMES;
+let brandUrl = null;
+function openBrand() { closeMenu(); seLinkFonts(); S.brandStyle ||= { ...BRAND_DEF }; $('#brandModal').classList.add('open'); renderBrand(); }
+function renderBrand() {
+  const b = S.brandStyle;
+  $('#brandBody').innerHTML = `<p class="hint-s" style="margin-top:0">選用功能，不設定也可以。開啟後，「📝 文字卡片」和「🔤 AI 背景＋文字」會預設用你的品牌顏色和字體，每張圖看起來比較一致；做的時候還是可以換別的。</p>
+    <label class="row" style="gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" id="brOn" style="width:auto" ${b.on ? 'checked' : ''}> 開啟品牌風格</label>
+    <div class="brand-grid" style="margin-top:12px">${[['c1', '底色'], ['c2', '底色漸層'], ['fg', '文字顏色'], ['accent', '強調色']].map(([k, l]) => `<label>${l}<input type="color" data-brc="${k}" value="${b[k]}"></label>`).join('')}</div>
+    <div class="pick-label">字體</div><div class="chips">${TC_FONTS.map(id => `<button class="chip ${b.font === id ? 'on' : ''}" data-brfont="${id}" style="font-family:${seFont(id).fam}">${seFont(id).label}</button>`).join('')}</div>
+    <div class="pick-label">預覽</div><div class="brand-prev"><img id="brPrev" alt="品牌風格預覽"></div>
+    <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap"><button id="brLogo">🏷️ Logo 浮水印設定</button><span class="grow"></span><button class="link" id="brReset">恢復預設顏色</button></div>`;
+  const box = $('#brandBody');
+  $('#brOn').onchange = e => { b.on = e.target.checked; save(); };
+  box.querySelectorAll('[data-brc]').forEach(x => x.oninput = () => { b[x.dataset.brc] = x.value; save(); clearTimeout(brandPrev.t); brandPrev.t = setTimeout(brandPrev, 150); });
+  box.querySelectorAll('[data-brfont]').forEach(x => x.onclick = () => { b.font = x.dataset.brfont; save(); renderBrand(); });
+  $('#brReset').onclick = () => { Object.assign(b, { ...BRAND_DEF, on: b.on, font: b.font }); save(); renderBrand(); };
+  $('#brLogo').onclick = () => { $('#brandModal').classList.remove('open'); openLogo(); };
+  brandPrev();
+}
+async function brandPrev() {
+  const run = brandPrev.run = (brandPrev.run || 0) + 1;   // 舊的比較慢畫完時不要蓋掉新的
+  const b = S.brandStyle, blob = await tcDraw({ title: '品牌標題', body: '內文會長這樣\n第二行文字' }, 0, 1, null, { theme: 'brand', ratio: '1:1', font: b.font });
+  const img = $('#brPrev'); if (!img || run !== brandPrev.run) return;
+  if (brandUrl) URL.revokeObjectURL(brandUrl);
+  img.src = brandUrl = URL.createObjectURL(blob);
+}
+$('#openBrand').onclick = openBrand;
+
+// ===== 一份內容變多種格式：限動版、Reels 版（照片變影片）、Threads 短版文字；p.family 把同一組串起來 =====
+let mfCtx = null;
+const familyOf = p => p.family ? S.posts.filter(q => q !== p && q.family === p.family && !q.serverPost && !listStatus(q).finished) : [];
+function openMf(p) {
+  mfCtx = { p, story: postMedia(p).length > 0, reels: ssPhotos(p).length > 0, threads: !!p.text.trim(), busy: '' };
+  $('#mfModal').classList.add('open'); renderMf();
+}
+function closeMf() { mfCtx = null; $('#mfModal').classList.remove('open'); }
+function renderMf() {
+  const c = mfCtx, p = c.p, has = postMedia(p).length, ph = ssPhotos(p).length, txt = !!p.text.trim(), ok = { story: has > 0, reels: ph > 0, threads: txt };
+  const opt = (k, title, desc, why) => `<label class="mf-opt ${ok[k] ? '' : 'off'}"><input type="checkbox" data-mf="${k}" ${ok[k] && c[k] ? 'checked' : ''} ${ok[k] ? '' : 'disabled'}><span><b>${title}</b><br><span class="hint-s">${ok[k] ? desc : why}</span></span></label>`;
+  $('#mfBody').innerHTML = c.busy ? `<div class="ai-wait">${esc(c.busy)}</div>` : `<p class="hint-s" style="margin-top:0">用這則的文字和照片，另外做出其他格式。新做的會出現在左邊清單，跟這則是「同一組」，排程時可以一起排在同一個時間。</p>
+    ${opt('story', '📱 限動版（9:16）', `另外建一則限動，用同樣的 ${has} 個照片影片；之後可以到「編輯限動畫面」加字`, '要先加入照片或影片')}
+    ${opt('reels', '🎬 Reels 版（照片變影片＋配樂）', `另外建一則貼文，把 ${ph} 張照片做成 9:16 影片，接著選音樂`, '要先加入照片')}
+    ${opt('threads', '🧵 Threads 短版文字', p.texts?.threads?.trim() ? '已經有 Threads 專用文字，勾選會用 AI 重寫（用 1 次 AI）' : 'AI 改寫成適合 Threads 的短版，放進這則的「Threads 專用文字」（用 1 次 AI）', '要先寫文字')}
+    <div class="send"><div class="nav"><button class="link" id="mfCancel">取消</button><button class="primary" id="mfGo">建立</button></div></div>`;
+  if (c.busy) return;
+  $('#mfBody').querySelectorAll('[data-mf]').forEach(x => x.onchange = () => { c[x.dataset.mf] = x.checked; });
+  $('#mfCancel').onclick = closeMf;
+  $('#mfGo').onclick = () => mfRun(ok);
+}
+async function mfRun(ok) {
+  const c = mfCtx, p = c.p, want = ['story', 'reels', 'threads'].filter(k => c[k] && ok[k]);
+  if (!want.length) return toast('請至少勾一項');
+  p.family ||= uid();
+  const made = [], base = (p.name || '').trim();
+  if (want.includes('threads')) {
+    c.busy = 'AI 改寫 Threads 版本中⋯（約 15 秒）'; renderMf();
+    try {
+      const r = await fetch(API + '/ai/platforms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: p.text, platforms: ['threads'], brand: S.brand || '' }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.texts?.threads) throw new Error(j.error || `伺服器回應 ${r.status}`);
+      p.texts ||= {}; p.texts.threads = j.texts.threads; p.perOpen = true; p.perTab = 'threads';
+      made.push('Threads 短版文字');
+    } catch (e) { alert('Threads 短版沒做成功：' + e.message); }
+    if (mfCtx !== c) return;
+  }
+  c.busy = '建立中⋯'; renderMf();
+  const platOf = id => platformOf(S.targets.find(t => t.id === id)?.type)?.id;
+  if (want.includes('story')) {
+    const s = await dupPost(p, '📱 限動版', { kind: 'story', family: p.family, name: base ? base + '（限動）' : '', postEdit: null, time: p.time || null }, true);
+    if (p.mode === 'auto') s.auto = (p.auto || []).filter(k => /:post$/.test(k)).map(k => k.replace(/:post$/, ':story')).filter(k => autoOptions().some(o => o.key === k));
+    else s.targets = kindTargets(s).filter(t => (p.targets || []).some(id => platOf(id) === platformOf(t.type)?.id)).map(t => t.id);
+    made.push('限動版');
+  }
+  let reels = null;
+  if (want.includes('reels')) {
+    reels = await dupPost(p, '🎬 Reels 版', { family: p.family, name: base ? base + '（Reels）' : '', postEdit: null, storyEdit: null, time: p.time || null }, true);
+    reels.media = reels.media.filter(m => !m.storyOnly && !isVideo(m));
+    made.push('Reels 版');
+  }
+  save(); closeMf();
+  if (reels) {
+    Object.assign(ssSet(), { ratio: '9:16', replace: true }); save();
+    S.activeId = reels.id; save(); renderAll();
+    toast(`已建立：${made.join('、')}。接著選音樂，按「製作影片」`);
+    openSlide(reels);
+  } else { renderAll(); toast(`已建立：${made.join('、')}${want.includes('story') ? '，在左邊清單' : ''}`); }
+}
+
+// ===== 每月成效報告：讀到上個月月初的貼文，整理成一頁，可以存成 PDF =====
+let repCtx = null;
+const repCache = {};   // 帳號 → { posts, next, followers, platform, username, oldest, at }
+const repRange = k => { const n = new Date(), a = new Date(n.getFullYear(), n.getMonth() - k, 1), b = new Date(n.getFullYear(), n.getMonth() - k + 1, 1); return { a: a.getTime(), b: b.getTime(), label: `${a.getFullYear()} 年 ${a.getMonth() + 1} 月`, short: `${a.getMonth() + 1} 月`, days: Math.round((b - a) / 864e5) }; };
+function openReport(accId) {
+  closeMenu();
+  const acc = autoAccounts.find(a => a.id === accId) || autoAccounts.find(a => a.id === S.insAcc) || autoAccounts[0];
+  repCtx = { acc: acc?.id, m: new Date().getDate() <= 3 ? 1 : 0, busy: false, err: '' };   // 月初前三天預設看上個月
+  $('#repModal').classList.add('open'); renderReport(); repLoad();
+}
+async function repLoad() {
+  const c = repCtx; if (!c?.acc) return;
+  const acc = c.acc, need = repRange(c.m + 1).a;
+  let d = repCache[acc];
+  if (d && Date.now() - d.at > 30 * 60e3) d = repCache[acc] = null;
+  if (d && (d.oldest <= need || !d.next)) return;
+  c.busy = true; c.err = ''; renderReport();
+  try {
+    for (let i = 0; i < 10; i++) {
+      d = repCache[acc];
+      if (d && (d.oldest <= need || !d.next)) break;
+      const j = await apiCall(`/api/insights?account=${encodeURIComponent(acc)}${d?.next ? '&after=' + encodeURIComponent(d.next) : ''}`);
+      const posts = [...(d?.posts || []), ...(j.posts || [])];
+      repCache[acc] = { posts, next: j.next || null, followers: d?.followers ?? j.followers, platform: j.platform, username: j.username, oldest: Math.min(...posts.map(x => x.time), Date.now()), at: d?.at || Date.now() };
+      if (repCtx !== c) return;
+    }
+  } catch (e) { if (repCtx === c) c.err = e.message; }
+  if (repCtx !== c) return;
+  c.busy = false; renderReport();
+}
+function closeReport() { repCtx = null; $('#repModal').classList.remove('open'); }
+function renderReport() {
+  const c = repCtx; if (!c) return;
+  const accs = autoAccounts, name = { ig: 'IG', threads: 'Threads' };
+  const box = $('#repBody');
+  if (!session || !accs.length) {
+    box.innerHTML = `<p class="empty" style="margin-top:0">要先連結 Instagram（創作者或商業帳號）或 Threads 帳號，才做得出成效報告。</p><button class="primary" id="repLink">連結帳號</button>`;
+    $('#repLink').onclick = () => { closeReport(); openAuto(); };
+    return;
+  }
+  const head = `<div class="rep-noprint"><div class="chips" style="margin-bottom:8px">${accs.map(a => `<button class="chip ${a.id === c.acc ? 'on' : ''}" data-repacc="${a.id}"><span class="dot" style="background:${a.platform === 'ig' ? '#d6249f' : '#111827'}"></span>${name[a.platform]} @${esc(a.username)}</button>`).join('')}</div>
+    <div class="chips">${[0, 1, 2].map(k => `<button class="chip ${c.m === k ? 'on' : ''}" data-repm="${k}">${k === 0 ? '這個月' : k === 1 ? '上個月' : repRange(k).short}</button>`).join('')}
+      <span style="flex:1"></span>${!c.busy && repCache[c.acc] ? '<button class="primary" id="repPrint">🖨 存成 PDF／列印</button>' : ''}</div></div>`;
+  box.innerHTML = head + (c.busy ? '<div class="ai-wait">讀取這個月和上個月的貼文中⋯</div>' : c.err ? `<p class="warn-line">讀不到：${esc(c.err)}</p>` : repHtml());
+  box.querySelectorAll('[data-repacc]').forEach(b => b.onclick = () => { c.acc = b.dataset.repacc; c.err = ''; renderReport(); repLoad(); });
+  box.querySelectorAll('[data-repm]').forEach(b => b.onclick = () => { c.m = +b.dataset.repm; renderReport(); repLoad(); });
+  if ($('#repPrint')) $('#repPrint').onclick = repPrint;
+}
+function repPrint() {
+  document.body.classList.add('print-rep');
+  const done = () => { document.body.classList.remove('print-rep'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  window.print();
+  setTimeout(done, 60e3);
+}
+function repHtml() {
+  const c = repCtx, d = repCache[c.acc];
+  if (!d) return '';
+  const R = repRange(c.m), P = repRange(c.m + 1);
+  const cur = d.posts.filter(x => x.time >= R.a && x.time < R.b), prev = d.posts.filter(x => x.time >= P.a && x.time < P.b);
+  const partial = d.oldest > R.a && d.next, prevOk = d.oldest <= P.a || !d.next;
+  const sum = (l, k) => l.some(x => x[k] != null) ? l.reduce((s, x) => s + (x[k] || 0), 0) : null;
+  const reachKey = d.posts.some(x => x.views != null) ? 'views' : 'reach', ig = d.platform === 'ig';
+  const chg = (v, p) => !prevOk || p == null || !p || v == null || v === p ? '' : ` <span class="${v > p ? 'up' : 'down'}">${v > p ? '↑' : '↓'}${Math.round(Math.abs(v - p) / p * 100)}%</span>`;
+  const avgScore = l => l.length ? Math.round(l.reduce((s, x) => s + insScore(x), 0) / l.length) : null;
+  const tiles = [['發文則數', cur.length, prev.length], ['❤️ 讚', sum(cur, 'likes'), sum(prev, 'likes')], ['💬 留言', sum(cur, 'comments'), sum(prev, 'comments')],
+    [reachKey === 'views' ? '👁 觀看' : '觸及', sum(cur, reachKey), sum(prev, reachKey)], ...(ig ? [['🔖 收藏', sum(cur, 'saved'), sum(prev, 'saved')]] : []), ['🔁 分享', sum(cur, 'shares'), sum(prev, 'shares')],
+    ['平均每則互動', avgScore(cur), avgScore(prev)], ['粉絲（現在）', d.followers, null]].filter(t => t[1] != null);
+  const title = `<h2 style="margin:14px 0 2px">${R.label} 成效報告</h2><p class="hint-s" style="margin:0">${d.platform === 'ig' ? 'Instagram' : 'Threads'} @${esc(d.username || '')}・產生時間 ${new Date().toLocaleString()}${c.m === 0 ? '・這個月還沒結束，數字會再增加' : ''}</p>`;
+  if (!cur.length) return title + `<p class="empty">${R.label}沒有發文${partial ? '（或還沒讀到那麼久以前的貼文）' : ''}。</p>`;
+  // 每週（1～7 日、8～14 日⋯）的互動
+  const weeks = [];
+  for (let s = 1; s <= R.days; s += 7) {
+    const e = Math.min(s + 6, R.days), a = R.a + (s - 1) * 864e5, b = R.a + e * 864e5, l = cur.filter(x => x.time >= a && x.time < b);
+    weeks.push({ l: `${s}～${e} 日`, n: l.length, v: l.reduce((t, x) => t + insScore(x), 0) });
+  }
+  const mx = Math.max(...weeks.map(w => w.v), 1);
+  const KIND = { image: '🖼️ 單張圖片', carousel: '🗂 輪播', reels: '🎬 Reels', video: '🎞 影片', text: '💬 純文字' };
+  const kinds = Object.entries(KIND).map(([k, l]) => { const ps = cur.filter(x => x.kind === k); return { l, n: ps.length, v: avgScore(ps) }; }).filter(x => x.n);
+  const best = insBest(cur.length >= 6 ? cur : d.posts), top = [...cur].sort((a, b) => insScore(b) - insScore(a)).slice(0, 5);
+  return title + `
+    <div class="rep-tiles">${tiles.map(([l, v, p]) => `<div class="rep-tile"><b>${nFmt(v)}${chg(v, p)}</b><small>${l}</small></div>`).join('')}</div>
+    ${prevOk && prev.length ? `<p class="hint-s" style="margin:0">↑↓ 是跟 ${P.short}（${prev.length} 則）比</p>` : ''}
+    ${partial ? `<p class="warn-line">只讀到 ${new Date(d.oldest).toLocaleDateString()} 之後的貼文，${R.short}更早的貼文沒算進去。</p>` : ''}
+    <div class="rep-sec"><h4>📈 每週互動</h4><div class="rep-weeks">${weeks.map(w => `<div><span>${w.v}</span><i style="height:${Math.round(w.v / mx * 100)}%"></i></div>`).join('')}</div>
+      <div class="rep-xl">${weeks.map(w => `<span>${w.l}<br>${w.n} 則</span>`).join('')}</div><p class="hint-s" style="margin:6px 0 0">互動＝讚＋留言×2＋收藏×3＋分享×3</p></div>
+    <div class="rep-sec"><h4>🧩 哪種內容比較好</h4>${kinds.map(k => `<div class="hol-row"><b>${k.l}</b><span class="hint-s">${k.n} 則・平均互動 ${k.v}</span></div>`).join('')}</div>
+    <div class="rep-sec"><h4>🕒 什麼時候發比較好</h4><p style="margin:0;font-size:14px">${best ? `${best.slot ? `互動最多的時段：<b>${best.slot.l}</b>` : '時段還看不出來'}${best.day ? `；星期：<b>${best.day.l}</b>` : ''}<span class="hint-s">（依 ${best.n} 則貼文）</span>` : '貼文不到 6 則，還算不出來。'}</p></div>
+    <div class="rep-sec"><h4>🏆 互動最多的 ${top.length} 則</h4>${top.map((x, i) => `<div class="rep-top">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" referrerpolicy="no-referrer">` : `<div class="ph">${x.kind === 'text' ? '💬' : '🖼️'}</div>`}
+      <div style="min-width:0"><div class="snip"><b>${i + 1}.</b> ${esc((x.text || '（沒有文字）').split('\n')[0].slice(0, 60))}</div>
+      <div class="hint-s">${new Date(x.time).toLocaleDateString()}・❤️ ${nFmt(x.likes)}・💬 ${nFmt(x.comments)}${x.views != null ? `・👁 ${nFmt(x.views)}` : ''}${x.saved != null ? `・🔖 ${nFmt(x.saved)}` : ''}${x.shares ? `・🔁 ${nFmt(x.shares)}` : ''}</div></div></div>`).join('')}</div>`;
+}
+
 function renderAll() { pruneEmpty(); renderList(); renderEditor(); }
 
 // ===== 上一頁：每換一個畫面（主畫面、哪一則貼文、第幾步、彈出視窗）就記一筆瀏覽紀錄 =====
@@ -6289,7 +6466,6 @@ function navCloseModal(el) {
   try {
     if (el.id === 'sendModal') closeSend();
     else if (el.id === 'storyModal') closeStoryEditor('按了上一頁');
-    else if (el.id === 'fsModal') closeFileStory();
     else if (el.id === 'ssModal') closeSlide();
     else if (el.id === 'musicModal') closeMusicPicker();
     else if (el.id === 'postEdModal') closePostEditor();
