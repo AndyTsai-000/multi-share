@@ -2295,7 +2295,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1112a";
+const APP_VERSION = "v1112b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -6373,18 +6373,22 @@ function defaultTime(p) {
   const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
   return localInput(d);
 }
-function openSlots() { closeMenu(); S.slots ||= []; $('#slotModal').classList.add('open'); renderSlots(); }
+const slotNextText = () => { const nx = nextSlots(4); return '📅 接下來可以排的時段：' + (nx.length ? nx.map(fmtTime).join('、') : '都排滿了'); };
+function openSlots() { closeMenu(); S.slots = slotSort(S.slots || []); $('#slotModal').classList.add('open'); renderSlots(); }
 function renderSlots() {
   const l = S.slots, bh = bestHm(), bd = bestDay();
-  const nx = nextSlots(4);
   $('#slotBody').innerHTML = `<p class="hint-s" style="margin-top:0">設好每週固定發文的時間。排程時會出現「📌 固定時段」，按一下就排到下一個還沒被占用的時段；「一次排多則」也可以照這些時段排。</p>
     ${l.length ? l.map((x, i) => `<div class="slot-row"><select data-slotw="${i}">${[1, 2, 3, 4, 5, 6, 0].map(w => `<option value="${w}" ${x.w === w ? 'selected' : ''}>每週${WEEK[w]}</option>`).join('')}</select>
       <input type="time" data-sloth="${i}" value="${x.hm}"><span class="grow"></span><button class="link danger" data-slotdel="${i}">刪除</button></div>`).join('') : '<p class="empty" style="margin:8px 0">還沒有固定時段。</p>'}
     <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button class="primary" id="slotAdd">＋ 新增時段</button>${bh ? `<button id="slotBest">⭐ 加入互動最多的時段（${bd != null ? '週' + WEEK[bd] + ' ' : ''}${bh}）</button>` : ''}</div>
-    ${l.length ? `<p class="hint-s" style="margin:12px 0 0">📅 接下來可以排的時段：${nx.length ? nx.map(t => esc(fmtTime(t))).join('、') : '都排滿了'}</p>` : ''}`;
+    ${l.length ? `<p class="hint-s" id="slotNext" style="margin:12px 0 0">${slotNextText()}</p>` : ''}`;
   const box = $('#slotBody'), upd = () => { S.slots = slotSort(S.slots); save(); renderSlots(); if (!active()) renderHome(); };
   box.querySelectorAll('[data-slotw]').forEach(x => x.onchange = () => { l[+x.dataset.slotw].w = +x.value; upd(); });
-  box.querySelectorAll('[data-sloth]').forEach(x => x.onchange = () => { if (x.value) { l[+x.dataset.sloth].hm = x.value; upd(); } });
+  // 改時間不重畫清單（重畫會把正在用的時間選擇器關掉）；點欄位任何地方都打開選擇器
+  box.querySelectorAll('[data-sloth]').forEach(x => {
+    x.onchange = () => { if (x.value) { l[+x.dataset.sloth].hm = x.value; save(); if ($('#slotNext')) $('#slotNext').textContent = slotNextText(); if (!active()) renderHome(); } };
+    x.onclick = () => { try { x.showPicker(); } catch {} };
+  });
   box.querySelectorAll('[data-slotdel]').forEach(x => x.onclick = () => { l.splice(+x.dataset.slotdel, 1); upd(); });
   $('#slotAdd').onclick = () => { l.push({ w: bd ?? 5, hm: bh || '20:00' }); upd(); };
   if ($('#slotBest')) $('#slotBest').onclick = () => { if (!l.some(x => x.w === (bd ?? 5) && x.hm === bh)) l.push({ w: bd ?? 5, hm: bh }); upd(); };
