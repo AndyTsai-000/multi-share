@@ -317,6 +317,24 @@ main { overflow: auto; min-height: 0; }
 .pp-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .pp-tools button { border-radius: 99px; padding: 6px 12px; font-size: 14px; }
 .pp-count-line { margin: 4px 0 0; }
+.ver-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+.ver-chips .chip { padding: 3px 10px; font-size: 13px; }
+.th-phone { background: #fff; color: #111; border-radius: 14px; border: 1px solid var(--line); font-size: 15px; padding: 14px 14px 10px; }
+.th-post { display: flex; gap: 10px; }
+.th-avatar { width: 36px; height: 36px; border-radius: 50%; background: #111; color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; }
+.th-main { flex: 1; min-width: 0; }
+.th-head { display: flex; align-items: baseline; gap: 8px; }
+.th-time { color: #999; font-size: 14px; }
+.th-dots { margin-left: auto; color: #333; font-weight: 700; }
+.th-text { line-height: 1.45; word-break: break-word; margin-top: 2px; }
+.th-over { color: #d33; }
+.th-link { color: #0a66c2; }
+.th-media { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; scrollbar-width: none; }
+.th-media img, .th-media video { height: 240px; max-width: 80%; border-radius: 10px; object-fit: cover; flex: none; background: #eee; }
+.th-media.one img, .th-media.one video { height: auto; max-height: 420px; max-width: 100%; }
+.th-card { border: 1px solid #ddd; border-radius: 12px; padding: 10px 12px; margin-top: 10px; display: flex; flex-direction: column; }
+.th-card small { color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-actions { display: flex; gap: 18px; font-size: 19px; padding-top: 10px; color: #333; }
 @media (max-width: 760px) { .pp-wrap { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .pe-wrap { grid-template-columns: 1fr; } .pe-stage { width: min(300px, 86%); margin: 0 auto; } }
 .se-pages { align-items: center; }
@@ -712,6 +730,11 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
   <div id="postPrevBody"></div>
 </div></div>
 
+<div class="modal-bg" id="thPrevModal"><div class="modal" style="width:min(860px,100%)">
+  <h3>👁 Threads 預覽 <button class="link" id="thPrevClose">關閉</button></h3>
+  <div id="thPrevBody"></div>
+</div></div>
+
 <div class="modal-bg" id="postEdModal"><div class="modal" style="width:min(940px,100%)">
   <h3>🎨 編輯貼文 <button class="link" id="postEdClose">關閉</button></h3>
   <div id="postEdBody"></div>
@@ -1050,7 +1073,37 @@ function postStatus(p) {
   return { cls: p.time || n ? '' : 'unsched', text: n ? `已發 ${n}/${ts.length}` : (p.time ? '⏰ 已排程' : '未排程') };
 }
 // pl：平台（ig、threads、fb、line、x）。那個平台有專用文字就用它，沒有就用共同的文字
-function fullText(p, pl) { return [(pl && p.texts?.[pl]?.trim()) || p.text.trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
+function fullText(p, pl) { return [srcText(p, textKey(p, pl)).trim(), p.link.trim()].filter(Boolean).join('\n\n'); }
+// 每個平台用哪一版文字：p.textUse[平台] = 'main'（共用文字）或某個平台版本；沒選就用自己平台的版本
+function textKey(p, pl) {
+  if (!pl) return 'main';
+  const u = p.textUse?.[pl];
+  if (u === 'main') return 'main';
+  if (u && p.texts?.[u]?.trim()) return u;
+  return p.texts?.[pl]?.trim() ? pl : 'main';
+}
+const srcText = (p, k) => k === 'main' ? p.text : (p.texts?.[k] || '');
+const verName = k => k === 'main' ? '共用文字' : (PER_TEXT.find(x => x[0] === k)?.[1] || k) + ' 版';
+// 選版本的按鈕：有其他版本才顯示
+function verChips(p, pl) {
+  const vs = ownTexts(p).map(x => x[0]); if (!vs.length || (vs.length === 1 && vs[0] === pl && !p.text.trim())) return '';
+  const cur = textKey(p, pl), ks = [...(p.text.trim() ? ['main'] : []), ...vs];
+  return `<span class="chips ver-chips">${ks.map(k => `<button class="chip ${k === cur ? 'on' : ''}" data-txuse="${pl}:${k}" title="${esc(srcText(p, k).trim().slice(0, 80))}">${esc(verName(k))}</button>`).join('')}</span>`;
+}
+function bindVer(root, p, after) {
+  root.querySelectorAll('[data-txuse]').forEach(b => b.onclick = () => {
+    const [pl, k] = b.dataset.txuse.split(':');
+    p.textUse ||= {}; p.textUse[pl] = k; save(); renderList();
+    logRemote('trace', `文字版本 ${pl}→${k}`);
+    after();
+  });
+}
+// 第 3 步：各平台用哪一版文字
+function verRows(p, plats) {
+  plats = [...new Set(plats)].filter(Boolean);
+  if (!ownTexts(p).length || !plats.length) return '';
+  return plats.map(pl => { const c = verChips(p, pl); return c ? `<div class="set-row"><b>${esc(PER_TEXT.find(x => x[0] === pl)?.[1] || pl)} 用</b>${c}</div>` : ''; }).join('');
+}
 const ownTexts = p => PER_TEXT.filter(([id]) => p.texts?.[id]?.trim());
 const hasContent = p => !!(fullText(p) || p.media.length || ownTexts(p).length);
 const textOf = (p, type) => fullText(p, platformOf(type)?.id);
@@ -1207,13 +1260,14 @@ function settingsHtml(p) {
     if (postMedia(p).length > 20) parts.push(`<p class="warn-line" style="margin:0 0 8px">全自動最多 20 個圖片影片，現在有 ${postMedia(p).length} 個。要發更多張請改用半自動。</p>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">🎨 編輯貼文（照片、標註、協作者、地點）${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button>${p.media.length ? '<button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>' : ''}</div>`);
-    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p, 'threads')].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span></div>`); }
+    parts.push(verRows(p, opts.filter(o => !isStory(o)).map(o => o.platform)));
+    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p, 'threads')].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span><button class="link" data-thopen style="color:var(--accent)">👁 預覽</button></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
     if (opts.some(isStory) && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">IG 限動要有圖片、影片，或在第 1 步做一張純文字限動</p>');
     return parts.join('');
   }
   const types = [...new Set(postTargets(p).map(t => t.type))];
-  return phoneNote(postTargets(p)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button><button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>` : ''}</div>`).join('');
+  return phoneNote(postTargets(p)) + verRows(p, types.filter(t => !/story$/.test(t)).map(t => platformOf(t)?.id)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button><button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>` : ''}${t === 'threads' ? '<button class="link" data-thopen style="color:var(--accent)">👁 預覽</button>' : ''}</div>`).join('');
 }
 function perTextHtml(p) {
   const aiBtn = `<button class="link" id="perAi" style="color:var(--accent);padding:0">✨ AI 改成各平台版本</button>`;
@@ -1222,7 +1276,7 @@ function perTextHtml(p) {
   return `<div class="row" style="gap:10px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap"><span class="hint-s grow">有寫的平台用專用文字；留空就用上面的文字。連結一樣接在最後面。</span>${aiBtn}</div>
     <div class="chips">${PER_TEXT.map(([id, label]) => `<button class="chip ${id === cur ? 'on' : ''} ${p.texts?.[id]?.trim() ? 'has' : ''}" data-pertab="${id}">${label}</button>`).join('')}</div>
     <textarea id="perTextArea" placeholder="${esc(PER_TEXT.find(x => x[0] === cur)[1])} 專用文字（留空＝用上面的文字）">${esc(v)}</textarea>
-    <div class="hint-s" id="perCount">${perCount(p)}</div>`;
+    <div class="row" style="gap:12px;align-items:baseline"><div class="hint-s grow" id="perCount">${perCount(p)}</div>${cur === 'threads' ? '<button class="link" data-thopen style="color:var(--accent);padding:0">👁 Threads 預覽</button>' : ''}</div>`;
 }
 const perCount = p => { const c = p.perTab || 'ig', n = [...(p.texts?.[c] || '')].length, max = c === 'threads' ? 500 : c === 'ig' ? 2200 : 0; return max ? `<span class="${n > max ? 'warn-line' : ''}" style="margin:0">${n}／${max} 字</span>` : ''; };
 // AI 把上面的文字改成各平台版本：有選發送對象就改那些平台，沒選就改 IG、Threads、Facebook
@@ -1252,6 +1306,7 @@ async function perAiRun(p, btn) {
 function bindPerText(p) {
   const box = $('#perText'); if (!box) return;
   if ($('#perAi')) $('#perAi').onclick = e => perAiRun(p, e.currentTarget);
+  box.querySelectorAll('[data-thopen]').forEach(x => x.onclick = () => openThPreview(p));
   if ($('#perOpen')) $('#perOpen').onclick = () => { p.perOpen = true; save(); box.innerHTML = perTextHtml(p); bindPerText(p); $('#perTextArea').focus(); };
   box.querySelectorAll('[data-pertab]').forEach(b => b.onclick = () => { p.perOpen = true; p.perTab = b.dataset.pertab; save(); box.innerHTML = perTextHtml(p); bindPerText(p); });
   if ($('#perTextArea')) $('#perTextArea').oninput = e => {
@@ -1539,6 +1594,8 @@ function bindSettings(p) {
   document.querySelectorAll('#editor [data-peopen]').forEach(x => x.onclick = () => openPostEditor(p));
   document.querySelectorAll('#editor [data-ppopen]').forEach(x => x.onclick = () => openPostPreview(p));
   document.querySelectorAll('#editor [data-spopen]').forEach(x => x.onclick = () => openStoryPreview(p));
+  document.querySelectorAll('#editor [data-thopen]').forEach(x => x.onclick = () => openThPreview(p));
+  if ($('#setCard')) bindVer($('#setCard'), p, () => renderEditorSettings(p));
   document.querySelectorAll('#editor [data-ssopen]').forEach(x => x.onclick = () => openSlide(p));
   document.querySelectorAll('#editor [data-dlall]').forEach(x => x.onclick = () => saveMedia(p.media));
   document.querySelectorAll('#editor [data-vcopen]').forEach(x => x.onclick = () => openClip(p));
@@ -1952,7 +2009,7 @@ $('#importFile').onchange = async e => {
     }
     for (const p of data.posts || []) {
       if (S.posts.some(x => x.id === p.id)) continue;
-      S.posts.push({ id: p.id || uid(), text: String(p.text || ''), ...(p.texts ? { texts: p.texts } : {}), link: String(p.link || ''), media: [], time: p.time || null,
+      S.posts.push({ id: p.id || uid(), text: String(p.text || ''), ...(p.texts ? { texts: p.texts } : {}), ...(p.textUse ? { textUse: p.textUse } : {}), link: String(p.link || ''), media: [], time: p.time || null,
         targets: (p.targets || []).filter(id => S.targets.some(t => t.id === id)), done: p.done || {}, reminded: !!p.reminded }); np++;
     }
     for (const x of data.ideas || []) { S.ideas ||= []; if (!S.ideas.some(y => y.id === x.id)) S.ideas.push({ id: x.id || uid(), text: String(x.text || ''), media: [], at: x.at || Date.now() }); }
@@ -2238,7 +2295,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1111a";
+const APP_VERSION = "v1112a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2381,7 +2438,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg, quiet = false) {
     }
     btn.textContent = '送出中⋯'; onMsg?.('送出中⋯');
     const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
-    const ownText = o => !isStory(o) && p.texts?.[o.platform]?.trim() ? { text: fullText(p, o.platform) } : {};
+    const ownText = o => !isStory(o) && textKey(p, o.platform) !== 'main' ? { text: fullText(p, o.platform) } : {};
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
       : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...ownText(o), ig: { ...igPayload(p), ...peIgExtra(p) } } : { account: o.account, kind: o.kind, ...ownText(o) });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3902,8 +3959,9 @@ async function renderPostPreview() {
         <div class="pp-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time))}</div>
       </div>
       <div class="pp-side">
-        <label class="field" for="ppText">說明文字</label>
-        <textarea id="ppText" rows="7" placeholder="寫點什麼⋯">${esc(p.text)}</textarea>
+        <label class="field" for="ppText">說明文字${textKey(p, 'ig') !== 'main' ? `（${esc(verName(textKey(p, 'ig')))}）` : ''}</label>
+        ${verChips(p, 'ig')}
+        <textarea id="ppText" rows="7" placeholder="寫點什麼⋯">${esc(srcText(p, textKey(p, 'ig')))}</textarea>
         <p class="hint-s pp-count-line">${len} / ${PP_CAP_MAX} 字・# 標籤 ${tags.length} / ${PP_TAG_MAX}・@ 提及 ${ats.length} / ${PP_AT_MAX}${p.link.trim() ? '<br>連結會接在最後面（IG 說明文字裡的連結不能點）' : ''}</p>
         ${warn.length ? `<p class="warn-line" style="margin:4px 0 0">⚠️ ${warn.join('；')}</p>` : ''}
         <div class="pp-tools">
@@ -3928,9 +3986,10 @@ async function renderPostPreview() {
   if ($('#ppMore')) $('#ppMore').onclick = () => { ctx.more = true; renderPostPreview(); };
   let typing;
   $('#ppText').oninput = e => {
-    p.text = e.target.value; save(); renderList();
+    const k = textKey(p, 'ig'); if (k === 'main') p.text = e.target.value; else p.texts[k] = e.target.value; save(); renderList();
     clearTimeout(typing); typing = setTimeout(() => { const pos = e.target.selectionStart; renderPostPreview().then(() => { const t = $('#ppText'); if (t) { t.focus(); t.setSelectionRange(pos, pos); } }); }, 500);
   };
+  bindVer($('#postPrevBody'), p, () => renderPostPreview());
   $('#ppEditPhoto').onclick = () => openPostEditor(p);
   $('#ppIgOpts').onclick = () => openIgOpts(p);
   $('#ppAi').onclick = () => openAi(p);
@@ -3960,6 +4019,74 @@ async function renderPostPreview() {
     slide.appendChild(img);
   }
 }
+
+// ===== Threads 貼文預覽：照 Threads 動態的樣子（帳號、文字、橫向照片、連結卡片），旁邊可以選版本、直接改 =====
+let thCtx = null;
+const TH_MAX = 500;
+function openThPreview(p) {
+  if (!fullText(p, 'threads') && !postMedia(p).length) return toast('先輸入文字或加入照片');
+  thCtx = { p };
+  $('#thPrevModal').classList.add('open');
+  renderThPreview();
+  logRemote('trace', 'Threads 預覽');
+}
+function closeThPreview() {
+  thCtx = null;
+  $('#thPrevModal').classList.remove('open');
+  const p = active();
+  if (p) { if ($('#perText')) { $('#perText').innerHTML = perTextHtml(p); bindPerText(p); } renderEditorSettings(p); }
+}
+function thWho() { return autoAccounts.find(a => a.platform === 'threads')?.username || autoAccounts.find(a => a.platform === 'ig')?.username || '你的帳號'; }
+function thTextHtml(t) {
+  return esc(t).replace(/(https?:\/\/[^\s<]+|@[A-Za-z0-9._]+)/g, '<span class="th-link">$1</span>').replace(/(^|\s)(#[^\s#@，。！？、,.!?&<]+)/, '$1<span class="th-link">$2</span>').replace(/\n/g, '<br>');
+}
+async function renderThPreview() {
+  const ctx = thCtx; if (!ctx) return;
+  const p = ctx.p, who = thWho(), k = textKey(p, 'threads'), body = fullText(p, 'threads'), n = [...body].length, pm = postMedia(p).slice(0, 20);
+  const tags = (body.match(/(^|\s)#[^\s#]+/g) || []).length;
+  const link = p.link.trim(), host = link ? (() => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return link; } })() : '';
+  const short = n > 500 ? [...body].slice(0, 500).join('') : body;
+  $('#thPrevBody').innerHTML = `
+    <div class="pp-wrap">
+      <div class="th-phone">
+        <div class="th-post">
+          <span class="th-avatar">${esc(who[0] || '?').toUpperCase()}</span>
+          <div class="th-main">
+            <div class="th-head"><b>${esc(who)}</b><span class="th-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time) || '剛剛')}</span><span class="th-dots">⋯</span></div>
+            ${body ? `<div class="th-text">${thTextHtml(short)}${n > 500 ? '<span class="th-over">⋯（超過 500 字的部分發不出去）</span>' : ''}</div>` : '<div class="th-text hint-s">（沒有文字）</div>'}
+            ${pm.length ? `<div class="th-media ${pm.length === 1 ? 'one' : ''}" id="thMedia"></div>` : link ? `<div class="th-card"><b>${esc(host)}</b><small>${esc(link)}</small></div>` : ''}
+            <div class="th-actions"><span>♡</span><span>💬</span><span>🔁</span><span>➤</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pp-side">
+        <label class="field" for="thText">Threads 文字${k !== 'main' ? `（${esc(verName(k))}）` : ''}</label>
+        ${verChips(p, 'threads')}
+        <textarea id="thText" rows="7" placeholder="有什麼新鮮事？">${esc(srcText(p, k))}</textarea>
+        <p class="hint-s pp-count-line"><span class="${n > TH_MAX ? 'warn-line' : ''}" style="margin:0">${n} / ${TH_MAX} 字</span>${pm.length ? `・照片影片 ${pm.length} / 20` : ''}${link ? '<br>連結會接在最後面' : ''}</p>
+        ${n > TH_MAX ? `<p class="warn-line" style="margin:4px 0 0">⚠️ Threads 一則最多 ${TH_MAX} 字，要刪掉 ${n - TH_MAX} 字</p>` : ''}
+        ${tags > 1 ? '<p class="hint-s" style="margin:4px 0 0">Threads 一則只會有 1 個主題標籤，其他 # 會變成一般文字</p>' : ''}
+        ${postMedia(p).length > 20 ? '<p class="warn-line" style="margin:4px 0 0">⚠️ Threads 最多 20 個照片影片</p>' : ''}
+        <p class="hint-s">預覽是照 Threads 動態的樣子排的；實際字體、排版會依 Threads App 顯示。</p>
+      </div>
+    </div>
+    <div class="send"><div class="nav"><span></span><button class="primary" id="thOk">✓ 完成</button></div></div>`;
+  bindVer($('#thPrevBody'), p, () => renderThPreview());
+  let typing;
+  $('#thText').oninput = e => {
+    const kk = textKey(p, 'threads'); if (kk === 'main') p.text = e.target.value; else p.texts[kk] = e.target.value; save(); renderList();
+    clearTimeout(typing); typing = setTimeout(() => { const pos = e.target.selectionStart; renderThPreview().then(() => { const t = $('#thText'); if (t) { t.focus(); t.setSelectionRange(pos, pos); } }); }, 500);
+  };
+  $('#thOk').onclick = closeThPreview;
+  const box = $('#thMedia'); if (!box) return;
+  for (const m of pm) {
+    const u = await mediaUrl(m); if (thCtx !== ctx) return;
+    const el = document.createElement(isVideo(m) ? 'video' : 'img');
+    if (isVideo(m)) { el.muted = true; el.playsInline = true; el.loop = true; el.autoplay = true; }
+    el.src = u; box.appendChild(el);
+  }
+}
+$('#thPrevClose').onclick = closeThPreview;
 
 // ===== AI 幫我寫文案（伺服器用 Cloudflare 免費 AI）=====
 // p.ai = { topic, tone, place, photo }；店家資訊存在 S.brand，每則貼文共用
@@ -4008,7 +4135,7 @@ function renderAi() {
   $('#aiBody').querySelectorAll('[data-place]').forEach(b => b.onclick = () => { a.place = b.dataset.place; save(); renderAi(); });
   $('#aiGo').onclick = aiGenerate;
   $('#aiBody').querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
-    if (ppCtx && p.texts?.ig?.trim()) p.texts.ig = versions[+b.dataset.use]; else p.text = versions[+b.dataset.use];
+    if (ppCtx && textKey(p, 'ig') !== 'main') p.texts[textKey(p, 'ig')] = versions[+b.dataset.use]; else p.text = versions[+b.dataset.use];
     save();
     $('#aiModal').classList.remove('open');
     renderEditor(); renderList(); renderBar();
@@ -6117,7 +6244,7 @@ async function dupPost(src, label = '🔁 再發', extra = {}, quiet = false) {
     media.push({ ...m, id });
   }
   const remap = o => o && JSON.parse(Object.entries(map).reduce((s, [a, b]) => s.split(a).join(b), JSON.stringify(o)));
-  const p = newPost({ kind: src.kind, text: src.text, texts: src.texts && { ...src.texts }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
+  const p = newPost({ kind: src.kind, text: src.text, texts: src.texts && { ...src.texts }, textUse: src.textUse && { ...src.textUse }, link: src.link, media, mode: src.mode, auto: [...(src.auto || [])], targets: [...(src.targets || [])],
     postEdit: remap(src.postEdit), ig: remap(src.ig), storyEdit: remap(src.storyEdit), story: src.story && { ...src.story }, label, name: src.name?.trim() ? src.name.trim() + '（複製）' : '', ...extra }, quiet);
   if (!quiet) toast('已經複製成新貼文，改一下再排程');
   return p;
@@ -6470,6 +6597,7 @@ function navCloseModal(el) {
     else if (el.id === 'musicModal') closeMusicPicker();
     else if (el.id === 'postEdModal') closePostEditor();
     else if (el.id === 'postPrevModal') closePostPreview();
+    else if (el.id === 'thPrevModal') closeThPreview();
     else if (el.id === 'spModal') closeStoryPreview();
     else if (el.id === 'insModal') closeIns();
     else if (el.id === 'tcModal') closeTc();
