@@ -269,6 +269,25 @@ main { overflow: auto; min-height: 0; }
 .mp-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-name small { color: var(--sub); font-size: 12px; }
 .media-card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sub-sec { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 12px; }
+.sub-tag { font-weight: 400; color: var(--sub); margin-left: 8px; font-size: 12px; }
+.tool-row { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; font-weight: 400; }
+.media-row { display: flex; margin-top: 12px; }
+.media-row .media-tools { margin: 0; display: inline-flex; }
+.mn { position: relative; display: inline-block; }
+.mn-pop { display: none; position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 260px; max-width: min(340px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; flex-direction: column; gap: 2px; }
+h2 .mn-pop { left: auto; right: 0; }
+.mn.open .mn-pop { display: flex; }
+.mn-it { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 0; background: none; padding: 9px 10px; border-radius: 8px; width: 100%; color: var(--ink); font-size: 14px; }
+.mn-it:hover, .mn-it.on { background: var(--soft); }
+.mn-it[hidden] { display: none; }
+.mn-it small { color: var(--sub); font-size: 12px; font-weight: 400; }
+.mn-foot { display: block; padding: 6px 10px 4px; border-top: 1px solid var(--line); margin-top: 4px; }
+@media (max-width: 760px) {
+  .step-nav.bare { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .step-nav.bare > span:empty { display: none; }
+  .mn-pop, h2 .mn-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; max-width: none; min-width: 0; }
+}
 .media-card-row .hint-s { flex: 1; min-width: 200px; color: var(--ink); }
 .media-card-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .ai-btn:disabled { opacity: .45; cursor: default; }
@@ -1269,9 +1288,18 @@ function settingsHtml(p) {
   const types = [...new Set(postTargets(p).map(t => t.type))];
   return phoneNote(postTargets(p)) + verRows(p, types.filter(t => !/story$/.test(t)).map(t => platformOf(t)?.id)) + types.map(t => `<div class="set-row" style="flex-wrap:nowrap"><span class="dot" style="background:${TYPES[t].color}"></span><span class="hint-s" style="color:var(--ink)">${MANUAL_TIP[t]}</span>${/story$/.test(t) && p.media.length ? `<button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面${p.storyEdit?.done ? ' ✓' : ''}</button><button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>` : ''}${t === 'threads' ? '<button class="link" data-thopen style="color:var(--accent)">👁 預覽</button>' : ''}</div>`).join('');
 }
+// 下拉選單：功能類似的按鈕收在一起，每一項附一行說明
+const mnIt = (attrs, title, desc) => `<button type="button" class="mn-it" ${attrs}><b>${title}</b><small>${desc}</small></button>`;
+const menuHtml = (label, items, foot = '') => `<span class="mn"><button type="button" class="ai-btn" data-menu>${label} ▾</button><span class="mn-pop">${items}${foot}</span></span>`;
+document.addEventListener('click', e => {
+  const t = e.target.closest?.('[data-menu]');
+  document.querySelectorAll('.mn.open').forEach(m => { if (!t || m !== t.parentElement) m.classList.remove('open'); });
+  if (t) t.parentElement.classList.toggle('open');
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.mn.open').forEach(m => m.classList.remove('open')); });
 function perTextHtml(p) {
   const aiBtn = `<button class="link" id="perAi" style="color:var(--accent);padding:0">✨ AI 改成各平台版本</button>`;
-  if (!p.perOpen && !ownTexts(p).length) return `<div class="row" style="gap:16px;flex-wrap:wrap"><button class="link" id="perOpen" style="color:var(--accent);padding:0">✏️ 各平台用不同文字</button>${aiBtn}</div>`;
+  if (!p.perOpen && !ownTexts(p).length) return `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:baseline"><button class="link" id="perOpen" style="color:var(--accent);padding:0">🔀 各平台用不同版本的文字</button><span class="hint-s">（IG、Threads、FB 各寫一版，可以自己寫或叫 AI 改）</span><button id="perAi" hidden></button></div>`;
   const cur = p.perTab || 'ig', v = p.texts?.[cur] || '';
   return `<div class="row" style="gap:10px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap"><span class="hint-s grow">有寫的平台用專用文字；留空就用上面的文字。連結一樣接在最後面。</span>${aiBtn}</div>
     <div class="chips">${PER_TEXT.map(([id, label]) => `<button class="chip ${id === cur ? 'on' : ''} ${p.texts?.[id]?.trim() ? 'has' : ''}" data-pertab="${id}">${label}</button>`).join('')}</div>
@@ -1326,29 +1354,29 @@ function renderEditor() {
   let body = '';
   if (p.step === 1) body = `
   ${story ? '' : `<div class="card">
-    <h2>文字</h2>
-    <div class="text-head"><label class="field" for="text">要發的文字</label><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ai-btn" id="tplOpen">📋 範本</button><button class="ai-btn" id="tagOpen"># 標籤</button><button class="ai-btn" id="aiLook" hidden>📷 AI 看圖寫</button><button class="ai-btn" id="aiOpen">✨ AI 幫我寫</button></span></div>
+    <h2>文字 <span class="tool-row">${menuHtml('✨ AI 寫文案',
+      mnIt('id="aiOpen"', '✨ AI 幫我寫', '告訴 AI 主題，寫出幾種風格讓你挑') +
+      mnIt('id="aiLook" hidden', '📷 看照片寫', 'AI 看你加的照片，幫你寫文案'))}${menuHtml('📋 範本・標籤',
+      mnIt('id="tplOpen"', '📋 套用範本', '用存好的固定格式（店名、營業時間、地址⋯）') +
+      mnIt('id="tagOpen"', '# 加標籤', '插入常用的 #主題標籤'))}</span></h2>
     <textarea id="text" placeholder="要發的文字⋯">${esc(p.text)}</textarea>
     <div class="tpl-left" id="tplLeft">${tplLeftHtml(p)}</div>
     <div class="per-text" id="perText">${perTextHtml(p)}</div>
     <label class="field" for="link" style="margin-top:12px">連結（會接在文字最後面）</label>
     <input id="link" type="url" placeholder="https://…" value="${esc(p.link)}">
   </div>`}
-  <div class="card" id="aimgCard">
-    <h2>製作圖片 <small>${story ? "沒有合適的照片時，用 AI 做一張" : "沒有合適的圖時用；AI 可以參考上面要發的文字"}</small></h2>
-    <div class="media-ai">${AIMG_MODES.map(([v, l]) => `<button class="ai-btn" data-aimgopen="${v}">${l}</button>`).join('')}<button class="ai-btn" data-tcopen>📝 文字卡片</button></div>
-    <p class="ai-left hint-s" style="margin:8px 0 0">${aiLeftHtml()}</p>
-  </div>
   <div class="card">
-    <h2>${story ? '限動的照片、影片 <small>可多選，一個檔案就是一則限動（最多 10 則）</small>' : '圖片、影片、貼圖 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small>'}</h2>
+    <h2>${story ? '限動的照片、影片 <small>可多選，一個檔案就是一則限動（最多 10 則）</small>' : '圖片、影片 <small>可多選；GIF 動圖也可以（全自動最多 20 個）</small>'}</h2>
     <div class="drop" id="drop">${IS_MOBILE ? '' : '把檔案拖到這裡，或'}<b style="color:var(--accent)">點這裡選檔案</b></div>
     <input type="file" id="file" multiple accept="image/*,video/*" hidden>
     <div class="thumbs" id="thumbs"></div>
-    <div class="media-tools" id="mediaTools">${mediaToolsHtml(p)}</div>
+    <div class="tool-row media-row"><span id="aimgCard">${menuHtml('🎨 沒有圖？做一張',
+      AIMG_MODES.map(([v, l]) => mnIt(`data-aimgopen="${v}"`, l, AIMG_DESC[v])).join('') + mnIt('data-tcopen', '📝 文字卡片', '把文字排成一張圖（不用 AI）'),
+      `<span class="ai-left hint-s mn-foot">${aiLeftHtml()}</span>`)}</span><span class="media-tools" id="mediaTools">${mediaToolsHtml(p)}</span></div>
+    ${story ? '' : `<div class="sub-sec" id="postCard">${postCardHtml(p)}</div>`}
+    ${p.kind === 'post' ? '' : `<div class="sub-sec" id="storyCard">${storyCardHtml(p)}</div>`}
   </div>
-  ${story ? '' : `<div class="card" id="postCard">${postCardHtml(p)}</div>`}
-  ${p.kind === 'post' ? '' : `<div class="card" id="storyCard">${storyCardHtml(p)}</div>`}
-  <div class="step-nav bare">${story ? '<span></span>' : '<button class="ai-btn" id="mfOpen" title="用這則的內容另外做限動版、Reels 版、Threads 短版">🔀 變成多種格式</button>'}<button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
+  <div class="step-nav bare">${story ? '<span></span>' : '<button class="ai-btn" id="mfOpen" title="用這則的內容另外做限動版、Reels 版、Threads 短版">🔀 另做限動／Reels／Threads 版</button>'}<button class="primary" data-step="2">下一步：選發送方式 →</button></div>`;
   else if (p.step === 2) body = `
   <div class="card">
     <h2>要怎麼發？</h2>
@@ -1371,7 +1399,7 @@ function renderEditor() {
       : `<p class="empty" style="margin-top:0">${story ? '全自動發限動要先連結你的 Instagram（創作者或商業帳號）。' : '全自動要先連結你的 Instagram（創作者或商業帳號）或 Threads 帳號。'}</p><button class="primary" id="autoLink">連結帳號</button>`}` : `
     <h2>發到哪裡 <small>📱 半自動${postTargets(p).length ? `・已選 ${postTargets(p).length} 個` : ''} <button class="link" data-step="2" style="padding:0 0 0 6px;color:var(--accent)">換成全自動</button></small></h2>
     ${tl.length ? `
-      ${cats.length || plats.length > 1 ? `<div class="chips" style="margin-bottom:10px">
+      ${(cats.length || plats.length > 1) && tl.length > 4 ? `<div class="chips" style="margin-bottom:10px">
         <button class="chip cat" data-cat="*">全選</button>
         ${plats.length > 1 ? plats.map(pl => `<button class="chip cat" data-plat="${pl.id}"><span class="dot" style="background:${pl.color}"></span>只選 ${pl.label}</button>`).join('') : ''}
         ${cats.map(c => `<button class="chip cat" data-cat="${esc(c)}">只選「${esc(c)}」</button>`).join('')}
@@ -1382,8 +1410,8 @@ function renderEditor() {
       }).join('')}</div>
       <p class="hint-s" style="margin:12px 0 0"><button class="link" id="manageTargets" style="color:var(--accent);padding:0">＋ 新增或修改發送對象</button></p>`
       : `<p class="empty" style="margin-top:0">${story ? '還沒有限動的發送對象（FB 限動、IG 限動）。' : S.targets.length ? '還沒有貼文的發送對象。' : '還沒有發送對象。'}</p><button class="primary" id="addFirst">${story ? '＋ 新增 FB 限動、IG 限動' : '＋ 新增 LINE、FB 社團、IG⋯'}</button>`}`}
-    <div class="step-nav"><button class="link" data-step="1">← 回去改內容</button><span></span></div>
   </div>
+  <div class="card" id="setCard">${setCardHtml(p)}</div>
   <div class="card">
     <h2>什麼時候發</h2>
     <div class="row when-row">
@@ -1394,8 +1422,7 @@ function renderEditor() {
     ${p.mode === 'auto' ? `<div class="phone-note">⚠️ <b>還沒送出</b>：選好帳號和時間後，要按右下角「<b>⚡ ${p.time ? '排程' : '立即'}自動發</b>」${autoSelected(p).some(isStory) ? '，再在限動畫面按「<b>確認</b>」' : ''}，才會送到伺服器。送出後會回到主畫面，左邊出現在「⏰ 已排程」就成功了；之後網頁和電腦都可以關掉。</div>` : ''}
     ${p.time && p.mode === 'manual' ? `<p class="hint-s" style="margin:10px 0 8px">時間到了，這個網頁開著的話會跳出來帶你發送。網頁關掉也想收到提醒，就加到手機或電腦的行事曆：</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><button id="ics">📅 加到行事曆提醒</button>${new Date(p.time) > new Date() && postTargets(p).length ? '<button class="primary" id="schedDone">✓ 完成排程，回主畫面</button>' : ''}</div>` : ''}
-  </div>
-  <div class="card" id="setCard">${setCardHtml(p)}</div>`;
+  </div>`;
   ed.innerHTML = `<div class="name-row"><input id="postName" maxlength="40" value="${esc(p.name || '')}" placeholder="✏️ 幫這則取個名字（沒填就用文字第一行）" title="貼文名稱：只顯示在這個網站的清單裡，不會發出去"></div>` + stepperHtml(p) + body;
   $('#postName').oninput = e => { p.name = e.target.value; save(); renderList(); };
   renderBar();
@@ -1491,32 +1518,36 @@ function refreshStepper(p) {
 }
 // 第 1 步的限動卡片：有圖片影片才能編輯限動畫面
 function mediaCardHtml(title, sub, desc, buttons) {
-  return `<h2>${title} <small>${sub}</small></h2>
-    <div class="media-card-row"><span class="hint-s">${desc}</span><span class="media-card-btns">${buttons}</span></div>`;
+  return `<div class="media-card-row"><span class="hint-s"><b>${title}</b>${sub ? `<small class="sub-tag">${sub}</small>` : ''}<br>${desc}</span><span class="media-card-btns">${buttons}</span></div>`;
 }
 function postCardHtml(p) {
   const has = postMedia(p).length, done = p.postEdit?.done;
-  return mediaCardHtml('貼文畫面', '要發 IG 貼文才需要',
+  return mediaCardHtml('IG 貼文畫面', '發 IG 貼文才需要',
     !has ? '先在上面加入照片或影片，就可以預覽和編輯貼文。'
-      : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '裁切比例、濾鏡、排序、標註人物；影片可以加音樂、自動字幕（在「編輯貼文」裡）',
+      : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '裁切比例、濾鏡、排序、標註人物；影片加音樂、字幕',
     `<button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 預覽貼文</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`)
 ;
 }
 // 加進來的照片影片可以再處理：只顯示用得到的
 function mediaToolsHtml(p) {
-  const ms = postMedia(p), all = p.media.length > 1 ? `<button class="ai-btn" data-dlall>💾 全部存到${IS_MOBILE ? "手機" : "電腦"}（${p.media.length}）</button>` : '';
-  if (!ms.length) return all ? `<span class="hint-s">處理：</span>${all}` : '';
+  const ms = postMedia(p), all = p.media.length > 1 ? mnIt('data-dlall', `💾 全部存到${IS_MOBILE ? '手機' : '電腦'}（${p.media.length}）`, '一次下載這則的所有照片影片') : '';
+  if (!ms.length && !all) return '';
   const vids = ms.some(isVideo), photos = ms.some(m => !isVideo(m));
-  return `<span class="hint-s">處理：</span>${vids ? '<button class="ai-btn" data-vcopen>✂️ 剪輯影片</button>' : ''}${photos ? '<button class="ai-btn" data-gdopen>▦ 切圖／九宮格</button>' : ''}${ssPhotos(p).length ? '<button class="ai-btn" data-ssopen>🎵 照片變影片</button>' : ''}<button class="ai-btn ${S.logo?.on ? 'on' : ''}" data-logoopen>🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}</button>${all}`;
+  return menuHtml(`🛠 處理照片影片${S.logo?.on ? '・Logo ✓' : ''}`,
+    (vids ? mnIt('data-vcopen', '✂️ 剪輯影片', '剪掉頭尾、調整長度') : '') +
+    (photos ? mnIt('data-gdopen', '▦ 切圖／九宮格', '一張大圖切成多張，IG 排成一整片') : '') +
+    (ssPhotos(p).length ? mnIt('data-ssopen', '🎵 照片變影片', '幾張照片配音樂，做成 Reels 影片') : '') +
+    (ms.length ? mnIt('data-logoopen', `🏷️ Logo 浮水印${S.logo?.on ? ' ✓' : ''}`, '每張圖自動蓋上你的 Logo') : '') + all);
 }
 function storyCardHtml(p) {
   const has = p.media.length, done = p.storyEdit?.done;
-  return mediaCardHtml('限時動態畫面', p.kind === 'story' ? '' : '要發 IG／FB 限動才需要',
+  return mediaCardHtml('限時動態畫面', p.kind === 'story' ? '' : '發 IG／FB 限動才需要',
     !has ? '沒有照片也可以：做一張 IG「建立」模式那種純文字限動。'
       : done ? '✓ 已經編好了，發限動時會用編好的畫面' : '加文字、貼圖、畫筆、地點時間標籤，調整照片影片的位置',
     `${has ? '<button class="ai-btn" data-spopen>👁 預覽限動</button>' : ''}<button class="ai-btn" data-seopen>${has ? '🎨 編輯限動畫面' : 'Aa 做純文字限動'}${done ? ' ✓' : ''}</button>`);
 }
 function setCardHtml(p) {
+  if (stepSelCount(p) && !settingsHtml(p)) return '';   // 沒有要另外設定的就不顯示
   return `<h2>發文設定 <small>${p.mode === 'auto' ? '⚡ 全自動' : '📱 半自動'}・${stepSelCount(p)} 個對象</small></h2>
     ${!stepSelCount(p) ? '<p class="hint-s" style="margin:0">先在上面選要發到哪裡。</p>' : settingsHtml(p) || '<p class="hint-s" style="margin:0">沒有需要另外設定的項目。</p>'}`;
 }
@@ -1580,7 +1611,7 @@ function goHome(msg) {
 function renderEditorSettings(p) {
   if (active() !== p) return;
   const card = $('#setCard');
-  if (card) card.innerHTML = setCardHtml(p);
+  if (card) { card.innerHTML = setCardHtml(p); card.hidden = !card.innerHTML; }
   const sc = $('#storyCard'), pc = $('#postCard');
   if (sc) sc.innerHTML = storyCardHtml(p);
   if (pc) pc.innerHTML = postCardHtml(p);
@@ -1644,6 +1675,7 @@ async function addFiles(p, files, extra) {
 function renderBar() {
   const p = active(), btn = $('#startSend');
   $('#delPost').hidden = !p; $('#dupPost').hidden = !p;
+  $('#delPost').title = '刪除這則貼文（全自動排程會一起取消）'; $('#dupPost').title = '複製成新的一則，內容、照片、發送對象都一樣，可以改一下再發';
   document.querySelector('.bar').classList.toggle('idle', !p);   // 主畫面沒有東西可按，底部列收起來
   if (!p) { btn.hidden = true; $('#autoSend').hidden = true; $('#lineBatch').hidden = true; $('#barInfo').textContent = ''; return; }
   const ts = postTargets(p), n = ts.length, left = ts.filter(t => !p.done?.[t.id]).length;
@@ -1659,7 +1691,9 @@ function renderBar() {
   $('#autoSend').textContent = p.time && new Date(p.time) > new Date() ? `⚡ 排程自動發（${autoN}）` : p.time ? `⚡ 時間已過，立即發（${autoN}）` : `⚡ 立即自動發（${autoN}）`;
   btn.hidden = !last || p.mode === 'auto';
   if (!last) $('#lineBatch').hidden = true;
-  btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `開始發送（${n} 個）` : '開始發送';
+  const later = p.time && new Date(p.time) > new Date();   // 排了之後的時間：這顆是「不等了，現在就發」
+  btn.textContent = left && left < n ? `繼續發送（剩 ${left} 個）` : n ? `${later ? '現在就發' : '開始發送'}（${n} 個）` : '開始發送';
+  btn.title = later ? '不等排程時間，現在就一個一個發；要等時間到再發，按「完成排程，回主畫面」' : '一個一個打開各平台，帶好文字和圖片';
   $('#barInfo').textContent = p.serverPost ? '' : p.step === 1 ? (empty ? (p.kind === 'story' ? '① 先加入照片影片，或做一張純文字限動' : '① 先輸入文字或加入圖片影片') : '① 內容好了，按「下一步：選發送方式」') : p.step === 2 ? '② 選全自動或半自動' : !stepSelCount(p) ? '③ 選要發到哪裡' : p.time ? `排程：${fmtTime(p.time)}` : '';
 }
 $('#dupPost').onclick = () => active() && dupPost(active(), '📄 複本');
@@ -2295,7 +2329,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1112b";
+const APP_VERSION = "v1113a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5166,6 +5200,7 @@ async function tcAdd() {
 // ===== AI 製圖：打字生成圖片、AI 背景＋文字卡片、照片改風格（伺服器 /ai/image，一次畫 2 張）=====
 const AIMG_MODES = [['new', '🖼️ 打字生成圖片'], ['bg', '🔤 AI 背景＋文字'], ['edit', '🎨 照片改風格']];
 const AIMG_REF = ['ref', '🎯 跟之前的貼文一樣'];
+const AIMG_DESC = { new: '打一段描述，AI 畫出一張圖', bg: 'AI 畫背景，再把你的文字放上去', edit: '把你的照片換成插畫、水彩等風格' };
 const AIMG_STYLES = { new: [['photo', '寫實照片'], ['warm', '溫馨插畫'], ['water', '水彩'], ['render', '3D 渲染'], ['minimal', '極簡']],
   edit: [['water', '水彩'], ['oil', '油畫'], ['warm', '插畫'], ['anime', '動漫'], ['film', '復古底片'], ['bw', '黑白']] };
 const AIMG_RATIOS = [['4:5', '4:5 貼文'], ['1:1', '1:1 正方形'], ['9:16', '9:16 限動']];
