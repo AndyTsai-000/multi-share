@@ -1131,12 +1131,16 @@ const textOf = (p, type) => fullText(p, platformOf(type)?.id);
 const postMedia = p => p.media.filter(m => !m.storyOnly);
 // 已排程：全自動已送到伺服器，或半自動設了時間（時間到會提醒）
 const isScheduled = p => !!p.serverPost || (p.mode !== 'auto' && !!p.time);
+const serverPosts = {};   // 伺服器回報的全自動排程狀態（要放在 schedAt 前面：網頁一打開排序就會用到）
+// 排程時間（毫秒）：自己設的時間，沒有就用伺服器回報的時間；都沒有排最後
+const schedAt = p => { const t = p.time ? new Date(p.time).getTime() : serverPosts[p.serverPost]?.run_at; return Number.isFinite(t) ? t : Infinity; };
+const bySched = (a, b) => { const x = schedAt(a), y = schedAt(b); return x === y ? 0 : x - y; };   // 兩個都沒時間時 Infinity - Infinity 會變 NaN
 
 // ===== 左側列表 =====
 function renderList() {
   const now = Date.now(), q = ($('#postSearch')?.value || '').trim().toLowerCase();
   $('#postSearch').hidden = S.posts.length < 7 && !q;
-  const sorted = [...S.posts].filter(p => !q || (postSnip(p) + ' ' + p.text).toLowerCase().includes(q)).sort((a, b) => (a.time ? new Date(a.time) : now) - (b.time ? new Date(b.time) : now));
+  const sorted = [...S.posts].filter(p => !q || (postSnip(p) + ' ' + p.text).toLowerCase().includes(q)).sort((a, b) => (schedAt(a) === Infinity ? now : schedAt(a)) - (schedAt(b) === Infinity ? now : schedAt(b)));
   const groups = [['⏰ 已排程', p => !listStatus(p).finished && isScheduled(p)], ['⚠️ 未排程', p => !listStatus(p).finished && !isScheduled(p)], ['✅ 已完成', p => listStatus(p).finished]];
   $('#postList').innerHTML = groups.map(([title, f], gi) => {
     const items = sorted.filter(f);
@@ -1557,7 +1561,7 @@ function renderHome() {
   setTimeout(navSync);
   const posts = S.posts.filter(p => !listStatus(p).finished);
   const recent = S.posts.filter(p => listStatus(p).finished).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)).slice(0, 5);
-  const sched = posts.filter(isScheduled), un = posts.filter(p => !isScheduled(p));
+  const sched = posts.filter(isScheduled).sort(bySched), un = posts.filter(p => !isScheduled(p));   // 已排程：最快要發的在最上面
   const item = (p, dup) => `<div class="home-line"><button class="home-item" data-home="${p.id}"><span class="pill ${listStatus(p).cls}">${listStatus(p).text}</span>
     <span class="snip">${esc(postSnip(p))}</span>
     <span class="hint-s">${isScheduled(p) || p.serverPost ? esc(fmtTime(p.time || (serverPosts[p.serverPost]?.run_at ? new Date(serverPosts[p.serverPost].run_at).toISOString() : null))) : ''}</span></button>
@@ -1740,7 +1744,7 @@ function renderClear() {
   $('#clrBody').innerHTML = !S.posts.length ? '<p class="empty" style="margin-top:0">沒有貼文。</p>' : `
     <div class="chips" style="margin-bottom:6px"><span class="hint-s" style="align-self:center">一次勾選：</span>${quick.map(([k, l, f]) => { const c = S.posts.filter(f).length; return `<button class="chip cat" data-clrq="${k}" ${c ? '' : 'disabled'}>${l}（${c}）</button>`; }).join('')}
       ${n ? '<button class="chip cat" data-clrq="none">清除勾選</button>' : ''}</div>
-    ${groups.map(([title, f]) => { const ps = S.posts.filter(f); return ps.length ? `<div class="pick-label">${title} ${ps.length}</div>${ps.map(p => `<label class="clr-row"><input type="checkbox" data-clr="${p.id}" ${clrSel.has(p.id) ? 'checked' : ''}>
+    ${groups.map(([title, f]) => { const ps = S.posts.filter(f).sort(bySched); return ps.length ? `<div class="pick-label">${title} ${ps.length}</div>${ps.map(p => `<label class="clr-row"><input type="checkbox" data-clr="${p.id}" ${clrSel.has(p.id) ? 'checked' : ''}>
       <span class="snip">${esc(postSnip(p))}</span><span class="pill ${listStatus(p).cls}">${listStatus(p).text}</span></label>`).join('')}` : ''; }).join('')}
     ${autoN ? `<p class="phone-note">⚡ 勾選的有 <b>${autoN} 則已經排好全自動發送</b>，刪除時會一起取消，不會發出去。</p>` : ''}
     <p class="hint-s">只刪除這個網站裡的貼文和檔案；已經發到 IG、Threads、FB、LINE 上的貼文不會被刪掉。</p>
@@ -2327,10 +2331,9 @@ const AUTO_KINDS = [
   { platform: 'threads', kind: 'post', label: 'Threads', color: '#111827' },
 ];
 let session = '', autoAccounts = [];
-const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1117b";
+const APP_VERSION = "v1117c";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
