@@ -2330,7 +2330,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1117a";
+const APP_VERSION = "v1117b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2425,14 +2425,30 @@ async function submitAuto(p) {
   if (opts.some(o => o.platform === 'threads') && [...fullText(p, 'threads')].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
   if (postMedia(p).length > 20) { toast('自動發最多 20 個圖片影片'); logRemote('trace', '擋下：超過 20 個'); return alert('⚠️ 還沒送出\n\n自動發貼文最多 20 個圖片影片'); }
   if (opts.some(isStory) && p.media.length > 10) { toast('限動一次最多 10 則'); return alert('⚠️ 還沒送出\n\n限動一次最多 10 則'); }
-  // 有 IG 貼文：先看貼文預覽；有 IG 限動：再編輯、確認限動畫面；都確認了才送出
-  if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) return openPostPreview(p, opts);
-  if (opts.some(isStory)) return openStoryEditor(p, opts);
+  // 送出前每個平台各看一次自己的預覽：IG 貼文 → Threads → IG 限動；都確認了才送出
+  if (CONFIRM_STEPS.some(([, f]) => opts.some(f))) return confirmFrom(p, opts, 0);
   const when = autoWhen(p);
   logRemote('trace', '跳出確認視窗');
   if (!confirm(`確定要在「${when}」自動發到：\n${opts.map(o => `・${o.label} @${o.username}`).join('\n')}\n\n送出後時間到就會自動發出。`)) { logRemote('trace', '確認視窗按了取消'); return; }
   await sendAuto(p, opts, null);
 }
+const CONFIRM_STEPS = [['IG 貼文', o => o.platform === 'ig' && o.kind === 'post'], ['Threads', o => o.platform === 'threads'], ['限動', isStory]];
+const confirmNextIdx = (opts, from) => CONFIRM_STEPS.findIndex(([, f], i) => i >= from && opts.some(f));
+// 從第 from 步開始，打開下一個要確認的預覽；都確認完就送出
+async function confirmFrom(p, opts, from) {
+  const i = confirmNextIdx(opts, from);
+  if (i === 0) return openPostPreview(p, opts);
+  if (i === 1) return openThPreview(p, opts);
+  if (i === 2) return openStoryEditor(p, opts);
+  await sendAuto(p, opts, null);
+}
+// 確認按鈕上的字：還有下一步就寫「下一步：Threads」，沒有就寫「確認，排程自動發」
+function confirmOkLabel(p, opts, step, what) {
+  const n = confirmNextIdx(opts, step + 1);
+  return n >= 0 ? `✓ ${what}沒問題，下一步：${CONFIRM_STEPS[n][0]}` : `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發`;
+}
+const confirmBox = (p, opts, step) => { const n = confirmNextIdx(opts, step + 1);
+  return `<div class="box hint-s" style="margin-top:12px"><b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${opts.map(x => `${x.label} @${esc(x.username)}`).join('、')}${n >= 0 ? `<br>確認後，接著看 ${CONFIRM_STEPS[n][0]} 的預覽。` : ''}</div>`; };
 const autoWhen = p => !p.time || new Date(p.time) < Date.now() ? '現在' : fmtTime(p.time);
 
 async function uploadMedia(blob, type) {
@@ -4007,9 +4023,9 @@ async function renderPostPreview() {
         <p class="hint-s">預覽是照 IG 動態的樣子排的；實際字體、按讚數等會依 IG App 顯示。</p>
       </div>
     </div>
-    ${opts ? `<div class="box hint-s" style="margin-top:12px"><b style="color:var(--ink)">${esc(autoWhen(p))}</b> 自動發到：${opts.map(x => `${x.label} @${esc(x.username)}`).join('、')}${stories ? '<br>確認貼文後，接著確認限動畫面。' : ''}</div>` : ''}
+    ${opts ? confirmBox(p, opts, 0) : ''}
     <div class="send"><div class="nav"><button class="link" id="ppCancel">${opts ? '先不要' : '關閉'}</button>
-      <button class="primary" id="ppOk" ${opts && warn.length ? 'disabled' : ''}>${opts ? (stories ? '✓ 貼文沒問題，下一步：限動' : `✓ 確認，${autoWhen(p) === '現在' ? '立即' : '排程'}自動發`) : '✓ 完成'}</button></div></div>`;
+      <button class="primary" id="ppOk" ${opts && warn.length ? 'disabled' : ''}>${opts ? confirmOkLabel(p, opts, 0, '貼文') : '✓ 完成'}</button></div></div>`;
   const go = d => { ctx.i += d; renderPostPreview(); };
   if ($('#ppPrev')) $('#ppPrev').onclick = () => go(-1);
   if ($('#ppNext')) $('#ppNext').onclick = () => go(1);
@@ -4033,9 +4049,8 @@ async function renderPostPreview() {
     const o2 = ctx.opts;
     closePostPreview();
     if (!o2) return toast('貼文看起來沒問題');
-    if (o2.some(isStory)) return openStoryEditor(p, o2);
     logRemote('trace', '貼文預覽按了確認');
-    await sendAuto(p, o2, null);
+    await confirmFrom(p, o2, 1);
   };
   // 照片（全自動會發的就是這個版本）
   const m = pm[ctx.i], slide = $('#ppSlide');
@@ -4058,9 +4073,9 @@ async function renderPostPreview() {
 // ===== Threads 貼文預覽：照 Threads 動態的樣子（帳號、文字、橫向照片、連結卡片），旁邊可以選版本、直接改 =====
 let thCtx = null;
 const TH_MAX = 500;
-function openThPreview(p) {
+function openThPreview(p, opts = null) {
   if (!fullText(p, 'threads') && !postMedia(p).length) return toast('先輸入文字或加入照片');
-  thCtx = { p };
+  thCtx = { p, opts };
   $('#thPrevModal').classList.add('open');
   renderThPreview();
   logRemote('trace', 'Threads 預覽');
@@ -4071,13 +4086,13 @@ function closeThPreview() {
   const p = active();
   if (p) { if ($('#perText')) { $('#perText').innerHTML = perTextHtml(p); bindPerText(p); } renderEditorSettings(p); }
 }
-function thWho() { return autoAccounts.find(a => a.platform === 'threads')?.username || autoAccounts.find(a => a.platform === 'ig')?.username || '你的帳號'; }
+function thWho(opts) { return (opts || []).find(o => o.platform === 'threads')?.username || autoAccounts.find(a => a.platform === 'threads')?.username || autoAccounts.find(a => a.platform === 'ig')?.username || '你的帳號'; }
 function thTextHtml(t) {
   return esc(t).replace(/(https?:\/\/[^\s<]+|@[A-Za-z0-9._]+)/g, '<span class="th-link">$1</span>').replace(/(^|\s)(#[^\s#@，。！？、,.!?&<]+)/, '$1<span class="th-link">$2</span>').replace(/\n/g, '<br>');
 }
 async function renderThPreview() {
   const ctx = thCtx; if (!ctx) return;
-  const p = ctx.p, who = thWho(), k = textKey(p, 'threads'), body = fullText(p, 'threads'), n = [...body].length, pm = postMedia(p).slice(0, 20);
+  const p = ctx.p, opts = ctx.opts, who = thWho(opts), k = textKey(p, 'threads'), body = fullText(p, 'threads'), n = [...body].length, pm = postMedia(p).slice(0, 20);
   const tags = (body.match(/(^|\s)#[^\s#]+/g) || []).length;
   const link = p.link.trim(), host = link ? (() => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return link; } })() : '';
   const short = n > 500 ? [...body].slice(0, 500).join('') : body;
@@ -4105,14 +4120,21 @@ async function renderThPreview() {
         <p class="hint-s">預覽是照 Threads 動態的樣子排的；實際字體、排版會依 Threads App 顯示。</p>
       </div>
     </div>
-    <div class="send"><div class="nav"><span></span><button class="primary" id="thOk">✓ 完成</button></div></div>`;
+    ${opts ? confirmBox(p, opts, 1) : ''}
+    <div class="send"><div class="nav">${opts ? '<button class="link" id="thCancel">先不要</button>' : '<span></span>'}<button class="primary" id="thOk" ${opts && n > TH_MAX ? 'disabled' : ''}>${opts ? confirmOkLabel(p, opts, 1, 'Threads ') : '✓ 完成'}</button></div></div>`;
   bindVer($('#thPrevBody'), p, () => renderThPreview());
   let typing;
   $('#thText').oninput = e => {
     const kk = textKey(p, 'threads'); if (kk === 'main') p.text = e.target.value; else p.texts[kk] = e.target.value; save(); renderList();
     clearTimeout(typing); typing = setTimeout(() => { const pos = e.target.selectionStart; renderThPreview().then(() => { const t = $('#thText'); if (t) { t.focus(); t.setSelectionRange(pos, pos); } }); }, 500);
   };
-  $('#thOk').onclick = closeThPreview;
+  if ($('#thCancel')) $('#thCancel').onclick = closeThPreview;
+  $('#thOk').onclick = async () => {
+    closeThPreview();
+    if (!opts) return;
+    logRemote('trace', 'Threads 預覽按了確認');
+    await confirmFrom(p, opts, 2);
+  };
   const box = $('#thMedia'); if (!box) return;
   for (const m of pm) {
     const u = await mediaUrl(m); if (thCtx !== ctx) return;
