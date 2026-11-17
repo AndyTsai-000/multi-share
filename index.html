@@ -700,6 +700,7 @@ aside footer button:hover { background: var(--hint); color: var(--ink); }
 
 /* AI 剩餘次數、每週摘要 */
 .ai-left { font-size: 12px; font-weight: 400; color: var(--sub); }
+.ai-older { margin: 6px 0 0; }
 .ai-left.out { color: var(--warn-ink); }
 .modal h3 .ai-left { margin-left: auto; }
 .ins-week { border: 1px solid var(--soft-line); background: var(--soft); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
@@ -2329,7 +2330,7 @@ let session = '', autoAccounts = [];
 const serverPosts = {};
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1113a";
+const APP_VERSION = "v1117a";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4158,9 +4159,9 @@ function renderAi() {
     ${ph ? `<label class="row" style="margin-top:12px;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="aiPhoto" style="width:auto" ${a.photo ? 'checked' : ''}> 讓 AI 看${isVideo(ph) ? '影片畫面' : '第一張照片'}，依內容來寫</label>` : ''}
     <label class="field" for="aiBrand" style="margin-top:12px">固定放在文末的資訊（選填，例如店名、電話；不需要就留空）</label>
     <input id="aiBrand" placeholder="例如：○○工作室｜04-1234-5678｜LINE ID：abc" value="${esc(S.brand || '')}">
-    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="primary" id="aiGo" ${busy ? 'disabled' : ''}>${versions.length ? '🔄 再寫 3 個' : a.tone === 'all' ? '✨ 寫 3 種風格' : '✨ 寫 3 個版本'}</button></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end;align-items:baseline;gap:10px">${versions.length ? '<span class="hint-s grow" style="margin:0">再寫會換不同的開頭和寫法，剛才寫的也會留在下面</span>' : ''}<button class="primary" id="aiGo" ${busy ? 'disabled' : ''}>${versions.length ? '🔄 換 3 個不一樣的' : a.tone === 'all' ? '✨ 寫 3 種風格' : '✨ 寫 3 個版本'}</button></div>
     ${busy ? `<div class="ai-wait">AI 寫作中，大約 10～20 秒⋯</div>` : ''}
-    ${versions.length && !busy ? `<div class="ai-vers">${versions.map((v, i) => `<div class="ai-ver">${styles && AI_STYLE_NAMES[i] ? `<span class="ai-style">${AI_STYLE_NAMES[i]}</span>` : ''}${esc(v)}<div class="row"><button class="primary" data-use="${i}">用這個</button></div></div>`).join('')}</div>
+    ${versions.length && !busy ? `<div class="ai-vers">${versions.map((v, i) => `${i && i === aiCtx.newN ? '<p class="hint-s ai-older">↓ 之前寫的</p>' : ''}<div class="ai-ver">${styles && i < (aiCtx.newN ?? 3) && aiCtx.newN === 3 && AI_STYLE_NAMES[i] ? `<span class="ai-style">${AI_STYLE_NAMES[i]}</span>` : ''}${esc(v)}<div class="row"><button class="primary" data-use="${i}">用這個</button></div></div>`).join('')}</div>
       <p class="hint-s">AI 寫的內容請看過再發，價格、日期這些資訊要再確認一次。</p>` : ''}`;
   $('#aiTopic').oninput = e => { a.topic = e.target.value; save(); };
   $('#aiBrand').oninput = e => { S.brand = e.target.value; save(); };
@@ -4196,10 +4197,16 @@ async function aiGenerate() {
   try {
     const image = useImg ? await aiImage(ph).catch(() => '') : '';
     const r = await fetch(API + '/ai/caption', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic: a.topic, tone: a.tone, styles: a.tone === 'all', place: a.place, brand: S.brand || '', draft: p.text, image }) });
+      body: JSON.stringify({ topic: a.topic, tone: a.tone, styles: a.tone === 'all', place: a.place, brand: S.brand || '', draft: p.text, image, avoid: ctx.versions.slice(0, 9) }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '連不上 AI，請檢查網路');
-    ctx.versions = j.versions; ctx.styles = a.tone === 'all';
+    // 新的放上面，舊的留在下面（不浪費），跟舊的一樣的去掉；最多留 9 個
+    const key = v => v.replace(/\s+/g, ''), had = new Set(ctx.versions.map(key));
+    const fresh = (j.versions || []).filter(v => { const k = key(v); if (had.has(k)) return false; had.add(k); return true; });
+    const all = [...fresh, ...ctx.versions];
+    ctx.newN = fresh.length;
+    ctx.versions = all.slice(0, 9); ctx.styles = a.tone === 'all';
+    logRemote('trace', `AI 文案 ${j.versions?.length || 0} 個${ctx.versions.length > 3 ? '（再寫）' : ''}`);
   } catch (e) {
     toast(e.message === 'Failed to fetch' ? '連不上 AI，請檢查網路' : e.message);
   }
