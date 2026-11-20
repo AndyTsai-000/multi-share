@@ -55,6 +55,11 @@ aside .new { flex: 1; min-width: 0; padding-left: 6px; padding-right: 6px; }
 .group-title { font-size: 12px; color: var(--sub); margin: 14px 6px 6px; font-weight: 600; display: flex; justify-content: space-between; }
 .group-title span { font-weight: 400; }
 .group-title.warn { color: #e0901a; }
+button.group-title { width: calc(100% - 16px) !important; background: none; border: 0; padding: 4px 0; cursor: pointer; font-family: inherit; text-align: left; align-items: center; gap: 6px; }
+button.group-title:hover { color: var(--text); }
+button.group-title .gt-arrow { display: inline-block; width: 14px; font-size: 15px; line-height: 1; text-align: center; font-weight: 400; transition: transform .15s; }
+button.group-title.folded .gt-arrow { transform: rotate(-90deg); }
+button.group-title .gt-name { flex: 1; }
 .group-hint { font-size: 11px; color: var(--sub); margin: -4px 6px 6px; }
 .pill.unsched { background: rgba(245, 166, 35, .18); color: #e0901a; }
 .ver { font-size: 11px; color: var(--sub); text-align: center; opacity: .7; }
@@ -1141,11 +1146,15 @@ function renderList() {
   const now = Date.now(), q = ($('#postSearch')?.value || '').trim().toLowerCase();
   $('#postSearch').hidden = S.posts.length < 7 && !q;
   const sorted = [...S.posts].filter(p => !q || (postSnip(p) + ' ' + p.text).toLowerCase().includes(q)).sort((a, b) => (schedAt(a) === Infinity ? now : schedAt(a)) - (schedAt(b) === Infinity ? now : schedAt(b)));
-  const groups = [['⏰ 已排程', p => !listStatus(p).finished && isScheduled(p)], ['⚠️ 未排程', p => !listStatus(p).finished && !isScheduled(p)], ['✅ 已完成', p => listStatus(p).finished]];
-  $('#postList').innerHTML = groups.map(([title, f], gi) => {
+  const groups = [['sched', '⏰ 已排程', p => !listStatus(p).finished && isScheduled(p)], ['un', '⚠️ 未排程', p => !listStatus(p).finished && !isScheduled(p)], ['done', '✅ 已完成', p => listStatus(p).finished]];
+  const fold = listFold();
+  $('#postList').innerHTML = groups.map(([key, title, f], gi) => {
     const items = sorted.filter(f);
     if (!items.length) return '';
-    return `<div class="group-title ${gi === 1 ? 'warn' : ''}">${title}<span>${items.length}</span></div>` + (gi === 1 ? '<p class="group-hint">還沒排好、也還沒發出去</p>' : '') + items.map(p => {
+    const folded = !q && fold[key];   // 搜尋時全部展開，才找得到
+    const head = `<button type="button" class="group-title ${gi === 1 ? 'warn' : ''} ${folded ? 'folded' : ''}" data-fold="${key}" aria-expanded="${!folded}" title="${folded ? '展開' : '收起來'}"><span class="gt-arrow">▾</span><span class="gt-name">${title}</span><span>${items.length}</span></button>`;
+    if (folded) return head;
+    return head + (gi === 1 ? '<p class="group-hint">還沒排好、也還沒發出去</p>' : '') + items.map(p => {
       const st = listStatus(p);
       const snip = postSnip(p);
       return `<button class="post-item ${p.id === S.activeId ? 'active' : ''}" data-id="${p.id}">${ltHtml(p)}<div class="pi-body">
@@ -1190,7 +1199,11 @@ async function withVideoFrame(b, fn) {
 $('#postSearch').oninput = () => renderList();
 $('#menuBtn').onclick = () => { $('aside').classList.toggle('open'); $('#menuBtn').textContent = $('aside').classList.contains('open') ? '✕ 關閉' : '☰ 清單'; };
 const closeMenu = () => { $('aside').classList.remove('open'); $('#menuBtn').textContent = '☰ 清單'; };
+// 左邊清單分組收合：只記在這台電腦的瀏覽器（UI 偏好）
+function listFold() { try { return JSON.parse(localStorage.getItem('ms_listFold') || '{}') || {}; } catch { return {}; } }
 $('#postList').onclick = e => {
+  const g = e.target.closest('[data-fold]');
+  if (g) { const fold = listFold(); fold[g.dataset.fold] = !fold[g.dataset.fold]; try { localStorage.setItem('ms_listFold', JSON.stringify(fold)); } catch {} renderList(); return; }
   const b = e.target.closest('.post-item'); if (!b) return;
   closeMenu(); S.activeId = b.dataset.id; save(); renderAll();
 };
@@ -2333,7 +2346,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1117c";
+const APP_VERSION = "v1120";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
