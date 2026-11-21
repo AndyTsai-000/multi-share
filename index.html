@@ -2348,7 +2348,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1121";
+const APP_VERSION = "v1121b";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -3346,7 +3346,7 @@ async function seEncodeVideo(fr, blob, onTick, o = {}) {
     const g = c.getContext('2d'), lg = !o.draw && !o.noLogo ? await logoReady() : null;
     // 固定每秒 30 格、每格間隔一樣：原影片 60 格就照時間挑；電腦忙漏掉的格子補上一格，影片節奏才不會亂（不平均的影片上傳後播起來會卡）
     const FPS = 30;
-    let last = -1, n = 0;
+    let last = -1, n = 0, seekFor = -1, prevT = -1, fd = Infinity;   // prevT 上一個收到的畫面時間、fd 原影片每格的間隔
     await new Promise((res, rej) => {
       let finished = false, moved = Date.now();
       const end = () => { if (!finished) { finished = true; clearInterval(watch); res(); } };
@@ -3359,7 +3359,19 @@ async function seEncodeVideo(fr, blob, onTick, o = {}) {
         if (finished) return;
         if (err) { finished = true; clearInterval(watch); return rej(err); }
         const t = meta?.mediaTime ?? v.currentTime;
+        const next = () => v.requestVideoFrameCallback ? v.requestVideoFrameCallback(onFrame) : requestAnimationFrame(() => onFrame(0, null));
+        // 原影片真的跳過了格子（電腦忙、影片自己往前跑了）：倒回漏掉的那一格重抓，每一格都是真的畫面
+        // 同一格只倒回一次，免得解不開的檔案一直重來；24 格轉 30 格本來就要沿用上一格，不算漏
+        const skipped = prevT >= 0 && t - prevT > fd * 1.5;
+        if (t > prevT) { if (prevT >= 0 && !skipped) fd = Math.min(fd, t - prevT); prevT = t; }
+        if (v.requestVideoFrameCallback && skipped && t < limit && n / FPS < t - 0.5 / FPS && seekFor !== n) {
+          v.pause(); seekFor = n; last = n / FPS - 1 / FPS; prevT = -1; moved = Date.now();
+          next(); v.currentTime = n / FPS + 0.001;
+          return;
+        }
         if (t > last && t < limit && n / FPS <= t + 0.5 / FPS) {
+          // 先暫停：處理這一格的時候影片不會自己往前跑，才不會漏格
+          v.pause();
           last = t; moved = Date.now();
           const ft = Math.min(t, n / FPS);   // 字幕照這一格的時間
           if (o.draw) o.draw(g, v, SW, SH, ft);
@@ -3370,15 +3382,14 @@ async function seEncodeVideo(fr, blob, onTick, o = {}) {
             venc.encode(f, { keyFrame: n % 60 === 0 }); f.close(); n++;
           }
           onTick?.(t, limit);
-          // 電腦壓不夠快時先暫停播放，等它跟上，才不會漏掉畫面
-          if (venc.encodeQueueSize > 12) {
-            v.pause();
-            while (venc.encodeQueueSize > 3 && !err) await new Promise(r => setTimeout(r, 15));
-            await v.play().catch(() => {});
-          }
+          // 電腦壓不夠快：等它跟上再繼續播
+          while (venc.encodeQueueSize > 6 && !err) await new Promise(r => setTimeout(r, 10));
+          if (t >= limit || v.ended || finished) return end();
+          next(); await v.play().catch(() => {});
+          return;
         }
         if (t >= limit || v.ended) { v.pause(); return end(); }
-        v.requestVideoFrameCallback ? v.requestVideoFrameCallback(onFrame) : requestAnimationFrame(() => onFrame(0, null));
+        next();
       };
       v.onended = () => setTimeout(end, 50);
       v.play().then(() => onFrame(0, null), e => { finished = true; clearInterval(watch); rej(e); });
@@ -3621,12 +3632,15 @@ async function peExportImage(p, m) {
   logoDraw(c.getContext('2d'), W, H, false, await logoReady());
   return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
 }
+// 影片處理方式的版本：改了輸出方式就加 1，之前做好的影片會自動從原檔重做（v1121 改成固定每秒 30 格，舊的會卡）
+const VENC = 2;
 // 影片的音樂、字幕、Logo：設定跟上次做好的不一樣才重做；原本的影片另外存著，全部拿掉時換回來
 const peMusicKey = (p, m) => {
   const it = p.postEdit?.items[m.id] || {}, k = {};
   if (it.music) k.music = it.music;
   if (it.subs?.list?.length) k.subs = it.subs;
   if (logoVideo(m)) k.logo = S.logo.ver;
+  if (Object.keys(k).length) k.enc = VENC;
   return Object.keys(k).length ? JSON.stringify(k) : '';
 };
 const peNeedMusic = p => postMedia(p).some(m => isVideo(m) && peMusicKey(p, m) !== (m.mus || ''));
@@ -4738,7 +4752,7 @@ function renderAuto() {
 const LOGO_POS = [['tl', '左上'], ['tr', '右上'], ['bl', '左下'], ['br', '右下']];
 let logoP = null, logoCur = null;
 const logoSet = () => S.logo ||= { on: false, pos: 'br', size: 0.18, alpha: 0.9, video: false, ver: 1 };
-const logoKey = () => S.logo?.on ? ':L' + S.logo.ver : '';
+const logoKey = () => (S.logo?.on ? ':L' + S.logo.ver : '') + ':e' + VENC;   // 處理好的檔案要不要沿用：Logo 或影片處理方式（VENC）改了就重做
 function logoReady() {
   if (!S.logo?.on) return Promise.resolve(null);
   return logoP ||= mediaBlob({ id: 'logo-img' }).then(b => b ? createImageBitmap(b) : null).then(b => logoCur = b).catch(() => null);
