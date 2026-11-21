@@ -2348,7 +2348,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1120b";
+const APP_VERSION = "v1121";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -3344,6 +3344,8 @@ async function seEncodeVideo(fr, blob, onTick, o = {}) {
     venc.configure(vcfg);
     const c = document.createElement('canvas'); c.width = SW; c.height = SH;
     const g = c.getContext('2d'), lg = !o.draw && !o.noLogo ? await logoReady() : null;
+    // 固定每秒 30 格、每格間隔一樣：原影片 60 格就照時間挑；電腦忙漏掉的格子補上一格，影片節奏才不會亂（不平均的影片上傳後播起來會卡）
+    const FPS = 30;
     let last = -1, n = 0;
     await new Promise((res, rej) => {
       let finished = false, moved = Date.now();
@@ -3357,13 +3359,16 @@ async function seEncodeVideo(fr, blob, onTick, o = {}) {
         if (finished) return;
         if (err) { finished = true; clearInterval(watch); return rej(err); }
         const t = meta?.mediaTime ?? v.currentTime;
-        if (t > last && t < limit) {
+        if (t > last && t < limit && n / FPS <= t + 0.5 / FPS) {
           last = t; moved = Date.now();
-          if (o.draw) o.draw(g, v, SW, SH, t);
-          else { seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null); if (fr.subs) subDraw(g, SW, SH, fr.subs, t); logoDraw(g, SW, SH, true, lg); }
+          const ft = Math.min(t, n / FPS);   // 字幕照這一格的時間
+          if (o.draw) o.draw(g, v, SW, SH, ft);
+          else { seDrawFrame(g, fr, v, v.videoWidth, v.videoHeight, null); if (fr.subs) subDraw(g, SW, SH, fr.subs, ft); logoDraw(g, SW, SH, true, lg); }
           // 一定要給 duration：新版 Chrome／Edge（157）沒給的話 chunk.duration 是 null，MP4 打包會整格丟掉
-          const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / 30) });
-          venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close();
+          while (n / FPS <= t + 0.5 / FPS && n / FPS < limit) {
+            const f = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+            venc.encode(f, { keyFrame: n % 60 === 0 }); f.close(); n++;
+          }
           onTick?.(t, limit);
           // 電腦壓不夠快時先暫停播放，等它跟上，才不會漏掉畫面
           if (venc.encodeQueueSize > 12) {
@@ -5067,7 +5072,8 @@ async function vcEncode(clips, speed, mute, onTick, isCancel) {
   venc.configure(vcfg);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'), lg = await logoReady();
-  const put = ts => { const f = new VideoFrame(cv, { timestamp: Math.round(ts * 1e6), duration: Math.round(1e6 / 30) }); /* 要給 duration（見 seEncodeVideo）*/ venc.encode(f, { keyFrame: n++ % 60 === 0 }); f.close(); lastTs = ts; };
+  // 固定每秒 30 格（見 seEncodeVideo）：第 n 格的時間一定是 n/30 秒；畫面不夠（慢動作、電腦忙）就重複上一格
+  const put = () => { const f = new VideoFrame(cv, { timestamp: Math.round(n * 1e6 / 30), duration: Math.round(1e6 / 30) }); /* 要給 duration（見 seEncodeVideo）*/ venc.encode(f, { keyFrame: n % 60 === 0 }); f.close(); n++; };
   for (const x of clips) {
     await vcPlayClip(x, speed, async (v, t) => {
       g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
@@ -5076,9 +5082,8 @@ async function vcEncode(clips, speed, mute, onTick, isCancel) {
       logoDraw(g, W, H, false, lg);
       const ts = base + (t - x.a) / speed;
       if (ts <= lastTs) return;
-      // 慢動作時畫面不夠：補幾格，維持每秒至少 30 格（IG 規定 23 格以上）
-      if (lastTs >= 0) for (let k = lastTs + 1 / 30; k < ts - 0.004; k += 1 / 30) put(k);
-      put(ts);
+      lastTs = ts;
+      while (n / 30 <= ts + 0.5 / 30) put();
       onTick?.(Math.min(1, ts / total));
       if (venc.encodeQueueSize > 12) { v.pause(); while (venc.encodeQueueSize > 3 && !err) await new Promise(r => setTimeout(r, 15)); await v.play().catch(() => {}); }
     }, () => err, isCancel);
