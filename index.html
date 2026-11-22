@@ -2348,7 +2348,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1121b";
+const APP_VERSION = "v1122";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2509,7 +2509,8 @@ async function sendAuto(p, opts, storyBlobs, onMsg, quiet = false) {
     const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
     const ownText = o => !isStory(o) && textKey(p, o.platform) !== 'main' ? { text: fullText(p, o.platform) } : {};
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
-      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...ownText(o), ig: { ...igPayload(p), ...peIgExtra(p) } } : { account: o.account, kind: o.kind, ...ownText(o) });
+      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...ownText(o), ig: { ...igPayload(p), ...peIgExtra(p) } }
+      : { account: o.account, kind: o.kind, ...ownText(o), ...(o.platform === 'threads' && p.thTopic ? { topic: p.thTopic } : {}) });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
@@ -4124,13 +4125,13 @@ function closeThPreview() {
   if (p) { if ($('#perText')) { $('#perText').innerHTML = perTextHtml(p); bindPerText(p); } renderEditorSettings(p); }
 }
 function thWho(opts) { return (opts || []).find(o => o.platform === 'threads')?.username || autoAccounts.find(a => a.platform === 'threads')?.username || autoAccounts.find(a => a.platform === 'ig')?.username || '你的帳號'; }
-function thTextHtml(t) {
-  return esc(t).replace(/(https?:\/\/[^\s<]+|@[A-Za-z0-9._]+)/g, '<span class="th-link">$1</span>').replace(/(^|\s)(#[^\s#@，。！？、,.!?&<]+)/, '$1<span class="th-link">$2</span>').replace(/\n/g, '<br>');
+function thTextHtml(t, noTag) {
+  return esc(t).replace(/(https?:\/\/[^\s<]+|@[A-Za-z0-9._]+)/g, '<span class="th-link">$1</span>').replace(noTag ? /(?!)/ : /(^|\s)(#[^\s#@，。！？、,.!?&<]+)/, '$1<span class="th-link">$2</span>').replace(/\n/g, '<br>');
 }
 async function renderThPreview() {
   const ctx = thCtx; if (!ctx) return;
   const p = ctx.p, opts = ctx.opts, who = thWho(opts), k = textKey(p, 'threads'), body = fullText(p, 'threads'), n = [...body].length, pm = postMedia(p).slice(0, 20);
-  const tags = (body.match(/(^|\s)#[^\s#]+/g) || []).length;
+  const tagList = body.match(/(^|\s)#[^\s#]+/g) || [], tags = tagList.length, firstTag = (tagList[0] || '').trim().slice(1);
   const link = p.link.trim(), host = link ? (() => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return link; } })() : '';
   const short = n > 500 ? [...body].slice(0, 500).join('') : body;
   $('#thPrevBody').innerHTML = `
@@ -4139,8 +4140,8 @@ async function renderThPreview() {
         <div class="th-post">
           <span class="th-avatar">${esc(who[0] || '?').toUpperCase()}</span>
           <div class="th-main">
-            <div class="th-head"><b>${esc(who)}</b><span class="th-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time) || '剛剛')}</span><span class="th-dots">⋯</span></div>
-            ${body ? `<div class="th-text">${thTextHtml(short)}${n > 500 ? '<span class="th-over">⋯（超過 500 字的部分發不出去）</span>' : ''}</div>` : '<div class="th-text hint-s">（沒有文字）</div>'}
+            <div class="th-head"><b>${esc(who)}</b>${p.thTopic ? `<span class="th-link" style="margin-left:6px">› ${esc(p.thTopic)}</span>` : ''}<span class="th-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time) || '剛剛')}</span><span class="th-dots">⋯</span></div>
+            ${body ? `<div class="th-text">${thTextHtml(short, !!p.thTopic)}${n > 500 ? '<span class="th-over">⋯（超過 500 字的部分發不出去）</span>' : ''}</div>` : '<div class="th-text hint-s">（沒有文字）</div>'}
             ${pm.length ? `<div class="th-media ${pm.length === 1 ? 'one' : ''}" id="thMedia"></div>` : link ? `<div class="th-card"><b>${esc(host)}</b><small>${esc(link)}</small></div>` : ''}
             <div class="th-actions"><span>♡</span><span>💬</span><span>🔁</span><span>➤</span></div>
           </div>
@@ -4152,7 +4153,9 @@ async function renderThPreview() {
         <textarea id="thText" rows="7" placeholder="有什麼新鮮事？">${esc(srcText(p, k))}</textarea>
         <p class="hint-s pp-count-line"><span class="${n > TH_MAX ? 'warn-line' : ''}" style="margin:0">${n} / ${TH_MAX} 字</span>${pm.length ? `・照片影片 ${pm.length} / 20` : ''}${link ? '<br>連結會接在最後面' : ''}</p>
         ${n > TH_MAX ? `<p class="warn-line" style="margin:4px 0 0">⚠️ Threads 一則最多 ${TH_MAX} 字，要刪掉 ${n - TH_MAX} 字</p>` : ''}
-        ${tags > 1 ? '<p class="hint-s" style="margin:4px 0 0">Threads 一則只會有 1 個主題標籤，其他 # 會變成一般文字</p>' : ''}
+        <label class="field" for="thTopic" style="margin-top:10px">主題（選填）</label>
+        <input id="thTopic" maxlength="50" value="${esc(p.thTopic || '')}" placeholder="${firstTag ? `沒填就用文字裡的 #${esc(firstTag)}` : '例如 室內設計'}">
+        <p class="hint-s" style="margin:4px 0 0">${p.thTopic ? '有填主題時，文字裡的 # 都會變成一般文字。' : tags > 1 ? 'Threads 一則只會有 1 個主題，只有第一個 # 會變成主題。' : ''}全自動才會套用；半自動請在 Threads App 裡選主題。</p>
         ${postMedia(p).length > 20 ? '<p class="warn-line" style="margin:4px 0 0">⚠️ Threads 最多 20 個照片影片</p>' : ''}
         <p class="hint-s">預覽是照 Threads 動態的樣子排的；實際字體、排版會依 Threads App 顯示。</p>
       </div>
@@ -4160,6 +4163,8 @@ async function renderThPreview() {
     ${opts ? confirmBox(p, opts, 1) : ''}
     <div class="send"><div class="nav">${opts ? '<button class="link" id="thCancel">先不要</button>' : '<span></span>'}<button class="primary" id="thOk" ${opts && n > TH_MAX ? 'disabled' : ''}>${opts ? confirmOkLabel(p, opts, 1, 'Threads ') : '✓ 完成'}</button></div></div>`;
   bindVer($('#thPrevBody'), p, () => renderThPreview());
+  $('#thTopic').oninput = e => { p.thTopic = e.target.value.replace(/^[#＃\s]+/, '').replace(/[.&。]/g, '').trim(); save(); };
+  $('#thTopic').onchange = () => renderThPreview();
   let typing;
   $('#thText').oninput = e => {
     const kk = textKey(p, 'threads'); if (kk === 'main') p.text = e.target.value; else p.texts[kk] = e.target.value; save(); renderList();
