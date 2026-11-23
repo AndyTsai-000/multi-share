@@ -361,6 +361,11 @@ h2 .mn-pop { left: auto; right: 0; }
 .th-card { border: 1px solid #ddd; border-radius: 12px; padding: 10px 12px; margin-top: 10px; display: flex; flex-direction: column; }
 .th-card small { color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-actions { display: flex; gap: 18px; font-size: 19px; padding-top: 10px; color: #333; }
+.th-chain .th-post { position: relative; padding-bottom: 12px; }
+.th-chain .th-post:not(:last-child)::before { content: ''; position: absolute; left: 17px; top: 42px; bottom: 2px; width: 2px; background: #ddd; }
+.th-part { display: inline-block; font-size: 12px; color: #999; margin-left: 6px; }
+.pp-cm { color: #262626; font-size: 14px; padding-top: 0; }
+.pp-cm small { color: #737373; }
 @media (max-width: 760px) { .pp-wrap { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .pe-wrap { grid-template-columns: 1fr; } .pe-stage { width: min(300px, 86%); margin: 0 auto; } }
 .se-pages { align-items: center; }
@@ -1300,7 +1305,7 @@ function settingsHtml(p) {
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post')) parts.push(`<div class="set-row"><b>IG 貼文</b><span class="hint-s">${esc(igSummary(p))}</span><button class="link" id="igOptsOpen" style="color:var(--accent)">🎨 編輯貼文（照片、標註、協作者、地點）${p.postEdit?.done ? ' ✓' : ''}</button><button class="link" data-ppopen style="color:var(--accent)">👁 預覽</button></div>`);
     if (opts.some(o => o.platform === 'ig' && o.kind === 'story')) parts.push(`<div class="set-row"><b>IG 限動</b><span class="hint-s">按發送時會先打開限動編輯，確認畫面後才發</span><button class="link" data-seopen style="color:var(--accent)">🎨 編輯限動畫面</button>${p.media.length ? '<button class="link" data-spopen style="color:var(--accent)">👁 預覽</button>' : ''}</div>`);
     parts.push(verRows(p, opts.filter(o => !isStory(o)).map(o => o.platform)));
-    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p, 'threads')].length; parts.push(`<div class="set-row"><b>Threads</b><span class="${n > 500 ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n}／500 字</span><button class="link" data-thopen style="color:var(--accent)">👁 預覽</button></div>`); }
+    if (opts.some(o => o.platform === 'threads')) { const n = [...fullText(p, 'threads')].length, k = thParts(p).length; parts.push(`<div class="set-row"><b>Threads</b><span class="${k > TH_CHAIN_MAX ? 'warn-line' : 'hint-s'}" style="margin:0">文字 ${n} 字${k > 1 ? `・🧵 會接成 ${k} 則串文${k > TH_CHAIN_MAX ? `（最多 ${TH_CHAIN_MAX} 則）` : ''}` : '／500 字'}</span><button class="link" data-thopen style="color:var(--accent)">👁 預覽</button></div>`); }
     if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) parts.push(`<p class="warn-line" style="margin:8px 0 0">IG 貼文一定要有圖片或影片${p.media.length ? '（純文字限動、拼貼只給限動用）' : ''}</p>`);
     if (opts.some(isStory) && !p.media.length) parts.push('<p class="warn-line" style="margin:8px 0 0">IG 限動要有圖片、影片，或在第 1 步做一張純文字限動</p>');
     return parts.join('');
@@ -1326,7 +1331,7 @@ function perTextHtml(p) {
     <textarea id="perTextArea" placeholder="${esc(PER_TEXT.find(x => x[0] === cur)[1])} 專用文字（留空＝用上面的文字）">${esc(v)}</textarea>
     <div class="row" style="gap:12px;align-items:baseline"><div class="hint-s grow" id="perCount">${perCount(p)}</div></div>`;
 }
-const perCount = p => { const c = p.perTab || 'ig', n = [...(p.texts?.[c] || '')].length, max = c === 'threads' ? 500 : c === 'ig' ? 2200 : 0; return max ? `<span class="${n > max ? 'warn-line' : ''}" style="margin:0">${n}／${max} 字</span>` : ''; };
+const perCount = p => { const c = p.perTab || 'ig', n = [...(p.texts?.[c] || '')].length, max = c === 'threads' ? 500 : c === 'ig' ? 2200 : 0; return max ? `<span class="${n > max && c !== 'threads' ? 'warn-line' : ''}" style="margin:0">${n}／${max} 字${c === 'threads' && n > max ? '・全自動會接成串文' : ''}</span>` : ''; };
 // AI 把上面的文字改成各平台版本：有選發送對象就改那些平台，沒選就改 IG、Threads、Facebook
 function perAiPlats(p) {
   const ids = PER_TEXT.map(x => x[0]);
@@ -1585,7 +1590,7 @@ function renderHome() {
   const lr = S.lastResult && Date.now() - S.lastResult.at < 30 * 60e3 ? S.lastResult : null;
   const lrPost = lr && S.posts.find(x => x.id === lr.postId), lrDone = lrPost && listStatus(lrPost).finished;
   if (lrDone) { lr.title = '✅ 已發布'; lr.text = lr.text.replace(/^.*?(會自動發到|會發到)：/, '已經發到：'); }
-  const cal = S.homeView === 'cal', hols = upcomingHolidays();
+  const cal = S.homeView === 'cal', hols = upcomingHolidays(), fails = S.posts.filter(p => p.failNew);
   $('#editor').innerHTML = `<div class="home">
     <div class="home-head"><h2>貼文總覽</h2><span class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="primary" id="homeNew">＋ 新增貼文</button><button class="soft" id="homeNewStory">＋ 新增限動</button></span></div>
     <div class="home-tools">
@@ -1597,6 +1602,7 @@ function renderHome() {
       <span class="grow"></span>${S.slots?.length ? `<span class="hint-s">📌 下一個固定時段：${esc(fmtTime(nextSlots(1)[0]))}</span>` : ''}</div>
     ${lr ? `<div class="card home-ok"><h2>${esc(lr.title)} <button class="link" id="homeOkClose">知道了</button></h2>
       <p style="margin:0">${esc(lr.text)}</p><p class="hint-s" style="margin:6px 0 0">已經送到伺服器了，網頁和電腦都可以關掉。發送結果會顯示在左邊「⏰ 已排程」那則貼文上。</p></div>` : ''}
+    ${fails.length ? `<div class="card home-warn"><h2>❌ 自動發有問題 <small>${fails.length} 則，點進去看原因</small> <button class="link" id="homeFailOk">知道了</button></h2>${fails.map(p => item(p)).join('')}</div>` : ''}
     ${cal ? calHtml() : `
     ${un.length ? `<div class="card home-warn"><h2>⚠️ 未排程 <small>${un.length} 則還沒排好、也還沒發出去</small></h2>${un.map(p => item(p)).join('')}</div>` : ''}
     <div class="card"><h2>⏰ 已排程 <small>${sched.length} 則</small></h2>${sched.length ? sched.map(p => item(p)).join('') : '<p class="hint-s" style="margin:0">目前沒有排程的貼文。</p>'}</div>
@@ -1610,6 +1616,7 @@ function renderHome() {
   $('#homeBk').onclick = openBk;
   $('#homeReport').onclick = () => openReport();
   if ($('#homeOkClose')) $('#homeOkClose').onclick = () => { S.lastResult = null; save(); renderHome(); };
+  if ($('#homeFailOk')) $('#homeFailOk').onclick = () => { S.posts.forEach(p => { p.failNew = false; }); save(); renderHome(); };
   const ed = $('#editor');
   ed.querySelectorAll('[data-home]').forEach(b => b.onclick = () => { S.activeId = b.dataset.home; save(); renderAll(); });
   ed.querySelectorAll('[data-hview]').forEach(b => b.onclick = () => { S.homeView = b.dataset.hview; save(); renderHome(); });
@@ -2349,7 +2356,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1123";
+const APP_VERSION = "v1124";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2399,13 +2406,14 @@ function autoStatusHtml(p) {
   const head = {
     scheduled: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出`,
     preparing: `⏰ 已排程：${esc(fmtTime(localInput(new Date(sp.run_at))))} 自動發出（檔案已先交給 Instagram 處理，時間到就發）`,
-    running: '🔄 發送中（Instagram 處理影片可能要幾分鐘）', done: '✅ 全部發布完成',
+    running: sp.jobs?.some(j => j.error && j.state !== 'error' && j.state !== 'done') ? '🔁 發送中：Meta 暫時出錯，會自動重試' : '🔄 發送中（Instagram 處理影片可能要幾分鐘）', done: '✅ 全部發布完成',
     partial: '⚠️ 有些發布失敗', error: '❌ 發布失敗', canceled: '已取消',
   }[sp.status] || sp.status;
   const rows = sp.jobs?.length
-    ? sp.jobs.map(j => `<div class="job-row"><span>${j.state === 'done' ? '✅' : j.state === 'error' ? '❌' : '⏳'}</span>${jobLabel(j.account_id, j.kind)}
-        <span class="hint-s">${j.state === 'done' ? '已發布' : j.state === 'error' ? '失敗' : '處理中'}</span>
-        ${j.error ? `<span class="err">${esc(j.error)}</span>` : ''}</div>`).join('')
+    ? sp.jobs.map(j => { const busy = j.state !== 'done' && j.state !== 'error', retry = busy && j.error;
+        return `<div class="job-row"><span>${j.state === 'done' ? '✅' : j.state === 'error' ? '❌' : retry ? '🔁' : '⏳'}</span>${jobLabel(j.account_id, j.kind)}
+        <span class="hint-s">${j.state === 'done' ? '已發布' : j.state === 'error' ? '失敗' : retry ? '重試中' : '處理中'}</span>
+        ${j.error ? `<span class="${j.state === 'error' ? 'err' : 'warn-line'}" style="margin:0">${j.state === 'done' ? '⚠️ ' : ''}${esc(j.error)}</span>` : ''}</div>`; }).join('')
     : (sp.targets || []).map(t => `<div class="job-row"><span>⏰</span>${jobLabel(t.account, t.kind)}</div>`).join('');
   const again = sp.status === 'canceled' || sp.status === 'error' || sp.status === 'partial';
   return `<p style="margin:0 0 6px;font-weight:600">${head}</p>${rows}
@@ -2416,6 +2424,7 @@ function autoStatusHtml(p) {
     ${sp.status === 'scheduled' || sp.status === 'preparing' ? '<p class="hint-s" style="margin:6px 0 0">要改內容或時間：按「修改貼文和排程」，會先停掉這次的自動發、回到第 1 步，改好再重新送出。</p>' : ''}`;
 }
 function bindAutoStatus(p) {
+  if (p.failNew) { p.failNew = false; save(); }   // 打開看過了，首頁就不再提醒
   if ($('#autoCancel')) $('#autoCancel').onclick = async () => {
     if (!confirm('要修改這則？\n\n會先停掉這次的自動發，回到第 1 步。改好之後要再按一次「自動發」才會重新排程。')) return;
     try { await apiCall('/api/posts/' + p.serverPost, { method: 'DELETE' }); p.serverPost = null; p.step = 1; save(); toast('已停掉自動發，改好後記得再按「自動發」'); logRemote('trace', '修改貼文和排程'); }
@@ -2441,7 +2450,10 @@ async function submitAuto(p) {
   if (!opts.length) return;
   if (opts.some(o => o.platform === 'ig' && o.kind === 'post') && !postMedia(p).length) { toast('IG 貼文一定要有圖片或影片'); logRemote('trace', '擋下：IG 貼文沒有圖'); return alert('⚠️ 還沒送出\n\nIG 貼文一定要有圖片或影片（純文字限動、拼貼只給限動用）'); }
   if (opts.some(isStory) && !p.media.length) { toast('IG 限動要有圖片或影片'); return alert('⚠️ 還沒送出\n\nIG 限動要有圖片、影片，或先做一張純文字限動'); }
-  if (opts.some(o => o.platform === 'threads') && [...fullText(p, 'threads')].length > 500) { toast('Threads 文字最多 500 字'); logRemote('trace', '擋下：Threads 文字最多 500 字'); return alert('⚠️ 還沒送出\n\nThreads 文字最多 500 字'); }
+  if (opts.some(o => o.platform === 'threads') && thParts(p).length > TH_CHAIN_MAX) { toast(`Threads 串文最多 ${TH_CHAIN_MAX} 則`); logRemote('trace', '擋下：Threads 串文太長'); return alert(`⚠️ 還沒送出\n\nThreads 文字會拆成 ${thParts(p).length} 則，串文最多 ${TH_CHAIN_MAX} 則，請刪短一點`); }
+  const needMore = [opts.some(o => o.platform === 'threads') && thParts(p).length > 1 && !S.more?.threads ? ['threads', 'Threads 串文（第 2 則起）'] : null,
+    opts.some(o => o.platform === 'ig' && o.kind === 'post') && igFirstText(p) && !S.more?.ig ? ['ig', 'IG 第一則留言'] : null].filter(Boolean);
+  if (needMore.length && !confirm(`${needMore.map(x => x[1]).join('、')}要先開啟權限：到「⚡ 自動發帳號」按「開啟 ${needMore.map(x => x[0] === 'ig' ? 'IG' : 'Threads').join('、')} 成效和留言」。\n\n沒開的話，貼文還是會發，只是${needMore.map(x => x[1]).join('、')}會發不出去。\n\n要直接送出嗎？（已經開過權限就按確定）`)) return;
   if (postMedia(p).length > 20) { toast('自動發最多 20 個圖片影片'); logRemote('trace', '擋下：超過 20 個'); return alert('⚠️ 還沒送出\n\n自動發貼文最多 20 個圖片影片'); }
   if (opts.some(isStory) && p.media.length > 10) { toast('限動一次最多 10 則'); return alert('⚠️ 還沒送出\n\n限動一次最多 10 則'); }
   // 送出前每個平台各看一次自己的預覽：IG 貼文 → Threads → IG 限動；都確認了才送出
@@ -2510,8 +2522,8 @@ async function sendAuto(p, opts, storyBlobs, onMsg, quiet = false) {
     const mentions = storyMentions(p), hasMention = mentions.some(x => x.length);
     const ownText = o => !isStory(o) && textKey(p, o.platform) !== 'main' ? { text: fullText(p, o.platform) } : {};
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
-      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...ownText(o), ig: { ...igPayload(p), ...peIgExtra(p) } }
-      : { account: o.account, kind: o.kind, ...ownText(o), ...(o.platform === 'threads' && p.thTopic ? { topic: p.thTopic } : {}) });
+      : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...(igCaption(p) !== fullText(p, 'ig') ? { text: igCaption(p) } : ownText(o)), ...(igFirstText(p) ? { first: igFirstText(p) } : {}), ig: { ...igPayload(p), ...peIgExtra(p) } }
+      : { account: o.account, kind: o.kind, ...(o.platform === 'threads' && thParts(p).length > 1 ? { text: thParts(p)[0], thread: thParts(p).slice(1) } : ownText(o)), ...(o.platform === 'threads' && p.thTopic ? { topic: p.thTopic } : {}) });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
@@ -4011,6 +4023,10 @@ function closePostPreview() {
 }
 // 說明文字裡的 #標籤、@帳號
 const ppTags = t => t.match(/#[^\s#@，。！？、,.!?]+/g) || [];
+// 第一則留言（只有全自動會發）：可以自己寫，也可以把說明文字裡的 # 標籤搬過去
+const igCmOn = p => p.mode !== 'manual';
+const igCaption = p => { const t = fullText(p, 'ig'); return igCmOn(p) && p.igTagMove ? t.replace(/(^|[ \t])#[^\s#@，。！？、,.!?]+/g, '$1').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim() : t; };
+const igFirstText = p => igCmOn(p) ? [String(p.igFirst || '').trim(), p.igTagMove ? ppTags(fullText(p, 'ig')).join(' ') : ''].filter(Boolean).join('\n\n') : '';
 const ppAts = t => t.match(/@[A-Za-z0-9._]+/g) || [];
 function ppCaptionHtml(t) {
   return esc(t).replace(/(#[^\s#@，。！？、,.!?&<]+|@[A-Za-z0-9._]+)/g, '<span class="pp-link">$1</span>').replace(/\n/g, '<br>');
@@ -4023,7 +4039,7 @@ async function renderPostPreview() {
   const ctx = ppCtx; if (!ctx) return;
   const { p, opts } = ctx, pm = postMedia(p), o = igOpts(p), who = ppWho(p, opts);
   ctx.i = Math.min(ctx.i, pm.length - 1);
-  const cap = fullText(p, 'ig'), tags = ppTags(cap), ats = ppAts(cap), len = [...cap].length;
+  const cap = igCaption(p), tags = ppTags(cap), ats = ppAts(cap), len = [...cap].length, first = igFirstText(p);
   const place = (S.places || []).find(x => x.id === o.location)?.name || '';
   const collab = o.collaborators || [], tagged = Object.values(o.tags || {}).some(l => l.length);
   const r = await peRatio(p);
@@ -4046,6 +4062,7 @@ async function renderPostPreview() {
         <div class="pp-actions"><span>♡</span><span>💬</span><span>➤</span>
           ${pm.length > 1 ? `<span class="pp-ind">${pm.map((_, i) => `<i class="${i === ctx.i ? 'on' : ''}"></i>`).join('')}</span>` : '<span class="pp-ind"></span>'}<span>🔖</span></div>
         <div class="pp-cap"><b>${esc(who)}</b> ${cap ? (short ? ppCaptionHtml([...cap].slice(0, 125).join('')) + '⋯ <button class="pp-more" id="ppMore">更多</button>' : ppCaptionHtml(cap)) : '<span class="hint-s">（沒有說明文字）</span>'}</div>
+        ${first ? `<div class="pp-cap pp-cm"><small>💬 第一則留言</small><br><b>${esc(who)}</b> ${ppCaptionHtml(first)}</div>` : ''}
         <div class="pp-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time))}</div>
       </div>
       <div class="pp-side">
@@ -4054,6 +4071,10 @@ async function renderPostPreview() {
         <textarea id="ppText" rows="7" placeholder="寫點什麼⋯">${esc(srcText(p, textKey(p, 'ig')))}</textarea>
         <p class="hint-s pp-count-line">${len} / ${PP_CAP_MAX} 字・# 標籤 ${tags.length} / ${PP_TAG_MAX}・@ 提及 ${ats.length} / ${PP_AT_MAX}${p.link.trim() ? '<br>連結會接在最後面（IG 說明文字裡的連結不能點）' : ''}</p>
         ${warn.length ? `<p class="warn-line" style="margin:4px 0 0">⚠️ ${warn.join('；')}</p>` : ''}
+        ${igCmOn(p) ? `<label class="field" for="ppFirst" style="margin-top:10px">第一則留言（選填）</label>
+        <textarea id="ppFirst" rows="2" maxlength="2200" style="min-height:0;height:64px" placeholder="發文後自動留言，例如補充資訊或 # 標籤">${esc(p.igFirst || '')}</textarea>
+        <label class="aimg-wt" style="margin-top:6px"><input type="checkbox" id="ppTagMove" ${p.igTagMove ? 'checked' : ''}>把說明文字裡的 # 標籤移到第一則留言</label>
+        <p class="hint-s" style="margin:4px 0 0">全自動才會留言；要先在「⚡ 自動發帳號」開啟 IG 成效和留言。</p>` : ''}
         <div class="pp-tools">
           <button id="ppEditPhoto">🎨 編輯照片${p.postEdit?.done ? ' ✓' : ''}</button>
           <button id="ppIgOpts">👤 標註人物／協作者／地點</button>
@@ -4080,6 +4101,11 @@ async function renderPostPreview() {
     clearTimeout(typing); typing = setTimeout(() => { const pos = e.target.selectionStart; renderPostPreview().then(() => { const t = $('#ppText'); if (t) { t.focus(); t.setSelectionRange(pos, pos); } }); }, 500);
   };
   bindVer($('#postPrevBody'), p, () => renderPostPreview());
+  if ($('#ppFirst')) {
+    let tf;
+    $('#ppFirst').oninput = e => { p.igFirst = e.target.value; save(); clearTimeout(tf); tf = setTimeout(() => { const pos = e.target.selectionStart; renderPostPreview().then(() => { const t = $('#ppFirst'); if (t) { t.focus(); t.setSelectionRange(pos, pos); } }); }, 500); };
+    $('#ppTagMove').onchange = e => { p.igTagMove = e.target.checked; save(); renderPostPreview(); };
+  }
   $('#ppEditPhoto').onclick = () => openPostEditor(p);
   $('#ppIgOpts').onclick = () => openIgOpts(p);
   $('#ppAi').onclick = () => openAi(p);
@@ -4111,7 +4137,24 @@ async function renderPostPreview() {
 
 // ===== Threads 貼文預覽：照 Threads 動態的樣子（帳號、文字、橫向照片、連結卡片），旁邊可以選版本、直接改 =====
 let thCtx = null;
-const TH_MAX = 500;
+const TH_MAX = 500, TH_CHAIN_MAX = 10;
+// 拆成串文：先照 --- 分，太長的再依序用 空行 → 換行 → 句號 → 逗號 切，切不開才硬切
+function thSplit(text) {
+  const L = x => [...x].length, seps = ['\n\n', '\n', /(?<=[。！？!?；;…])/, /(?<=[，,、 ])/];
+  const pack = (x, lv) => {
+    if (L(x) <= TH_MAX) return [x];
+    if (lv >= seps.length) { const a = [...x], r = []; for (let i = 0; i < a.length; i += TH_MAX) r.push(a.slice(i, i + TH_MAX).join('')); return r; }
+    const sep = seps[lv], join = typeof sep === 'string' ? sep : '', res = []; let cur = '';
+    for (const part of x.split(sep)) for (const piece of pack(part, lv + 1)) {
+      const next = cur ? cur + join + piece : piece;
+      if (L(next) <= TH_MAX) cur = next; else { if (cur.trim()) res.push(cur); cur = piece; }
+    }
+    if (cur.trim()) res.push(cur);
+    return res;
+  };
+  return String(text || '').split(/\n[ \t]*-{3,}[ \t]*(?=\n|$)|^[ \t]*-{3,}[ \t]*\n/).map(x => x.trim()).filter(Boolean).flatMap(x => pack(x, 0)).map(x => x.trim()).filter(Boolean);
+}
+const thParts = p => { const t = fullText(p, 'threads'); return /^\s*-{3,}\s*$/m.test(t) || [...t].length > TH_MAX ? thSplit(t) : t ? [t] : []; };
 function openThPreview(p, opts = null) {
   if (!fullText(p, 'threads') && !postMedia(p).length) return toast('先輸入文字或加入照片');
   thCtx = { p, opts };
@@ -4134,26 +4177,29 @@ async function renderThPreview() {
   const p = ctx.p, opts = ctx.opts, who = thWho(opts), k = textKey(p, 'threads'), body = fullText(p, 'threads'), n = [...body].length, pm = postMedia(p).slice(0, 20);
   const tagList = body.match(/(^|\s)#[^\s#]+/g) || [], tags = tagList.length, firstTag = (tagList[0] || '').trim().slice(1);
   const link = p.link.trim(), host = link ? (() => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return link; } })() : '';
-  const short = n > 500 ? [...body].slice(0, 500).join('') : body;
-  $('#thPrevBody').innerHTML = `
-    <div class="pp-wrap">
-      <div class="th-phone">
-        <div class="th-post">
+  const parts = thParts(p), chain = parts.length > 1, tooMany = parts.length > TH_CHAIN_MAX;
+  const when = esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time) || '剛剛');
+  const postHtml = (t, i) => `<div class="th-post">
           <span class="th-avatar">${esc(who[0] || '?').toUpperCase()}</span>
           <div class="th-main">
-            <div class="th-head"><b>${esc(who)}</b>${p.thTopic ? `<span class="th-link" style="margin-left:6px">› ${esc(p.thTopic)}</span>` : ''}<span class="th-time">${esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time) || '剛剛')}</span><span class="th-dots">⋯</span></div>
-            ${body ? `<div class="th-text">${thTextHtml(short, !!p.thTopic)}${n > 500 ? '<span class="th-over">⋯（超過 500 字的部分發不出去）</span>' : ''}</div>` : '<div class="th-text hint-s">（沒有文字）</div>'}
-            ${pm.length ? `<div class="th-media ${pm.length === 1 ? 'one' : ''}" id="thMedia"></div>` : link ? `<div class="th-card"><b>${esc(host)}</b><small>${esc(link)}</small></div>` : ''}
+            <div class="th-head"><b>${esc(who)}</b>${!i && p.thTopic ? `<span class="th-link" style="margin-left:6px">› ${esc(p.thTopic)}</span>` : ''}<span class="th-time">${when}</span>${chain ? `<span class="th-part">${i + 1}/${parts.length}</span>` : ''}<span class="th-dots">⋯</span></div>
+            ${t ? `<div class="th-text">${thTextHtml(t, !!p.thTopic)}</div>` : '<div class="th-text hint-s">（沒有文字）</div>'}
+            ${i ? '' : pm.length ? `<div class="th-media ${pm.length === 1 ? 'one' : ''}" id="thMedia"></div>` : link && !chain ? `<div class="th-card"><b>${esc(host)}</b><small>${esc(link)}</small></div>` : ''}
             <div class="th-actions"><span>♡</span><span>💬</span><span>🔁</span><span>➤</span></div>
           </div>
-        </div>
+        </div>`;
+  $('#thPrevBody').innerHTML = `
+    <div class="pp-wrap">
+      <div class="th-phone ${chain ? 'th-chain' : ''}">
+        ${(parts.length ? parts : ['']).map(postHtml).join('')}
       </div>
       <div class="pp-side">
         <label class="field" for="thText">Threads 文字${k !== 'main' ? `（${esc(verName(k))}）` : ''}</label>
         ${verChips(p, 'threads')}
         <textarea id="thText" rows="7" placeholder="有什麼新鮮事？">${esc(srcText(p, k))}</textarea>
-        <p class="hint-s pp-count-line"><span class="${n > TH_MAX ? 'warn-line' : ''}" style="margin:0">${n} / ${TH_MAX} 字</span>${pm.length ? `・照片影片 ${pm.length} / 20` : ''}${link ? '<br>連結會接在最後面' : ''}</p>
-        ${n > TH_MAX ? `<p class="warn-line" style="margin:4px 0 0">⚠️ Threads 一則最多 ${TH_MAX} 字，要刪掉 ${n - TH_MAX} 字</p>` : ''}
+        <p class="hint-s pp-count-line"><span class="${tooMany ? 'warn-line' : ''}" style="margin:0">${chain ? `${n} 字・分成 ${parts.length} 則` : `${n} / ${TH_MAX} 字`}</span>${pm.length ? `・照片影片 ${pm.length} / 20` : ''}${link ? '<br>連結會接在最後面' : ''}</p>
+        ${tooMany ? `<p class="warn-line" style="margin:4px 0 0">⚠️ 會拆成 ${parts.length} 則，串文最多 ${TH_CHAIN_MAX} 則，請刪短一點</p>`
+          : chain ? `<p class="hint-s" style="margin:4px 0 0">🧵 ${n > TH_MAX ? `超過 ${TH_MAX} 字，` : ''}全自動會接成 <b>${parts.length} 則串文</b>（第 2 則起回覆在下面）。想自己決定從哪裡分，就在那裡單獨打一行 <b>---</b>。半自動要自己分段發。</p>` : ''}
         <label class="field" for="thTopic" style="margin-top:10px">主題（選填）</label>
         <input id="thTopic" maxlength="50" value="${esc(p.thTopic || '')}" placeholder="${firstTag ? `沒填就用文字裡的 #${esc(firstTag)}` : '例如 室內設計'}">
         <p class="hint-s" style="margin:4px 0 0">${p.thTopic ? '有填主題時，文字裡的 # 都會變成一般文字。' : tags > 1 ? 'Threads 一則只會有 1 個主題，只有第一個 # 會變成主題。' : ''}全自動才會套用；半自動請在 Threads App 裡選主題。</p>
@@ -4162,7 +4208,7 @@ async function renderThPreview() {
       </div>
     </div>
     ${opts ? confirmBox(p, opts, 1) : ''}
-    <div class="send"><div class="nav">${opts ? '<button class="link" id="thCancel">先不要</button>' : '<span></span>'}<button class="primary" id="thOk" ${opts && n > TH_MAX ? 'disabled' : ''}>${opts ? confirmOkLabel(p, opts, 1, 'Threads ') : '✓ 完成'}</button></div></div>`;
+    <div class="send"><div class="nav">${opts ? '<button class="link" id="thCancel">先不要</button>' : '<span></span>'}<button class="primary" id="thOk" ${opts && tooMany ? 'disabled' : ''}>${opts ? confirmOkLabel(p, opts, 1, 'Threads ') : '✓ 完成'}</button></div></div>`;
   bindVer($('#thPrevBody'), p, () => renderThPreview());
   $('#thTopic').oninput = e => { p.thTopic = e.target.value.replace(/^[#＃\s]+/, '').replace(/[.&。]/g, '').trim(); save(); };
   $('#thTopic').onchange = () => renderThPreview();
@@ -4683,7 +4729,7 @@ const validName = v => /^[A-Za-z0-9._]{1,30}$/.test(v);
 function igSummary(p) {
   const o = igOpts(p), n = Object.values(o.tags).reduce((a, l) => a + l.length, 0);
   const place = (S.places || []).find(x => x.id === o.location);
-  const parts = [n ? `標註 ${n} 人` : '', o.collaborators.length ? `協作者 ${o.collaborators.length} 位` : '', place ? `📍${place.name}` : ''].filter(Boolean);
+  const parts = [n ? `標註 ${n} 人` : '', o.collaborators.length ? `協作者 ${o.collaborators.length} 位` : '', place ? `📍${place.name}` : '', igFirstText(p) ? '💬 第一則留言' : ''].filter(Boolean);
   return parts.length ? parts.join('・') : '沒有額外設定';
 }
 function igPayload(p) {
@@ -4701,7 +4747,17 @@ async function refreshServerPosts() {
   let changed = false;
   for (const p of S.posts) {
     const sp = p.serverPost && serverPosts[p.serverPost];
-    if (sp && p.serverStatus !== sp.status) { p.serverStatus = sp.status; changed = true; if (sp.status === 'done') p.publishedAt ||= Date.now(); }
+    if (sp && p.serverStatus !== sp.status) {
+      const was = p.serverStatus;
+      p.serverStatus = sp.status; changed = true; if (sp.status === 'done') p.publishedAt ||= Date.now();
+      const bad = sp.status === 'error' || sp.status === 'partial', warn = sp.status === 'done' && sp.jobs?.some(j => j.error);
+      if ((bad || warn) && was && active()?.id !== p.id) {
+        p.failNew = true;
+        const msg = bad ? `❌ 自動發${sp.status === 'partial' ? '有些' : ''}失敗：${postSnip(p)}` : `⚠️ 已發布，但有提醒：${postSnip(p)}`;
+        toast(msg);
+        try { if (Notification.permission === 'granted') new Notification('社群管家：' + (bad ? '自動發文失敗' : '發文有提醒'), { body: postSnip(p).slice(0, 80) }); } catch {}
+      }
+    }
   }
   if (changed) save();
   renderList();
