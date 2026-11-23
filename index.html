@@ -1324,7 +1324,7 @@ function perTextHtml(p) {
   return `<div class="row" style="gap:10px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap"><span class="hint-s grow">有寫的平台用專用文字；留空就用上面的文字。連結一樣接在最後面。</span>${aiBtn}</div>
     <div class="chips">${PER_TEXT.map(([id, label]) => `<button class="chip ${id === cur ? 'on' : ''} ${p.texts?.[id]?.trim() ? 'has' : ''}" data-pertab="${id}">${label}</button>`).join('')}</div>
     <textarea id="perTextArea" placeholder="${esc(PER_TEXT.find(x => x[0] === cur)[1])} 專用文字（留空＝用上面的文字）">${esc(v)}</textarea>
-    <div class="row" style="gap:12px;align-items:baseline"><div class="hint-s grow" id="perCount">${perCount(p)}</div>${cur === 'threads' ? '<button class="link" data-thopen style="color:var(--accent);padding:0">👁 Threads 預覽</button>' : cur === 'ig' ? '<button class="link" data-ppopen style="color:var(--accent);padding:0">👁 IG 預覽</button>' : ''}</div>`;
+    <div class="row" style="gap:12px;align-items:baseline"><div class="hint-s grow" id="perCount">${perCount(p)}</div></div>`;
 }
 const perCount = p => { const c = p.perTab || 'ig', n = [...(p.texts?.[c] || '')].length, max = c === 'threads' ? 500 : c === 'ig' ? 2200 : 0; return max ? `<span class="${n > max ? 'warn-line' : ''}" style="margin:0">${n}／${max} 字</span>` : ''; };
 // AI 把上面的文字改成各平台版本：有選發送對象就改那些平台，沒選就改 IG、Threads、Facebook
@@ -1543,10 +1543,10 @@ function mediaCardHtml(title, sub, desc, buttons) {
 }
 function postCardHtml(p) {
   const has = postMedia(p).length, done = p.postEdit?.done;
-  return mediaCardHtml('IG 貼文畫面', '發 IG 貼文才需要',
-    !has ? '先在上面加入照片或影片，就可以預覽和編輯貼文。'
-      : done ? '✓ 已經編好了，發貼文時會用編好的照片和設定' : '裁切比例、濾鏡、排序、標註人物；影片加音樂、字幕',
-    `<button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 IG 預覽</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯貼文${done ? ' ✓' : ''}</button>`)
+  return mediaCardHtml('預覽和編輯', '',
+    !has ? '看發到 IG、Threads 的樣子；IG 要先加入照片或影片'
+      : done ? '✓ IG 貼文編好了，發文時會用編好的照片' : '看發到 IG、Threads 的樣子；IG 可以裁切、濾鏡、標註、加音樂',
+    `<button class="ai-btn" data-ppopen ${has ? '' : 'disabled'}>👁 IG 預覽</button><button class="ai-btn" data-thopen>👁 Threads 預覽</button><button class="ai-btn" data-peopen ${has ? '' : 'disabled'}>🎨 編輯 IG 貼文${done ? ' ✓' : ''}</button>`)
 ;
 }
 // 加進來的照片影片可以再處理：只顯示用得到的
@@ -2349,7 +2349,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1122b";
+const APP_VERSION = "v1123";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
