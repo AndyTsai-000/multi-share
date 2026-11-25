@@ -2356,7 +2356,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1124";
+const APP_VERSION = "v1125";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -2523,7 +2523,7 @@ async function sendAuto(p, opts, storyBlobs, onMsg, quiet = false) {
     const ownText = o => !isStory(o) && textKey(p, o.platform) !== 'main' ? { text: fullText(p, o.platform) } : {};
     const targets = opts.map(o => isStory(o) && storyMedia.length ? { account: o.account, kind: o.kind, media: storyMedia, ...(hasMention ? { ig: { tags: mentions } } : {}) }
       : o.platform === 'ig' && o.kind === 'post' ? { account: o.account, kind: o.kind, ...(igCaption(p) !== fullText(p, 'ig') ? { text: igCaption(p) } : ownText(o)), ...(igFirstText(p) ? { first: igFirstText(p) } : {}), ig: { ...igPayload(p), ...peIgExtra(p) } }
-      : { account: o.account, kind: o.kind, ...(o.platform === 'threads' && thParts(p).length > 1 ? { text: thParts(p)[0], thread: thParts(p).slice(1) } : ownText(o)), ...(o.platform === 'threads' && p.thTopic ? { topic: p.thTopic } : {}) });
+      : { account: o.account, kind: o.kind, ...(o.platform === 'threads' && (thParts(p).length > 1 || thBody(p) !== fullText(p, 'threads')) ? { text: thParts(p)[0], ...(thParts(p).length > 1 ? { thread: thParts(p).slice(1) } : {}) } : ownText(o)), ...(o.platform === 'threads' && p.thTopic ? { topic: p.thTopic } : {}) });
     const r = await apiCall('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, media, targets, run_at: p.time && !late ? new Date(p.time).getTime() : Date.now() }) });
     p.serverPost = r.id; save();
@@ -4025,7 +4025,7 @@ function closePostPreview() {
 const ppTags = t => t.match(/#[^\s#@，。！？、,.!?]+/g) || [];
 // 第一則留言（只有全自動會發）：可以自己寫，也可以把說明文字裡的 # 標籤搬過去
 const igCmOn = p => p.mode !== 'manual';
-const igCaption = p => { const t = fullText(p, 'ig'); return igCmOn(p) && p.igTagMove ? t.replace(/(^|[ \t])#[^\s#@，。！？、,.!?]+/g, '$1').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim() : t; };
+const igCaption = p => { const t = fullText(p, 'ig'); return igCmOn(p) && p.igTagMove ? t.replace(/(^|\s)#[^\s#@，。！？、,.!?]+/g, '$1').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim() : t; };
 const igFirstText = p => igCmOn(p) ? [String(p.igFirst || '').trim(), p.igTagMove ? ppTags(fullText(p, 'ig')).join(' ') : ''].filter(Boolean).join('\n\n') : '';
 const ppAts = t => t.match(/@[A-Za-z0-9._]+/g) || [];
 function ppCaptionHtml(t) {
@@ -4154,7 +4154,9 @@ function thSplit(text) {
   };
   return String(text || '').split(/\n[ \t]*-{3,}[ \t]*(?=\n|$)|^[ \t]*-{3,}[ \t]*\n/).map(x => x.trim()).filter(Boolean).flatMap(x => pack(x, 0)).map(x => x.trim()).filter(Boolean);
 }
-const thParts = p => { const t = fullText(p, 'threads'); return /^\s*-{3,}\s*$/m.test(t) || [...t].length > TH_MAX ? thSplit(t) : t ? [t] : []; };
+const thNoTag = p => !!p.thTopic && p.mode !== 'manual';   // 全自動有主題：# 標籤會讓 Threads 發不出去，自動拿掉
+const thBody = p => { const t = fullText(p, 'threads'); return thNoTag(p) ? t.replace(/(^|\s)#[^\s#@，。！？、,.!?]+/g, '$1').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim() : t; };
+const thParts = p => { const t = thBody(p); return /^\s*-{3,}\s*$/m.test(t) || [...t].length > TH_MAX ? thSplit(t) : t ? [t] : []; };
 function openThPreview(p, opts = null) {
   if (!fullText(p, 'threads') && !postMedia(p).length) return toast('先輸入文字或加入照片');
   thCtx = { p, opts };
@@ -4174,8 +4176,8 @@ function thTextHtml(t, noTag) {
 }
 async function renderThPreview() {
   const ctx = thCtx; if (!ctx) return;
-  const p = ctx.p, opts = ctx.opts, who = thWho(opts), k = textKey(p, 'threads'), body = fullText(p, 'threads'), n = [...body].length, pm = postMedia(p).slice(0, 20);
-  const tagList = body.match(/(^|\s)#[^\s#]+/g) || [], tags = tagList.length, firstTag = (tagList[0] || '').trim().slice(1);
+  const p = ctx.p, opts = ctx.opts, who = thWho(opts), k = textKey(p, 'threads'), body = thBody(p), n = [...body].length, pm = postMedia(p).slice(0, 20);
+  const tagList = fullText(p, 'threads').match(/(^|\s)#[^\s#]+/g) || [], tags = tagList.length, firstTag = (tagList[0] || '').trim().slice(1);
   const link = p.link.trim(), host = link ? (() => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return link; } })() : '';
   const parts = thParts(p), chain = parts.length > 1, tooMany = parts.length > TH_CHAIN_MAX;
   const when = esc(autoWhen(p) === '現在' ? '剛剛' : fmtTime(p.time) || '剛剛');
@@ -4202,7 +4204,7 @@ async function renderThPreview() {
           : chain ? `<p class="hint-s" style="margin:4px 0 0">🧵 ${n > TH_MAX ? `超過 ${TH_MAX} 字，` : ''}全自動會接成 <b>${parts.length} 則串文</b>（第 2 則起回覆在下面）。想自己決定從哪裡分，就在那裡單獨打一行 <b>---</b>。半自動要自己分段發。</p>` : ''}
         <label class="field" for="thTopic" style="margin-top:10px">主題（選填）</label>
         <input id="thTopic" maxlength="50" value="${esc(p.thTopic || '')}" placeholder="${firstTag ? `沒填就用文字裡的 #${esc(firstTag)}` : '例如 室內設計'}">
-        <p class="hint-s" style="margin:4px 0 0">${p.thTopic ? '有填主題時，文字裡的 # 都會變成一般文字。' : tags > 1 ? 'Threads 一則只會有 1 個主題，只有第一個 # 會變成主題。' : ''}全自動才會套用；半自動請在 Threads App 裡選主題。</p>
+        <p class="hint-s" style="margin:4px 0 0">${p.thTopic ? '有填主題時，全自動會把文字裡的 # 標籤拿掉（有主題又有 # 標籤，Threads 會發不出去）。' : tags > 1 ? 'Threads 一則只會有 1 個主題，只有第一個 # 會變成主題。' : ''}全自動才會套用；半自動請在 Threads App 裡選主題。</p>
         ${postMedia(p).length > 20 ? '<p class="warn-line" style="margin:4px 0 0">⚠️ Threads 最多 20 個照片影片</p>' : ''}
         <p class="hint-s">預覽是照 Threads 動態的樣子排的；實際字體、排版會依 Threads App 顯示。</p>
       </div>
