@@ -2356,7 +2356,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1125";
+const APP_VERSION = "v1127";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -5786,7 +5786,7 @@ function htAiHtml(c) {
     ${a?.busy ? '<div class="ai-wait">AI 想標籤中，大約 5～15 秒⋯</div>' : a?.tags ? `<div class="chips">${a.tags.map((t, i) => `<button class="chip ${a.off.has(i) ? 'off' : 'on'}" data-htai="${i}">${esc(t)}</button>`).join('')}</div>
       <p class="hint-s" style="margin:6px 0 0">點一下可以不要那個標籤。</p>
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button id="htSave">存成標籤組</button><button class="primary" id="htAdd">加到文字（${a.tags.length - a.off.size} 個）</button></div>`
-    : '<p class="hint-s" style="margin:6px 0 0">依你寫的文字和照片，推薦大家常搜尋的標籤和跟內容貼近的標籤。</p>'}</div>`;
+    : '<p class="hint-s" style="margin:6px 0 0">依你寫的文字和照片，推薦 5 個跟內容最貼近的標籤（標籤太多反而沒幫助）。</p>'}</div>`;
 }
 async function htAiGo() {
   const c = tagCtx, p = c.p, ph = aiCover(p), text = p.text.replace(/#[^\s#]+/g, '').trim();
