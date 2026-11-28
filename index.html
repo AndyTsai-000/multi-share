@@ -2356,7 +2356,7 @@ const AUTO_KINDS = [
 let session = '', autoAccounts = [];
 let serverErr = '';   // 讀不到伺服器排程狀態時的原因
 // 出錯時記一筆到伺服器，方便查原因（只記錯誤訊息和瀏覽器，不含貼文內容）
-const APP_VERSION = "v1127";
+const APP_VERSION = "v1128";
 window.addEventListener('error', e => logRemote('error', `${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', e => logRemote('error', 'promise: ' + (e.reason?.message || e.reason)));
 function logRemote(where, msg) {
@@ -4518,12 +4518,19 @@ const ssPhotos = p => p.media.filter(m => !m.storyOnly && !isVideo(m));
 const ssSet = () => S.slideSet ||= { ratio: '9:16', per: 2.5, fx: 'zoom', fit: 'fit', replace: true };
 const ssSel = () => ssPhotos(ssCtx.p).filter(m => ssCtx.sel.has(m.id) && ssCtx.items[m.id]);
 const ssSize = () => SS_RATIOS.find(r => r[0] === ssSet().ratio) || SS_RATIOS[0];
-const ssDur = () => Math.max(3, ssSel().length * ssSet().per);   // Reels 最短 3 秒
+// Reels 模式（AI 圖卡做成影片）：c.cards = { 檔案 id: { title, body } }，字在影片裡一行一行跳出來，每張停的時間照字數
+const ssCards = () => ssCtx?.cards || null;
+const ssCardLen = card => Math.min(4.2, Math.max(2.4, 1.4 + [...`${card.title}${card.body}`.replace(/[【】\s]/g, '')].length * 0.075));
+function ssPlan() {
+  const cards = ssCards(), per = cards ? 2 : ssSet().per; let t = 0;
+  return ssSel().map(m => { const card = cards?.[m.id], len = card ? ssCardLen(card) : per, r = { m, card, start: t, len }; t += len; return r; });
+}
+const ssDur = () => Math.max(3, ssPlan().reduce((a, x) => a + x.len, 0));   // Reels 最短 3 秒
 async function openSlide(p, opts = {}) {
   const ph = ssPhotos(p);
   if (!ph.length) return toast('先加入照片');
-  if (opts.text) { const st = ssSet(); st.per = Math.max(st.per, 3.5); st.fit = 'fit'; save(); }
-  ssCtx = { p, sel: new Set(opts.only || ph.map(m => m.id)), items: {}, music: S.slideMusic || null, busy: '', cancel: false, play: null };
+  if (opts.cards) { ssSet().ratio = '9:16'; save(); }
+  ssCtx = { p, sel: new Set(opts.only || ph.map(m => m.id)), items: {}, cards: opts.cards || null, music: S.slideMusic || null, busy: '', cancel: false, play: null };
   await logoReady();
   renderSlide();
   $('#ssModal').classList.add('open');
@@ -4554,27 +4561,76 @@ function closeSlide() {
 }
 // 畫第 t 秒的畫面
 function ssDrawAt(g, W, H, t) {
-  const its = ssSel(), per = ssSet().per, n = its.length, fx = ssSet().fx;
+  const plan = ssPlan(), n = plan.length, reels = !!ssCards(), fx = reels ? 'zoom' : ssSet().fx;
   g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (!n) return;
-  const i = Math.min(n - 1, Math.floor(t / per)), u = t - i * per;
-  ssDrawSlide(g, W, H, its[i], u / per, i, 1);
-  const T = Math.min(0.6, per / 3);
-  if (fx !== 'cut' && i < n - 1 && u > per - T) ssDrawSlide(g, W, H, its[i + 1], 0, i + 1, (u - (per - T)) / T);
-  // 最後半秒慢慢變暗
+  let i = plan.findIndex(x => t < x.start + x.len); if (i < 0) i = n - 1;
+  const s = plan[i], u = t - s.start;
+  ssDrawSlide(g, W, H, s.m, u / s.len, i, 1);
+  if (s.card) ssDrawCard(g, W, H, s.card, u, i === 0, i === n - 1);
+  const T = reels ? 0.3 : Math.min(0.6, s.len / 3);
+  if (fx !== 'cut' && i < n - 1 && u > s.len - T) ssDrawSlide(g, W, H, plan[i + 1].m, 0, i + 1, (u - (s.len - T)) / T);
+  // 最後半秒慢慢變暗（Reels 會重播，不變暗）
   const left = ssDur() - t;
-  if (fx !== 'cut' && left < 0.5) { g.globalAlpha = 1 - Math.max(0, left) / 0.5; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
+  if (!reels && fx !== 'cut' && left < 0.5) { g.globalAlpha = 1 - Math.max(0, left) / 0.5; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
   logoDraw(g, W, H, H > W * 1.5);
 }
+const ssEase = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - (1 - x) ** 3;
+// Reels 的字：第一張一開始就看得到標題（抓住滑過的人）；其他張標題彈出來，內文一行一行跳出；最後一張加「留言告訴我」
+function ssDrawCard(g, W, H, card, u, first, last) {
+  const fam = `${seFont(tcSet().font).fam}, ${STORY_FONT}`, maxW = W * 0.76, cta = '留言告訴我 👇';
+  let ts, bs, tl, bl;
+  for (let k = 1; k > 0.5; k -= 0.05) {
+    ts = Math.round(W * 0.092 * k); bs = Math.round(W * 0.06 * k);
+    g.font = `700 ${ts}px ${fam}`; tl = hlBalanced(g, card.title, maxW);
+    g.font = `500 ${bs}px ${fam}`; bl = card.body ? hlLines(g, card.body, maxW) : [];
+    if (tl.length * ts * 1.25 + bl.length * bs * 1.5 <= H * 0.42) break;
+  }
+  const hT = tl.length * ts * 1.25, gap = bl.length ? bs * 0.8 : 0, hB = bl.length * bs * 1.5, hC = last ? bs * 2.4 : 0;
+  g.font = `700 ${ts}px ${fam}`; let bw = Math.max(...tl.map(l => g.measureText(hlText(l)).width));
+  g.font = `500 ${bs}px ${fam}`; bl.forEach(l => bw = Math.max(bw, g.measureText(hlText(l)).width));
+  if (last) bw = Math.max(bw, g.measureText(cta).width + bs * 1.6);
+  const pad = W * 0.05, boxW = Math.min(W * 0.96, bw + pad * 2), boxH = hT + gap + hB + hC + pad * 1.4;
+  const x0 = (W - boxW) / 2, y0 = H * 0.42 - boxH / 2, hl = '#ffd54a';
+  const a0 = first ? 1 : ssEase(u / 0.2);
+  g.save(); g.globalAlpha = a0; g.fillStyle = 'rgba(0,0,0,.55)';
+  g.beginPath(); g.roundRect ? g.roundRect(x0, y0, boxW, boxH, W * 0.035) : g.rect(x0, y0, boxW, boxH); g.fill();
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  // 標題：從中間放大彈出
+  const sc = first ? 1 : 0.85 + 0.15 * ssEase(u / 0.22);
+  let y = y0 + pad * 0.7;
+  g.save(); g.translate(W / 2, y + hT / 2); g.scale(sc, sc); g.translate(-W / 2, -(y + hT / 2));
+  g.font = `700 ${ts}px ${fam}`; tl.forEach((l, j) => hlDraw(g, l, W / 2, y + j * ts * 1.25, '#fff', hl));
+  g.restore();
+  y += hT + gap;
+  g.font = `500 ${bs}px ${fam}`;
+  const t0 = first ? 0.5 : 0.35;
+  bl.forEach((l, j) => {
+    const a = ssEase((u - t0 - j * 0.28) / 0.22); if (!a) return;
+    g.globalAlpha = a0 * a; hlDraw(g, l, W / 2, y + j * bs * 1.5 + (1 - a) * 24, '#f2f2f2', hl);
+  });
+  y += hB;
+  if (last) {
+    const a = ssEase((u - t0 - bl.length * 0.28 - 0.15) / 0.25);
+    if (a) {
+      const pw = g.measureText(cta).width + bs * 1.4, ph = bs * 1.6, px = W / 2 - pw / 2, py = y + bs * 0.5, pul = 1 + 0.04 * Math.sin(u * 6);
+      g.globalAlpha = a0 * a; g.save(); g.translate(W / 2, py + ph / 2); g.scale(pul, pul); g.translate(-W / 2, -(py + ph / 2));
+      g.fillStyle = hl; g.beginPath(); g.roundRect ? g.roundRect(px, py, pw, ph, ph / 2) : g.rect(px, py, pw, ph); g.fill();
+      g.fillStyle = '#111'; g.fillText(cta, W / 2, py + (ph - bs) / 2); g.restore();
+    }
+  }
+  g.restore();
+}
 function ssDrawSlide(g, W, H, m, k, i, a) {
-  const { bmp, bg } = ssCtx.items[m.id], fill = ssSet().fit === 'fill';
+  const { bmp, bg } = ssCtx.items[m.id], reels = !!ssCards(), fill = reels || ssSet().fit === 'fill';
   g.globalAlpha = a;
   if (!fill) { g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(bg, -W * 0.1, -H * 0.1, W * 1.2, H * 1.2); }
   const s0 = (fill ? Math.max : Math.min)(W / bmp.width, H / bmp.height);
   k = Math.min(1, k);
-  const z = ssSet().fx === 'zoom' ? (i % 2 ? 1.08 - 0.08 * k : 1 + 0.08 * k) : 1;
-  const w = bmp.width * s0 * z, h = bmp.height * s0 * z;
-  g.drawImage(bmp, (W - w) / 2, (H - h) / 2, w, h);
+  // Reels：滿版、一直慢慢推近，左右輕輕移動
+  const z = reels ? 1.03 + 0.09 * k : ssSet().fx === 'zoom' ? (i % 2 ? 1.08 - 0.08 * k : 1 + 0.08 * k) : 1;
+  const w = bmp.width * s0 * z, h = bmp.height * s0 * z, dx = reels ? (i % 2 ? -1 : 1) * W * 0.025 * k : 0;
+  g.drawImage(bmp, (W - w) / 2 + dx, (H - h) / 2, w, h);
   g.globalAlpha = 1;
 }
 function ssPreview(t) {
@@ -4622,7 +4678,7 @@ function ssStop() {
 async function renderSlide() {
   const c = ssCtx; if (!c) return;
   ssStop();
-  const st = ssSet(), ph = ssPhotos(c.p), n = ssSel().length, dur = ssDur(), long = n * st.per > SS_MAX;
+  const st = ssSet(), ph = ssPhotos(c.p), n = ssSel().length, dur = ssDur(), long = dur > SS_MAX, reels = !!c.cards;
   const ready = ph.every(m => c.items[m.id] || !c.sel.has(m.id));
   $('#ssBody').innerHTML = `<div class="ss-wrap" ${c.busy ? 'style="pointer-events:none;opacity:.5"' : ''}>
     <div class="ss-left"><canvas id="ssCanvas"></canvas>
@@ -4632,12 +4688,12 @@ async function renderSlide() {
       <div class="ss-thumbs">${ph.map((m, i) => `<button data-ssimg="${m.id}" class="${c.sel.has(m.id) ? '' : 'off'}" title="${esc(m.name)}"><img alt=""><b>${i + 1}</b></button>`).join('')}</div>
       <div class="pick-label">尺寸</div>
       <div class="chips">${SS_RATIOS.map(([v, l]) => `<button class="chip ${st.ratio === v ? 'on' : ''}" data-ssratio="${v}">${l}</button>`).join('')}</div>
-      <div class="pick-label">每張幾秒</div>
+      ${reels ? `<p class="hint-s" id="ssReelsHint" style="margin:10px 0 0">已經照 Reels 排好：滿版、第一秒就看到標題、字一行一行跳出、重點字上黃色、最後一張邀大家留言。<br>這則貼文裡自己拍的照片，點一下也可以一起放進影片（真實照片通常比 AI 圖更吸引人）。</p>` : `<div class="pick-label">每張幾秒</div>
       <div class="ss-range"><input type="range" id="ssPer" min="1" max="6" step="0.5" value="${st.per}"><span id="ssPerV">${st.per} 秒</span></div>
       <div class="pick-label">效果</div>
       <div class="chips">${SS_FX.map(([v, l]) => `<button class="chip ${st.fx === v ? 'on' : ''}" data-ssfx="${v}">${l}</button>`).join('')}</div>
       <div class="pick-label">照片放法</div>
-      <div class="chips">${SS_FIT.map(([v, l]) => `<button class="chip ${st.fit === v ? 'on' : ''}" data-ssfit="${v}">${l}</button>`).join('')}</div>
+      <div class="chips">${SS_FIT.map(([v, l]) => `<button class="chip ${st.fit === v ? 'on' : ''}" data-ssfit="${v}">${l}</button>`).join('')}</div>`}
       <div class="pick-label">音樂</div>
       ${c.music ? `<div id="ssMu">${muRowHtml(c.music, { noPlay: true })}</div>` : '<button id="ssMusic">🎵 選音樂</button>'}
       <p class="hint-s" style="margin:6px 0 0">內建音樂都可以商用、不用註明出處，也可以用自己的音樂檔。按左邊「▶ 預覽」可以連音樂一起聽。</p>
@@ -4652,8 +4708,10 @@ async function renderSlide() {
   box.querySelectorAll('[data-ssratio]').forEach(b => b.onclick = () => { st.ratio = b.dataset.ssratio; save(); renderSlide(); });
   box.querySelectorAll('[data-ssfx]').forEach(b => b.onclick = () => { st.fx = b.dataset.ssfx; save(); renderSlide(); });
   box.querySelectorAll('[data-ssfit]').forEach(b => b.onclick = () => { st.fit = b.dataset.ssfit; save(); renderSlide(); });
-  $('#ssPer').oninput = e => { st.per = +e.target.value; $('#ssPerV').textContent = st.per + ' 秒'; ssPreview(0); };
-  $('#ssPer').onchange = () => { save(); renderSlide(); };
+  if ($('#ssPer')) {
+    $('#ssPer').oninput = e => { st.per = +e.target.value; $('#ssPerV').textContent = st.per + ' 秒'; ssPreview(0); };
+    $('#ssPer').onchange = () => { save(); renderSlide(); };
+  }
   const pick = () => openMusicPicker(mu => { if (ssCtx !== c) return; c.music = { vol: c.music?.vol ?? 1, ...mu, start: 0 }; S.slideMusic = c.music; save(); renderSlide(); });
   if ($('#ssMusic')) $('#ssMusic').onclick = pick;
   muBindRow($('#ssMu'), c.music, { pick, del: () => { c.music = S.slideMusic = null; save(); renderSlide(); },
@@ -4720,6 +4778,34 @@ function wrapLines(g, text, maxW) {
     lines.push(line);
   }
   return lines;
+}
+// 【】框起來的字要上顏色：先照沒有括號的字斷行，再把每個字標上要不要上色
+function hlLines(g, text, maxW) {
+  const src = []; let on = false;
+  for (const ch of String(text)) { if (ch === '【') { on = true; continue; } if (ch === '】') { on = false; continue; } src.push({ ch, on }); }
+  let k = 0;
+  return wrapLines(g, String(text).replace(/[【】]/g, ''), maxW).map(l => [...l].map(ch => {
+    while (k < src.length && src[k].ch !== ch) k++;
+    return { ch, on: !!src[k++]?.on };
+  }));
+}
+const hlText = l => l.map(x => x.ch).join('');
+// 多行時讓每行差不多長（不要最後一行只剩一兩個字）
+function hlBalanced(g, text, maxW) {
+  let best = hlLines(g, text, maxW); const n = best.length;
+  if (n < 2) return best;
+  for (let w = maxW * 0.96; w > maxW * 0.4; w *= 0.96) { const l = hlLines(g, text, w); if (l.length !== n) break; best = l; }
+  return best;
+}
+// 一行置中畫出來，上色的字用 hl 顏色
+function hlDraw(g, l, cx, y, fg, hl) {
+  const al = g.textAlign; let x = cx - g.measureText(hlText(l)).width / 2;
+  g.textAlign = 'left';
+  for (let i = 0; i < l.length;) {
+    let j = i; while (j < l.length && l[j].on === l[i].on) j++;
+    const run = hlText(l.slice(i, j)); g.fillStyle = l[i].on ? hl : fg; g.fillText(run, x, y); x += g.measureText(run).width; i = j;
+  }
+  g.textAlign = al;
 }
 const STORY_FONT = '"Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
 
@@ -5278,8 +5364,8 @@ async function tcDraw(card, i, n, photo, st = tcSet()) {
   let k = 1, tl, bl, ts, bs;
   for (; k > 0.45; k -= 0.05) {
     ts = Math.round(W * 0.09 * k); bs = Math.round(W * 0.056 * k);
-    g.font = `${f.w >= 700 ? 700 : 400} ${ts}px ${fam}`; tl = wrapLines(g, card.title, maxW);
-    g.font = `400 ${bs}px ${fam}`; bl = card.body ? wrapLines(g, card.body, maxW) : [];
+    g.font = `${f.w >= 700 ? 700 : 400} ${ts}px ${fam}`; tl = hlBalanced(g, card.title, maxW);
+    g.font = `400 ${bs}px ${fam}`; bl = card.body ? hlLines(g, card.body, maxW) : [];
     if (tl.length * ts * 1.3 + (bl.length ? bs * 1.2 + bl.length * bs * 1.55 : 0) <= room) break;
   }
   const hT = tl.length * ts * 1.3, gap = bl.length ? bs * 1.2 : 0, hB = bl.length * bs * 1.55;
@@ -5287,12 +5373,12 @@ async function tcDraw(card, i, n, photo, st = tcSet()) {
   g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = fg;
   if (st.theme === 'photo') { g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 14; }
   g.font = `${f.w >= 700 ? 700 : 400} ${ts}px ${fam}`;
-  tl.forEach((l, j) => g.fillText(l, W / 2, y + j * ts * 1.3));
+  tl.forEach((l, j) => hlDraw(g, l, W / 2, y + j * ts * 1.3, fg, accent));
   y += hT;
   if (gap) { g.shadowBlur = 0; g.fillStyle = accent; g.fillRect(W / 2 - 50, y + gap / 2 - 5, 100, 8); g.fillStyle = fg; if (st.theme === 'photo') g.shadowBlur = 14; }
   y += gap;
   g.font = `400 ${bs}px ${fam}`;
-  bl.forEach((l, j) => g.fillText(l, W / 2, y + j * bs * 1.55));
+  bl.forEach((l, j) => hlDraw(g, l, W / 2, y + j * bs * 1.55, fg, accent));
   g.shadowBlur = 0;   // 不放頁碼：使用者可以只挑其中幾張、換順序
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
 }
@@ -5440,7 +5526,7 @@ function renderAimg() {
     <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="primary" id="aimgGo" ${can ? '' : 'disabled'}>${aimgMulti(c) ? (c.slides ? '🔄 整組重畫' : '✨ 做輪播圖') : c.images.length ? '🔄 再畫 2 張' : '✨ 畫 2 張'}</button></div>
     ${c.busy ? `<div class="ai-wait">${c.busy === 'ref' ? 'AI 先看你之前發過的圖片、整理風格⋯' : aimgMulti(c) ? 'AI 整理內容、每張各畫一張圖，大約 30～60 秒⋯' : 'AI 畫圖中，大約 15～30 秒⋯'}</div>` : ''}
     ${c.slides && !c.busy ? `<p class="hint-s" style="margin:12px 0 0">點圖可以取消不要的那張（打 ✓ 的才會加入、存檔）。</p><div class="aimg-res">${aimgSlidesHtml(c)}</div>
-      <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張</small></label>
+      <label class="field" for="aimgSText" style="margin-top:12px">圖上的字 <small style="font-weight:400">可以直接改；每張第一行是標題，<b>空一行</b>換下一張；用【】框起來的字會上顏色</small></label>
       <textarea id="aimgSText" style="min-height:150px">${esc(c.sText)}</textarea>
       <p class="hint-s" style="margin:6px 0 0">貼文沒寫到的內容（例如「3 個方法」是哪 3 個）是 AI 補寫的，加入前請確認正確。</p>
       <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button id="aimgSave">💾 存到電腦</button><button id="aimgVideo">🎬 做成影片（Reels）</button><button class="primary" id="aimgUse">${aimgUseLabel(c)}</button></div>`
@@ -5578,12 +5664,18 @@ async function aimgUseSlides(c, video) {
   if (aimg !== c) return;
   const chosen = aimgChosen(c); if (!chosen.length) return toast('先點選要用的圖');
   const p = c.p, story = c.ratio === '9:16' && !video;
-  const files = await Promise.all(chosen.map(async (u, i) => new File([await (await fetch(u)).blob()], `AI輪播${i + 1}.jpg`, { type: 'image/jpeg' })));
+  // 做成影片：用沒有字的原圖（滿版不會裁到字），字在影片裡一行一行跳出來
+  const cards = tcCards(c.sText || ''), idx = (c.comp || []).map((_, i) => i).filter(i => !c.off?.has(i));
+  const files = await Promise.all(video
+    ? idx.map(async (i, k) => { const b = await (await fetch(c.images[i % c.images.length])).blob(); return new File([b], `AI影片圖${k + 1}.${b.type === 'image/png' ? 'png' : 'jpg'}`, { type: b.type || 'image/jpeg' }); })
+    : chosen.map(async (u, i) => new File([await (await fetch(u)).blob()], `AI輪播${i + 1}.jpg`, { type: 'image/jpeg' })));
   closeAimg();
   const before = new Set(p.media.map(m => m.id));
   await addFiles(p, files, story ? { storyOnly: true, aiImg: true } : {});
-  // 做成影片：直接打開「照片變影片」，只選這幾張；每張要留時間看字、不能裁到字
-  if (video) return openSlide(p, { only: p.media.filter(m => !before.has(m.id)).map(m => m.id), text: true });
+  if (video) {
+    const ids = p.media.filter(m => !before.has(m.id)).map(m => m.id);
+    return openSlide(p, { only: ids, cards: Object.fromEntries(ids.map((id, k) => [id, cards[idx[k]] || { title: '', body: '' }])) });
+  }
   if (story) { p.storyEdit ||= { ver: 1, frames: {}, out: {} }; for (const m of p.media) if (!before.has(m.id)) p.storyEdit.frames[m.id] = { zoom: 1, ox: 0, oy: 0, fill: 'black', filter: 'none', layers: [] }; save(); }
   toast(`已加入 ${files.length} 張${story ? '（限動用）' : ''}`);
 }
